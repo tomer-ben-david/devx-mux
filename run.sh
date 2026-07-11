@@ -79,12 +79,7 @@ case "$command_name" in
     npm link --workspace @devx-crew/cli
     ;;
   review)
-    require_command node
-    if [ ! -f apps/cli/dist/main.js ]; then
-      require_command npm
-      run_build
-    fi
-    node apps/cli/dist/main.js review "$@"
+    exec ./devx.sh review "$@"
     ;;
   clean)
     rm -rf apps/cli/dist packages/reviewer/dist

@@ -21,9 +21,7 @@ Requires Node.js 22 or newer and the [Grok CLI](https://grok.com/) for the initi
 ```bash
 git clone https://github.com/tomer-ben-david/devx-crew.git
 cd devx-crew
-npm install
-npm run build
-npm link --workspace @devx-crew/cli
+./run.sh setup
 ```
 
 ## Usage
@@ -35,6 +33,16 @@ devx review branch --provider grok
 devx review commit HEAD --provider grok
 devx review local --provider grok
 ```
+
+When working directly from the cloned DevX Crew repository, use `./devx.sh` instead:
+
+```bash
+./devx.sh review branch --provider grok
+./devx.sh review commit HEAD --provider grok
+./devx.sh review local --provider grok
+```
+
+To install the shorter global `devx` command, run `./run.sh link` once.
 
 Provider selection is always explicit. DevX Crew never guesses based on installed executables or silently falls back to another model.
 
@@ -113,7 +121,7 @@ Use the local runner for the complete development workflow:
 ```bash
 ./run.sh setup
 ./run.sh check
-./run.sh review branch --provider grok --dry-run
+./devx.sh review branch --provider grok --dry-run
 ```
 
 Run `./run.sh help` for individual test, type-check, build, link, review, and cleanup commands. The project intentionally uses local verification instead of consuming hosted CI minutes.
