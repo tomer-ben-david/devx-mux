@@ -8,7 +8,18 @@ export class GrokReviewProvider implements ReviewProvider {
     return new Promise((resolve, reject) => {
       const process = spawn(
         "grok",
-        ["--cwd", repositoryPath, "--single", prompt, "--no-plan", "--no-subagents", "--no-ask-user"],
+        [
+          "--cwd",
+          repositoryPath,
+          "--single",
+          prompt,
+          "--reasoning-effort",
+          "high",
+          "--check",
+          "--no-plan",
+          "--no-subagents",
+          "--no-ask-user",
+        ],
         { stdio: "inherit" },
       );
 
@@ -23,4 +34,3 @@ export class GrokReviewProvider implements ReviewProvider {
     });
   }
 }
-

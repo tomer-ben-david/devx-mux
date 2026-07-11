@@ -67,6 +67,20 @@ packages/reviewer     review scope, prompt contract, provider interface
 
 The initial provider is Grok. The provider interface is intentionally small so additional model backends can be added without changing review semantics.
 
+### Agent model
+
+DevX Crew composes review behavior from independent building blocks:
+
+| Component | Responsibility |
+| --- | --- |
+| Role | Responsibilities and allowed capabilities |
+| Persona | Judgment, engineering taste, and communication style |
+| Protocol | Investigation, verification, and decision procedure |
+| Standards | Repository-specific quality expectations |
+| Provider | The model and execution backend |
+
+This keeps the reviewer's identity stable across model providers and allows future commands to reuse roles or personas without duplicating a giant prompt.
+
 ## Development
 
 ```bash
@@ -78,4 +92,3 @@ npm run build
 ## License
 
 MIT
-

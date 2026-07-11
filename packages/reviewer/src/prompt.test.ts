@@ -19,6 +19,11 @@ test("branch review uses a merge-base diff and introduced-code scope", () => {
   assert.match(prompt, /git diff origin\/main\.\.\.HEAD/);
   assert.match(prompt, /Do not report pre-existing issues/);
   assert.match(prompt, /No actionable findings/);
+  assert.match(prompt, /# Role: reviewer/);
+  assert.match(prompt, /# Persona: exacting-engineer/);
+  assert.match(prompt, /# Protocol: deep-code-review/);
+  assert.match(prompt, /actively search for code, tests, types, or repository instructions that disprove it/);
+  assert.match(prompt, /different framing could delete complexity rather than relocate it/);
 });
 
 test("commit review identifies the selected commit", () => {
@@ -40,4 +45,3 @@ test("local review covers staged, unstaged, and untracked changes", () => {
   assert.match(prompt, /staged, unstaged, and untracked/);
   assert.match(prompt, /No repository instruction files were discovered/);
 });
-
