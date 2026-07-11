@@ -92,6 +92,8 @@ Every provider returns the same review structure:
 
 DevX Crew hides provider prompts, reasoning, tool commands, and file-reading transcripts. The terminal shows concise progress while the provider works, followed only by the formatted final review.
 
+The console reports the installed provider CLI version and labels the model as `provider default` unless the provider exposes a verified model identifier. Token usage is shown when the provider emits it. Remaining account quota is reported as unavailable rather than estimated.
+
 ### Using DevX Crew from an AI agent
 
 An agent should first inspect the command contract:

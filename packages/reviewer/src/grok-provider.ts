@@ -1,4 +1,4 @@
-import { recordValue, runJsonLinesProvider } from "./json-lines-provider.js";
+import { commandVersion, recordValue, runJsonLinesProvider } from "./json-lines-provider.js";
 import type { ReviewExecutionResult, ReviewProvider } from "./types.js";
 
 export function grokReviewArguments(prompt: string, repositoryPath: string): string[] {
@@ -18,6 +18,10 @@ export function grokReviewArguments(prompt: string, repositoryPath: string): str
 
 export class GrokReviewProvider implements ReviewProvider {
   readonly name = "grok";
+
+  version(): Promise<string> {
+    return commandVersion("grok");
+  }
 
   async review(
     prompt: string,

@@ -1,4 +1,12 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+
+export async function commandVersion(command: string): Promise<string> {
+  const { stdout, stderr } = await execFileAsync(command, ["--version"], { encoding: "utf8" });
+  return (stdout || stderr).trim();
+}
 
 export interface JsonLine {
   readonly source: "stdout" | "stderr";

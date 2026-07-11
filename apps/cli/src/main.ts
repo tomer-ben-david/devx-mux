@@ -52,6 +52,12 @@ async function run(argv: readonly string[]): Promise<number> {
   const providerDetail = options.provider === "grok"
     ? "Grok · high reasoning · verification enabled"
     : "Codex · read-only · ephemeral";
+  try {
+    reporter.success("Provider", `${await provider.version()} · model: provider default`);
+  } catch (error) {
+    reporter.failure(error instanceof Error ? error.message : String(error));
+    return 1;
+  }
   reporter.active("Reviewer", providerDetail);
 
   try {
@@ -70,6 +76,15 @@ async function run(argv: readonly string[]): Promise<number> {
     }
 
     reporter.document(execution.finalText);
+    if (execution.usage !== undefined) {
+      reporter.usage([
+        ...(execution.usage.inputTokens !== undefined ? [`${execution.usage.inputTokens.toLocaleString()} input`] : []),
+        ...(execution.usage.cachedInputTokens !== undefined ? [`${execution.usage.cachedInputTokens.toLocaleString()} cached`] : []),
+        ...(execution.usage.outputTokens !== undefined ? [`${execution.usage.outputTokens.toLocaleString()} output`] : []),
+        ...(execution.usage.reasoningTokens !== undefined ? [`${execution.usage.reasoningTokens.toLocaleString()} reasoning`] : []),
+        "quota remaining: unavailable",
+      ]);
+    }
     const p1 = (execution.finalText.match(/^###? P1\b/gm) ?? []).length;
     const p2 = (execution.finalText.match(/^###? P2\b/gm) ?? []).length;
     const p3 = (execution.finalText.match(/^###? P3\b/gm) ?? []).length;

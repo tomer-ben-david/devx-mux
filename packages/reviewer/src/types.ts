@@ -11,6 +11,7 @@ export interface ReviewRequest {
 
 export interface ReviewProvider {
   readonly name: string;
+  version(): Promise<string>;
   review(
     prompt: string,
     repositoryPath: string,
@@ -22,4 +23,12 @@ export interface ReviewExecutionResult {
   readonly exitCode: number;
   readonly finalText: string;
   readonly error?: string;
+  readonly usage?: ReviewUsage;
+}
+
+export interface ReviewUsage {
+  readonly inputTokens?: number;
+  readonly cachedInputTokens?: number;
+  readonly outputTokens?: number;
+  readonly reasoningTokens?: number;
 }

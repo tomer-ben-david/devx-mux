@@ -1,5 +1,5 @@
-import { recordValue, runJsonLinesProvider } from "./json-lines-provider.js";
-import type { ReviewExecutionResult, ReviewProvider } from "./types.js";
+import { commandVersion, recordValue, runJsonLinesProvider } from "./json-lines-provider.js";
+import type { ReviewExecutionResult, ReviewProvider, ReviewUsage } from "./types.js";
 
 export function codexReviewArguments(prompt: string, repositoryPath: string): string[] {
   return [
@@ -19,6 +19,10 @@ export function codexReviewArguments(prompt: string, repositoryPath: string): st
 export class CodexReviewProvider implements ReviewProvider {
   readonly name = "codex";
 
+  version(): Promise<string> {
+    return commandVersion("codex");
+  }
+
   async review(
     prompt: string,
     repositoryPath: string,
@@ -27,6 +31,7 @@ export class CodexReviewProvider implements ReviewProvider {
     let finalText = "";
     let commandCount = 0;
     let error: string | undefined;
+    let usage: ReviewUsage | undefined;
     const execution = await runJsonLinesProvider(
       "codex",
       codexReviewArguments(prompt, repositoryPath),
@@ -42,12 +47,22 @@ export class CodexReviewProvider implements ReviewProvider {
         }
         if (item?.type === "agent_message" && typeof item.text === "string") finalText = item.text;
         if (item?.type === "error" && typeof item.message === "string") error = item.message;
-        if (event?.type === "turn.completed") onProgress?.("Finalizing the assessment");
+        if (event?.type === "turn.completed") {
+          const rawUsage = recordValue(event.usage);
+          usage = {
+            ...(typeof rawUsage?.input_tokens === "number" ? { inputTokens: rawUsage.input_tokens } : {}),
+            ...(typeof rawUsage?.cached_input_tokens === "number" ? { cachedInputTokens: rawUsage.cached_input_tokens } : {}),
+            ...(typeof rawUsage?.output_tokens === "number" ? { outputTokens: rawUsage.output_tokens } : {}),
+            ...(typeof rawUsage?.reasoning_output_tokens === "number" ? { reasoningTokens: rawUsage.reasoning_output_tokens } : {}),
+          };
+          onProgress?.("Finalizing the assessment");
+        }
       },
     );
     return {
       exitCode: execution.exitCode,
       finalText,
+      ...(usage !== undefined ? { usage } : {}),
       ...(execution.exitCode !== 0 ? { error: error ?? (execution.stderr || "Codex review failed") } : {}),
     };
   }

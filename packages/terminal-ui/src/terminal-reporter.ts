@@ -82,6 +82,11 @@ export class TerminalReporter {
     }
   }
 
+  usage(details: readonly string[]): void {
+    if (details.length === 0) return;
+    this.write(`\n${this.paint("1;36", "Usage")} ${details.join(this.paint("2", " · "))}\n`);
+  }
+
   empty(detail: string): void {
     this.write(`\n${this.paint("1;32", "✓ Nothing to review")} ${detail} ${this.paint("2", `· ${this.elapsed()}`)}\n`);
   }
