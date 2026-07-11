@@ -1,4 +1,5 @@
 import type { Writable } from "node:stream";
+import type { ReviewReport } from "@devx-crew/reviewer";
 
 const ESCAPE = "\u001B[";
 
@@ -89,54 +90,30 @@ export class TerminalReporter {
     }
   }
 
-  document(markdown: string): void {
+  document(report: ReviewReport): void {
     this.finishActivity();
     if (!this.interactive) {
-      this.write(`\n${markdown.trim()}\n`);
+      this.write(`\n${report.markdown}\n`);
       return;
     }
-    const lines = markdown.trim().split(/\r?\n/);
-    const checklist = lines.flatMap((line) => {
-      const cells = line.split("|").slice(1, -1).map((cell) => cell.trim());
-      if (cells.length < 3 || !["PASS", "FAIL", "N/A"].includes(cells[1] ?? "")) return [];
-      return [{ item: this.plain(cells[0] ?? ""), status: cells[1] as "PASS" | "FAIL" | "N/A", evidence: this.plain(cells.slice(2).join(" | ")) }];
-    });
-    const findings = lines.flatMap((line, index) => {
-      const match = line.match(/^###\s+(P[123])(?:\s+\d+[.:])?\s*(.+)$/);
-      if (match === null) return [];
-      const nextHeading = lines.findIndex((candidate, bodyIndex) => bodyIndex > index && /^#{2,3}\s/.test(candidate));
-      const body = lines.slice(index + 1, nextHeading === -1 ? lines.length : nextHeading);
-      const location = body.find((candidate) => /^\*\*Location:\*\*/.test(candidate));
-      const consequenceIndex = body.findIndex((candidate) => /^\*\*Consequence:\*\*/.test(candidate));
-      const consequence = consequenceIndex >= 0 ? body.slice(consequenceIndex, consequenceIndex + 2).join(" ") : "";
-      const correctionIndex = body.findIndex((candidate) => /^\*\*Durable correction:\*\*/.test(candidate));
-      const correction = correctionIndex >= 0 ? body.slice(correctionIndex, correctionIndex + 2).join(" ") : "";
-      return [{
-        severity: match[1] ?? "P3",
-        title: this.plain(match[2] ?? "Finding"),
-        location: this.plain(location?.replace(/^\*\*Location:\*\*\s*/, "") ?? ""),
-        consequence: this.plain(consequence.replace(/^\*\*Consequence:\*\*\s*/, "")),
-        correction: this.plain(correction.replace(/^\*\*Durable correction:\*\*\s*/, "")),
-      }];
-    });
     const counts = { P1: 0, P2: 0, P3: 0 };
-    for (const finding of findings) counts[finding.severity as keyof typeof counts] += 1;
-    const passed = checklist.filter((entry) => entry.status === "PASS").length;
-    const failed = checklist.filter((entry) => entry.status === "FAIL").length;
-    const notApplicable = checklist.filter((entry) => entry.status === "N/A").length;
-    const verdict = checklist.length === 0 ? "INCOMPLETE" : failed > 0 || findings.length > 0 ? "CHANGES RECOMMENDED" : "NO ISSUES FOUND";
+    for (const finding of report.findings) counts[finding.severity] += 1;
+    const passed = report.standards.filter((entry) => entry.status === "PASS").length;
+    const failed = report.standards.filter((entry) => entry.status === "FAIL").length;
+    const notApplicable = report.standards.filter((entry) => entry.status === "N/A").length;
+    const verdict = failed > 0 || report.findings.length > 0 ? "CHANGES RECOMMENDED" : "NO ISSUES FOUND";
 
     this.write("\n");
     this.write(`${this.paint("1;32", "╭─ REVIEW COMPLETED ")}${this.paint("2", "─".repeat(38))}\n`);
     this.write(`${this.paint("2", "│")} Execution   ${this.paint("1;32", "PASS")}  Reviewer finished successfully\n`);
-    this.write(`${this.paint("2", "│")} Verdict     ${this.paint(failed > 0 ? "1;33" : "1;32", verdict)}  ${findings.length} ${findings.length === 1 ? "issue" : "issues"} found\n`);
+    this.write(`${this.paint("2", "│")} Verdict     ${this.paint(failed > 0 ? "1;33" : "1;32", verdict)}  ${report.findings.length} ${report.findings.length === 1 ? "issue" : "issues"} found\n`);
     this.write(`${this.paint("2", "│")} Severity    ${this.severity("P1", counts.P1)} ${this.paint("2", "blocker")}   ${this.severity("P2", counts.P2)} ${this.paint("2", "important")}   ${this.severity("P3", counts.P3)} ${this.paint("2", "improvement")}\n`);
     this.write(`${this.paint("2", "│")} Standards   ${this.paint("32", `${passed} met`)}  ${this.paint("31", `${failed} violated`)}  ${this.paint("2", `${notApplicable} not applicable`)}\n`);
     this.write(`${this.paint("2", "╰" + "─".repeat(56))}\n`);
 
-    if (findings.length > 0) {
+    if (report.findings.length > 0) {
       this.section("Findings");
-      for (const finding of findings) {
+      for (const finding of report.findings) {
         this.write(`${this.severity(finding.severity, undefined)} ${this.paint("2", this.severityMeaning(finding.severity))}  ${this.paint("1", finding.title)}\n`);
         if (finding.location.length > 0) this.labeledDetail("Where", finding.location);
         if (finding.consequence.length > 0) this.labeledDetail("Impact", finding.consequence);
@@ -147,20 +124,16 @@ export class TerminalReporter {
 
     this.section("Standards");
     this.write(`${this.paint("32", "PASS")} met   ${this.paint("31", "FAIL")} violated, linked to a finding   ${this.paint("2", "N/A")} not applicable\n\n`);
-    for (const entry of checklist) {
+    for (const entry of report.standards) {
       const badge = entry.status === "PASS" ? this.paint("32", "PASS") : entry.status === "FAIL" ? this.paint("31", "FAIL") : this.paint("2", "N/A ");
       this.write(`${badge}  ${entry.item}\n`);
       if (entry.status === "FAIL") this.labeledDetail("Why", entry.evidence);
     }
 
-    const gapsStart = lines.findIndex((line) => /^##\s+(?:\d+\.\s*)?Verification gaps/i.test(line));
-    if (gapsStart >= 0) {
-      const gaps = lines.slice(gapsStart + 1).filter((line) => /^[-*]\s+/.test(line));
-      if (gaps.length > 0) {
-        this.section("Not verified");
-        this.write(`${this.paint("2", "These are coverage gaps, not confirmed failures.")}\n`);
-        for (const gap of gaps) this.writeWrapped(`• ${this.plain(gap.replace(/^[-*]\s+/, ""))}`, 2);
-      }
+    if (report.verificationGaps.length > 0) {
+      this.section("Not verified");
+      this.write(`${this.paint("2", "These are coverage gaps, not confirmed failures.")}\n`);
+      for (const gap of report.verificationGaps) this.writeWrapped(`• ${gap}`, 2);
     }
   }
 
@@ -255,13 +228,6 @@ export class TerminalReporter {
     }
     lines.push(remaining);
     return lines;
-  }
-
-  private plain(markdown: string): string {
-    return markdown
-      .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
-      .replace(/[*_`]/g, "")
-      .trim();
   }
 
   private section(title: string): void {

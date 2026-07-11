@@ -3,7 +3,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt } from "@devx-crew/reviewer";
+import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt, parseReviewReport } from "@devx-crew/reviewer";
 import { TerminalReporter } from "@devx-crew/terminal-ui";
 import { helpText, parseReviewArguments, reviewHelpText } from "./arguments.js";
 import { resolveRepositoryPath } from "./git.js";
@@ -57,9 +57,6 @@ async function run(argv: readonly string[]): Promise<number> {
   const provider = options.provider === "grok"
     ? new GrokReviewProvider(options.reasoningEffort === "medium" ? "medium" : "high")
     : new CodexReviewProvider(options.reasoningEffort);
-  const providerDetail = options.provider === "grok"
-    ? "Grok · high reasoning · verification enabled"
-    : "Codex · read-only · ephemeral";
   let providerVersion = provider.name;
   let providerModel = "provider default";
   let providerReasoning: string | undefined;
@@ -76,6 +73,9 @@ async function run(argv: readonly string[]): Promise<number> {
     reporter.failure(error instanceof Error ? error.message : String(error));
     return 1;
   }
+  const providerDetail = options.provider === "grok"
+    ? `Grok · ${providerReasoning ?? "default"} reasoning · verification enabled`
+    : "Codex · read-only · ephemeral";
   reporter.active("Reviewer", providerDetail);
 
   try {
@@ -97,6 +97,7 @@ async function run(argv: readonly string[]): Promise<number> {
       reporter.failure(`${providerLabel} returned no final review`);
       return 1;
     }
+    const report = parseReviewReport(execution.finalText);
 
     const reportDirectory = path.join(tmpdir(), "devx-crew");
     await mkdir(reportDirectory, { recursive: true });
@@ -110,8 +111,8 @@ async function run(argv: readonly string[]): Promise<number> {
     ];
     const artifactUsage = exactUsage.length > 0 ? `\n\n---\n\n## Provider usage\n\n${exactUsage.map((line) => `- ${line}`).join("\n")}\n` : "\n";
     const artifactProvider = [`Provider: ${providerVersion}`, `Model: ${providerModel}`, ...(providerReasoning !== undefined ? [`Reasoning effort: ${providerReasoning}`] : [])];
-    await writeFile(reportPath, `${execution.finalText.trim()}\n\n---\n\n## Provider\n\n${artifactProvider.map((line) => `- ${line}`).join("\n")}${artifactUsage}`, "utf8");
-    reporter.document(execution.finalText);
+    await writeFile(reportPath, `${report.markdown}\n\n---\n\n## Provider\n\n${artifactProvider.map((line) => `- ${line}`).join("\n")}${artifactUsage}`, "utf8");
+    reporter.document(report);
     reporter.artifact(reportPath);
     if (execution.usage !== undefined) {
       reporter.usage([
@@ -122,9 +123,9 @@ async function run(argv: readonly string[]): Promise<number> {
         "quota remaining: unavailable",
       ]);
     }
-    const p1 = (execution.finalText.match(/^###? P1\b/gm) ?? []).length;
-    const p2 = (execution.finalText.match(/^###? P2\b/gm) ?? []).length;
-    const p3 = (execution.finalText.match(/^###? P3\b/gm) ?? []).length;
+    const p1 = report.findings.filter((finding) => finding.severity === "P1").length;
+    const p2 = report.findings.filter((finding) => finding.severity === "P2").length;
+    const p3 = report.findings.filter((finding) => finding.severity === "P3").length;
     reporter.result(`${p1} P1 · ${p2} P2 · ${p3} P3`);
     return 0;
   } catch (error) {

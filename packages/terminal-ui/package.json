@@ -7,6 +7,9 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist"],
+  "dependencies": {
+    "@devx-crew/reviewer": "0.1.0"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "node --test --import=tsx 'src/**/*.test.ts'",
@@ -16,4 +19,3 @@
     "tsx": "^4.20.0"
   }
 }
-
