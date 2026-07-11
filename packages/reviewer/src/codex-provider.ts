@@ -77,7 +77,7 @@ export class CodexReviewProvider implements ReviewProvider {
           onProgress?.({ status: "Reasoning about the evidence", kind: "reasoning", text: item.text });
         }
         if (item?.type === "agent_message" && typeof item.text === "string") {
-          finalText = item.text;
+          finalText += `${finalText.length > 0 ? "\n" : ""}${item.text}`;
           onProgress?.({ status: "Writing the review", kind: "message", text: item.text });
         }
         if (item?.type === "error" && typeof item.message === "string") error = item.message;
