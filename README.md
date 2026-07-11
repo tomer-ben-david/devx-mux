@@ -61,6 +61,9 @@ devx review codebase --provider codex --reasoning high
 
 # Grok, using the Grok CLI's latest default model
 devx review codebase --provider grok --reasoning high
+
+# Both reviewers concurrently, with independent reports
+devx review codebase --provider both --reasoning high
 ```
 
 Replace `codebase` with `pr 123 --base origin/main`, `local`, `branch`, or `commit HEAD` to review a narrower scope. A PR review first reads the PR title and description, then reviews its diff against the stated intent. DevX Crew does not pin either provider's model. It asks the selected CLI to use its configured default model and reports the exact model when the provider exposes it.

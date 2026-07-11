@@ -57,3 +57,8 @@ test("rejects xhigh reasoning for Grok", () => {
     /Grok does not support xhigh/,
   );
 });
+
+test("parses parallel Codex and Grok review", () => {
+  const result = parseReviewArguments(["codebase", "--provider", "both", "--reasoning", "high"]);
+  assert.equal(result.provider, "both");
+});

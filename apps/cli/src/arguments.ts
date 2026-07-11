@@ -4,7 +4,7 @@ import type { ReviewScope } from "@devx-crew/reviewer";
 export interface ReviewArguments {
   readonly repositoryPath: string;
   readonly scope: ReviewScope;
-  readonly provider: "grok" | "codex";
+  readonly provider: "grok" | "codex" | "both";
   readonly reasoningEffort?: "medium" | "high" | "xhigh";
   readonly dryRun: boolean;
 }
@@ -28,11 +28,11 @@ export function reviewHelpText(): string {
   return `DevX Crew review
 
 Usage:
-  devx review branch --provider <grok|codex> [--base origin/main] [--repo PATH] [--dry-run]
-  devx review pr [NUMBER] --provider <grok|codex> [--base origin/main] [--repo PATH] [--dry-run]
-  devx review commit [REF] --provider <grok|codex> [--repo PATH] [--dry-run]
-  devx review local --provider <grok|codex> [--repo PATH] [--dry-run]
-  devx review codebase --provider <grok|codex> [--reasoning LEVEL] [--repo PATH] [--dry-run]
+  devx review branch --provider <grok|codex|both> [--base origin/main] [--repo PATH] [--dry-run]
+  devx review pr [NUMBER] --provider <grok|codex|both> [--base origin/main] [--repo PATH] [--dry-run]
+  devx review commit [REF] --provider <grok|codex|both> [--repo PATH] [--dry-run]
+  devx review local --provider <grok|codex|both> [--repo PATH] [--dry-run]
+  devx review codebase --provider <grok|codex|both> [--reasoning LEVEL] [--repo PATH] [--dry-run]
 
 Scopes:
   pr      Read PR metadata first, then review its branch diff against --base.
@@ -42,7 +42,7 @@ Scopes:
   codebase Audit the entire repository at HEAD.
 
 Options:
-  --provider NAME  Required review provider. Supported: grok, codex.
+  --provider NAME  Required review provider. Supported: grok, codex, both.
   --reasoning LEVEL Override reasoning effort. Codex: medium, high, xhigh. Grok: medium, high.
   --base REF       Branch comparison base. Default: origin/main.
   --repo PATH      Repository to review. Default: current directory.
@@ -106,17 +106,17 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
   }
 
   if (parsed.values.provider === undefined) {
-    throw new Error("Missing required option: --provider. Supported providers: grok, codex.");
+    throw new Error("Missing required option: --provider. Supported providers: grok, codex, both.");
   }
-  if (parsed.values.provider !== "grok" && parsed.values.provider !== "codex") {
-    throw new Error(`Unsupported provider: ${parsed.values.provider}. Supported providers: grok, codex.`);
+  if (parsed.values.provider !== "grok" && parsed.values.provider !== "codex" && parsed.values.provider !== "both") {
+    throw new Error(`Unsupported provider: ${parsed.values.provider}. Supported providers: grok, codex, both.`);
   }
   const reasoningEffort = parsed.values.reasoning;
   if (reasoningEffort !== undefined && !["medium", "high", "xhigh"].includes(reasoningEffort)) {
     throw new Error(`Unsupported reasoning effort: ${reasoningEffort}. Supported: medium, high, xhigh.`);
   }
-  if (parsed.values.provider === "grok" && reasoningEffort === "xhigh") {
-    throw new Error("Grok does not support xhigh reasoning. Supported: medium, high.");
+  if ((parsed.values.provider === "grok" || parsed.values.provider === "both") && reasoningEffort === "xhigh") {
+    throw new Error("Grok does not support xhigh reasoning. Use medium or high when Grok is selected.");
   }
 
   return {
