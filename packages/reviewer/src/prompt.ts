@@ -68,13 +68,24 @@ ${request.scope.kind === "codebase"
 
 ## Output
 
-Return concise Markdown in exactly this order:
+Return concise Markdown using exactly these level-two headings in exactly this order:
 
-1. **Review target**: purpose, goal, and non-goals.
-2. **Standards checklist**: a Markdown table with columns Item, Status, Evidence. Include one row for every applicable standards item or section. Status is exactly PASS, FAIL, or N/A.
-3. **Findings**: ordered P1, P2, P3. Each includes location, consequence, evidence, and durable correction. If none, write "No actionable findings."
-4. **What went well**: only decisions that materially improved correctness or structure.
-5. **Verification gaps**: important areas you could not verify.
-6. **Summary**: P1/P2/P3 counts and ${request.scope.kind === "codebase" ? "repository health: strong, mixed, or at risk" : "merge confidence: yes, medium, or no"}.
+## 1. Review target
+Purpose, goal, and non-goals.
+
+## 2. Standards checklist
+A Markdown table with columns Item, Status, Evidence. Include one row for every applicable standards item or section. Status is exactly PASS, FAIL, or N/A.
+
+## 3. Findings
+Ordered P1, P2, P3. Each finding uses a level-three heading and includes bold Location, Consequence, Evidence, and Durable correction fields. If none, write "No actionable findings."
+
+## 4. What went well
+Only decisions that materially improved correctness or structure.
+
+## 5. Verification gaps
+Important areas you could not verify.
+
+## 6. Summary
+P1/P2/P3 counts and ${request.scope.kind === "codebase" ? "repository health: strong, mixed, or at risk" : "merge confidence: yes, medium, or no"}.
 `;
 }
