@@ -31,21 +31,23 @@ npm link --workspace @devx-crew/cli
 Run inside any Git repository:
 
 ```bash
-devx review branch
-devx review commit HEAD
-devx review local
+devx review branch --provider grok
+devx review commit HEAD --provider grok
+devx review local --provider grok
 ```
+
+Provider selection is always explicit. DevX Crew never guesses based on installed executables or silently falls back to another model.
 
 Preview the exact reviewer prompt without invoking a model:
 
 ```bash
-devx review branch --dry-run
+devx review branch --provider grok --dry-run
 ```
 
 Select a base branch or repository explicitly:
 
 ```bash
-devx review branch --base origin/main --repo /path/to/repository
+devx review branch --provider grok --base origin/main --repo /path/to/repository
 ```
 
 ### Review scopes
@@ -57,6 +59,29 @@ devx review branch --base origin/main --repo /path/to/repository
 | `local` | Staged, unstaged, and untracked working-tree changes |
 
 Review execution is read-only. The reviewer is instructed not to edit files, and DevX Crew does not expose a mutation workflow.
+
+### Using DevX Crew from an AI agent
+
+An agent should first inspect the command contract:
+
+```bash
+devx review --help
+```
+
+Then select the scope from repository state and invoke an explicit provider:
+
+```bash
+# Uncommitted work
+devx review local --provider grok
+
+# Current branch against its base
+devx review branch --provider grok --base origin/main
+
+# One completed commit
+devx review commit HEAD --provider grok
+```
+
+Agents must not substitute one scope for another: `local` includes working-tree changes, `commit` reviews one commit, and `branch` reviews the cumulative branch diff. Use `--dry-run` when the task is to inspect the generated review instructions without invoking a provider.
 
 ## Architecture
 
@@ -88,7 +113,7 @@ Use the local runner for the complete development workflow:
 ```bash
 ./run.sh setup
 ./run.sh check
-./run.sh review branch --dry-run
+./run.sh review branch --provider grok --dry-run
 ```
 
 Run `./run.sh help` for individual test, type-check, build, link, review, and cleanup commands. The project intentionally uses local verification instead of consuming hosted CI minutes.

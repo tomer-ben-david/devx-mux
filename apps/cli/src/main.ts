@@ -2,7 +2,7 @@
 
 import path from "node:path";
 import { GrokReviewProvider, buildReviewPrompt } from "@devx-crew/reviewer";
-import { helpText, parseReviewArguments } from "./arguments.js";
+import { helpText, parseReviewArguments, reviewHelpText } from "./arguments.js";
 import { discoverRepositoryInstructions, git, resolveRepositoryPath } from "./git.js";
 
 const STANDARDS_URL = "https://github.com/tomer-ben-david/devx-coding-standards";
@@ -15,6 +15,10 @@ async function run(argv: readonly string[]): Promise<number> {
   }
   if (command !== "review") {
     throw new Error(`Unknown command: ${command}\n\n${helpText()}`);
+  }
+  if (commandArguments.includes("--help") || commandArguments.includes("-h")) {
+    process.stdout.write(reviewHelpText());
+    return 0;
   }
 
   const options = parseReviewArguments(commandArguments);
@@ -34,7 +38,10 @@ async function run(argv: readonly string[]): Promise<number> {
     return 0;
   }
 
-  return new GrokReviewProvider().review(prompt, repositoryPath);
+  switch (options.provider) {
+    case "grok":
+      return new GrokReviewProvider().review(prompt, repositoryPath);
+  }
 }
 
 run(process.argv.slice(2))
@@ -46,4 +53,3 @@ run(process.argv.slice(2))
     process.stderr.write(`devx: ${message}\n`);
     process.exitCode = 1;
   });
-

@@ -21,9 +21,9 @@ Usage:
   ./run.sh help                  Show this help
 
 Examples:
-  ./run.sh review branch --dry-run
-  ./run.sh review commit HEAD
-  ./run.sh review local --repo /path/to/repository
+  ./run.sh review branch --provider grok --dry-run
+  ./run.sh review commit HEAD --provider grok
+  ./run.sh review local --provider grok --repo /path/to/repository
 EOF
 }
 
@@ -99,4 +99,3 @@ case "$command_name" in
     exit 2
     ;;
 esac
-

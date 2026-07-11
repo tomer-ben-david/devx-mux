@@ -3,14 +3,15 @@ import test from "node:test";
 import { parseReviewArguments } from "./arguments.js";
 
 test("defaults to branch review against origin/main", () => {
-  const result = parseReviewArguments([]);
+  const result = parseReviewArguments(["--provider", "grok"]);
 
   assert.deepEqual(result.scope, { kind: "branch", base: "origin/main" });
+  assert.equal(result.provider, "grok");
   assert.equal(result.dryRun, false);
 });
 
 test("parses a selected commit and dry-run", () => {
-  const result = parseReviewArguments(["commit", "HEAD~2", "--dry-run"]);
+  const result = parseReviewArguments(["commit", "HEAD~2", "--provider", "grok", "--dry-run"]);
 
   assert.deepEqual(result.scope, { kind: "commit", ref: "HEAD~2" });
   assert.equal(result.dryRun, true);
@@ -18,8 +19,21 @@ test("parses a selected commit and dry-run", () => {
 
 test("rejects a reference for local review", () => {
   assert.throws(
-    () => parseReviewArguments(["local", "HEAD"]),
+    () => parseReviewArguments(["local", "HEAD", "--provider", "grok"]),
     /Local scope does not accept a reference/,
   );
 });
 
+test("requires an explicit provider", () => {
+  assert.throws(
+    () => parseReviewArguments(["branch"]),
+    /Missing required option: --provider/,
+  );
+});
+
+test("rejects an unsupported provider", () => {
+  assert.throws(
+    () => parseReviewArguments(["branch", "--provider", "codex"]),
+    /Unsupported provider: codex/,
+  );
+});

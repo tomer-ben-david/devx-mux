@@ -4,19 +4,43 @@ import type { ReviewScope } from "@devx-crew/reviewer";
 export interface ReviewArguments {
   readonly repositoryPath: string;
   readonly scope: ReviewScope;
+  readonly provider: "grok";
   readonly dryRun: boolean;
 }
 
-const HELP = `DevX Crew
+const ROOT_HELP = `DevX Crew
 
 Usage:
-  devx review branch [--base origin/main] [--repo PATH] [--dry-run]
-  devx review commit [REF] [--repo PATH] [--dry-run]
-  devx review local [--repo PATH] [--dry-run]
+  devx review --help
+  devx review branch --provider PROVIDER [options]
+  devx review commit [REF] --provider PROVIDER [options]
+  devx review local --provider PROVIDER [options]
 `;
 
 export function helpText(): string {
-  return HELP;
+  return ROOT_HELP;
+}
+
+export function reviewHelpText(): string {
+  return `DevX Crew review
+
+Usage:
+  devx review branch --provider grok [--base origin/main] [--repo PATH] [--dry-run]
+  devx review commit [REF] --provider grok [--repo PATH] [--dry-run]
+  devx review local --provider grok [--repo PATH] [--dry-run]
+
+Scopes:
+  branch  Review HEAD against the merge base with --base.
+  commit  Review one commit. REF defaults to HEAD.
+  local   Review staged, unstaged, and untracked changes.
+
+Options:
+  --provider NAME  Required review provider. Supported: grok.
+  --base REF       Branch comparison base. Default: origin/main.
+  --repo PATH      Repository to review. Default: current directory.
+  --dry-run        Print the composed prompt without invoking the provider.
+  -h, --help       Show this help.
+`;
 }
 
 export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
@@ -27,6 +51,7 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
     options: {
       base: { type: "string", default: "origin/main" },
       repo: { type: "string", default: process.cwd() },
+      provider: { type: "string" },
       "dry-run": { type: "boolean", default: false },
     },
   });
@@ -57,10 +82,17 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
       throw new Error(`Unknown review scope: ${scopeName}`);
   }
 
+  if (parsed.values.provider === undefined) {
+    throw new Error("Missing required option: --provider. Supported providers: grok.");
+  }
+  if (parsed.values.provider !== "grok") {
+    throw new Error(`Unsupported provider: ${parsed.values.provider}. Supported providers: grok.`);
+  }
+
   return {
     repositoryPath: parsed.values.repo ?? process.cwd(),
     scope,
+    provider: parsed.values.provider,
     dryRun: parsed.values["dry-run"] ?? false,
   };
 }
-
