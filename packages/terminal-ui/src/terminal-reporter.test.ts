@@ -56,3 +56,34 @@ test("wraps live activity instead of truncating it", async () => {
   assert.doesNotMatch(rendered, /…/);
   assert.match(rendered, /must remain complete/);
 });
+
+test("renders an interactive review as a scannable dashboard", () => {
+  const output = new PassThrough() as PassThrough & { isTTY: boolean; columns: number };
+  output.isTTY = true;
+  output.columns = 100;
+  let rendered = "";
+  output.on("data", (chunk) => { rendered += chunk.toString(); });
+  const reporter = new TerminalReporter({ output, color: false, animated: false });
+
+  reporter.document(`## Standards checklist
+| Item | Status | Evidence |
+| Types | PASS | Explicit types |
+| Output contract | FAIL | See P2 finding 1 |
+| Swift | N/A | No Swift |
+
+## Findings
+### P2 1. Validate provider output
+**Location:** main.ts:74
+**Consequence:** Malformed output can be reported as successful.
+
+## Verification gaps
+- Windows was not exercised.`);
+
+  assert.match(rendered, /NEEDS ATTENTION/);
+  assert.match(rendered, /Standards  1 pass  1 fail  1 n\/a/);
+  assert.match(rendered, /P2  Validate provider output/);
+  assert.match(rendered, /✓ Types/);
+  assert.match(rendered, /✗ Output contract/);
+  assert.match(rendered, /Verification gaps/);
+  assert.doesNotMatch(rendered, /\| Item \| Status/);
+});

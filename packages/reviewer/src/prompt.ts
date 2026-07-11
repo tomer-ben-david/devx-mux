@@ -60,7 +60,7 @@ Honor the repository's own guidance and review against the DevX coding standards
 
 Choose your own read-only repository tools and investigation strategy. DevX Crew defines the target and quality bar, not the commands you should run.
 
-Review the applicable DevX coding standards item by item. Do not silently skip sections. Report every item as PASS, FAIL, or N/A. Every FAIL must link to a P1/P2/P3 finding; every N/A must include a short reason.
+Review every named rule and check defined by the DevX coding standards, item by item. A top-level section summary is not a substitute for its individual rules. Do not silently skip sections or collapse multiple standards into a generic category. Report every item as PASS, FAIL, or N/A. Every FAIL must link to a P1/P2/P3 finding; every N/A must include a short reason.
 
 ${request.scope.kind === "codebase"
     ? "State the repository purpose you inferred from its documentation and implementation."

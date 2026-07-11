@@ -10,6 +10,12 @@ test("enables Grok verification without disabling its required subagents", () =>
   assert.ok(!arguments_.includes("--no-plan"));
 });
 
+test("overrides Grok reasoning effort explicitly", () => {
+  const arguments_ = grokReviewArguments("review prompt", "/work/repository", "medium");
+
+  assert.equal(arguments_[arguments_.indexOf("--reasoning-effort") + 1], "medium");
+});
+
 test("passes the repository and prompt as distinct arguments", () => {
   const arguments_ = grokReviewArguments("review prompt", "/work/repository");
 

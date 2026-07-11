@@ -13,6 +13,7 @@ export class TerminalReporter {
   private readonly output: Writable;
   private readonly color: boolean;
   private readonly animated: boolean;
+  private readonly interactive: boolean;
   private readonly startedAt: number;
   private providerBuffer = "";
   private activityTimer: NodeJS.Timeout | undefined;
@@ -24,7 +25,8 @@ export class TerminalReporter {
   constructor(options: TerminalReporterOptions = {}) {
     this.output = options.output ?? process.stdout;
     this.color = options.color ?? (process.stdout.isTTY === true && process.env.NO_COLOR === undefined);
-    this.animated = options.animated ?? ((this.output as NodeJS.WriteStream).isTTY === true);
+    this.interactive = (this.output as NodeJS.WriteStream).isTTY === true;
+    this.animated = options.animated ?? this.interactive;
     this.startedAt = options.startedAt ?? Date.now();
   }
 
@@ -85,22 +87,73 @@ export class TerminalReporter {
 
   document(markdown: string): void {
     this.finishActivity();
+    if (!this.interactive) {
+      this.write(`\n${markdown.trim()}\n`);
+      return;
+    }
+    const lines = markdown.trim().split(/\r?\n/);
+    const checklist = lines.flatMap((line) => {
+      const cells = line.split("|").slice(1, -1).map((cell) => cell.trim());
+      if (cells.length < 3 || !["PASS", "FAIL", "N/A"].includes(cells[1] ?? "")) return [];
+      return [{ item: this.plain(cells[0] ?? ""), status: cells[1] as "PASS" | "FAIL" | "N/A", evidence: this.plain(cells.slice(2).join(" | ")) }];
+    });
+    const findings = lines.flatMap((line, index) => {
+      const match = line.match(/^###\s+(P[123])(?:\s+\d+\.)?\s*(.+)$/);
+      if (match === null) return [];
+      const nextHeading = lines.findIndex((candidate, bodyIndex) => bodyIndex > index && /^#{2,3}\s/.test(candidate));
+      const body = lines.slice(index + 1, nextHeading === -1 ? lines.length : nextHeading);
+      const location = body.find((candidate) => /^\*\*Location:\*\*/.test(candidate));
+      const consequenceIndex = body.findIndex((candidate) => /^\*\*Consequence:\*\*/.test(candidate));
+      const consequence = consequenceIndex >= 0 ? body.slice(consequenceIndex, consequenceIndex + 2).join(" ") : "";
+      return [{ severity: match[1] ?? "P3", title: this.plain(match[2] ?? "Finding"), location: this.plain(location?.replace(/^\*\*Location:\*\*\s*/, "") ?? ""), consequence: this.plain(consequence.replace(/^\*\*Consequence:\*\*\s*/, "")) }];
+    });
+    const counts = { P1: 0, P2: 0, P3: 0 };
+    for (const finding of findings) counts[finding.severity as keyof typeof counts] += 1;
+    const passed = checklist.filter((entry) => entry.status === "PASS").length;
+    const failed = checklist.filter((entry) => entry.status === "FAIL").length;
+    const notApplicable = checklist.filter((entry) => entry.status === "N/A").length;
+    const verdict = checklist.length === 0 ? "INCOMPLETE REVIEW" : failed > 0 || findings.length > 0 ? "NEEDS ATTENTION" : "HEALTHY";
+
     this.write("\n");
-    for (const line of markdown.trim().split(/\r?\n/)) {
-      if (/\|\s*PASS\s*\|/.test(line)) this.write(`${this.paint("32", line)}\n`);
-      else if (/\|\s*FAIL\s*\|/.test(line)) this.write(`${this.paint("31", line)}\n`);
-      else if (/\|\s*N\/A\s*\|/.test(line)) this.write(`${this.paint("2", line)}\n`);
-      else if (/^###? P1\b/.test(line)) this.write(`${this.paint("1;31", line)}\n`);
-      else if (/^###? P2\b/.test(line)) this.write(`${this.paint("1;33", line)}\n`);
-      else if (/^###? P3\b/.test(line)) this.write(`${this.paint("1;36", line)}\n`);
-      else if (/^#{1,3} /.test(line)) this.write(`${this.paint("1;35", line)}\n`);
-      else this.write(`${line}\n`);
+    this.write(`${this.paint(failed > 0 ? "1;33" : "1;32", `╭─ ${verdict} `)}${this.paint("2", "─".repeat(42))}\n`);
+    this.write(`${this.paint("2", "│")} ${this.severity("P1", counts.P1)}   ${this.severity("P2", counts.P2)}   ${this.severity("P3", counts.P3)}\n`);
+    this.write(`${this.paint("2", "│")} Standards  ${this.paint("32", `${passed} pass`)}  ${this.paint("31", `${failed} fail`)}  ${this.paint("2", `${notApplicable} n/a`)}\n`);
+    this.write(`${this.paint("2", "╰" + "─".repeat(56))}\n`);
+
+    if (findings.length > 0) {
+      this.section("Findings");
+      for (const finding of findings) {
+        this.write(`${this.severity(finding.severity, undefined)}  ${this.paint("1", finding.title)}\n`);
+        if (finding.location.length > 0) this.writeWrapped(`   ${this.paint("2", finding.location)}`, 3);
+        if (finding.consequence.length > 0) this.writeWrapped(`   ${finding.consequence}`, 3);
+        this.write("\n");
+      }
+    }
+
+    this.section("Standards");
+    for (const entry of checklist) {
+      const symbol = entry.status === "PASS" ? this.paint("32", "✓") : entry.status === "FAIL" ? this.paint("31", "✗") : this.paint("2", "○");
+      this.write(`${symbol} ${entry.item}\n`);
+      if (entry.status === "FAIL") this.writeWrapped(`  ${this.paint("31", entry.evidence)}`, 2);
+    }
+
+    const gapsStart = lines.findIndex((line) => /^##\s+(?:\d+\.\s*)?Verification gaps/i.test(line));
+    if (gapsStart >= 0) {
+      const gaps = lines.slice(gapsStart + 1).filter((line) => /^[-*]\s+/.test(line));
+      if (gaps.length > 0) {
+        this.section("Verification gaps");
+        for (const gap of gaps) this.writeWrapped(`• ${this.plain(gap.replace(/^[-*]\s+/, ""))}`, 2);
+      }
     }
   }
 
   usage(details: readonly string[]): void {
     if (details.length === 0) return;
     this.write(`\n${this.paint("1;36", "Usage")} ${details.join(this.paint("2", " · "))}\n`);
+  }
+
+  artifact(path: string): void {
+    this.write(`\n${this.paint("1;36", "Full report")} ${this.paint("2", path)}\n`);
   }
 
   empty(detail: string): void {
@@ -141,16 +194,12 @@ export class TerminalReporter {
     clearInterval(this.activityTimer);
     this.activityTimer = undefined;
     if (this.viewportDrawn) this.write(`\r${ESCAPE}11A`);
-    this.write(`\r${ESCAPE}2K`);
+    this.write(`\r${this.viewportDrawn ? `${ESCAPE}0J` : ESCAPE + "2K"}`);
     this.row(
       this.paint("32", "✓"),
       this.activityLabel ?? "Reviewer",
       this.activityDetail ?? "Ready",
     );
-    if (this.viewportDrawn) {
-      for (let index = 0; index < 10; index += 1) this.write(`${ESCAPE}2K\n`);
-      this.write(`${ESCAPE}10A`);
-    }
     this.activityLabel = undefined;
     this.activityDetail = undefined;
     this.viewportDrawn = false;
@@ -189,6 +238,29 @@ export class TerminalReporter {
     }
     lines.push(remaining);
     return lines;
+  }
+
+  private plain(markdown: string): string {
+    return markdown
+      .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+      .replace(/[*_`]/g, "")
+      .trim();
+  }
+
+  private section(title: string): void {
+    this.write(`\n${this.paint("1;35", title)}\n${this.paint("2", "─".repeat(title.length))}\n`);
+  }
+
+  private severity(level: string, count?: number): string {
+    const code = level === "P1" ? "1;31" : level === "P2" ? "1;33" : "1;36";
+    return this.paint(code, count === undefined ? level : `${level} ${count}`);
+  }
+
+  private writeWrapped(text: string, indent: number): void {
+    const width = Math.max(30, ((this.output as NodeJS.WriteStream).columns ?? 100) - indent);
+    const plainText = text.replace(/\u001B\[[0-?]*[ -\/]*[@-~]/g, "");
+    const prefix = " ".repeat(indent);
+    for (const line of this.wrap(plainText.trimStart(), width)) this.write(`${prefix}${line}\n`);
   }
 
   private writeProviderLine(line: string): void {

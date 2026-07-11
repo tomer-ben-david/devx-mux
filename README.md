@@ -34,6 +34,7 @@ devx review commit HEAD --provider grok
 devx review local --provider grok
 devx review codebase --provider grok
 devx review codebase --provider codex
+devx review codebase --provider codex --reasoning xhigh
 ```
 
 When working directly from the cloned DevX Crew repository, use `./devx.sh` instead:
@@ -56,6 +57,16 @@ Supported providers:
 | --- | --- | --- |
 | `grok` | `grok` | High reasoning with verification enabled |
 | `codex` | `codex` | Read-only sandbox with ephemeral session storage |
+
+Override reasoning effort when needed:
+
+```bash
+devx review codebase --provider codex --reasoning medium
+devx review codebase --provider codex --reasoning high
+devx review codebase --provider codex --reasoning xhigh
+```
+
+Grok supports `medium` and `high`. Without `--reasoning`, each provider keeps its configured default.
 
 Preview the exact reviewer prompt without invoking a model:
 
@@ -90,9 +101,11 @@ Every provider returns the same review structure:
 - Verification gaps
 - A Markdown-friendly summary with finding counts and the final verdict
 
-DevX Crew hides provider prompts, reasoning, tool commands, and file-reading transcripts. The terminal shows concise progress while the provider works, followed only by the formatted final review.
+In a terminal, DevX Crew shows a colored, fixed-height live viewport for provider messages, reasoning, and tool activity. The completed review becomes a compact dashboard with verdict, findings, every standards result, verification gaps, and usage. Raw prompts and protocol noise remain hidden.
 
-The console reports the installed provider CLI version and labels the model as `provider default` unless the provider exposes a verified model identifier. Token usage is shown when the provider emits it. Remaining account quota is reported as unavailable rather than estimated.
+When output is piped or captured by an AI agent, DevX Crew emits clean Markdown without cursor animation. Every successful run also saves the complete Markdown report under the operating system's temporary `devx-crew` directory and prints its path.
+
+The console reports the provider CLI version, configured model, and reasoning effort when they can be verified. Token usage is shown in compact form when the provider emits it, while the report artifact preserves exact counts. Remaining account quota is reported as unavailable rather than estimated.
 
 ### Using DevX Crew from an AI agent
 
@@ -119,6 +132,8 @@ devx review codebase --provider grok
 ```
 
 Agents must not substitute one scope for another: `local` includes working-tree changes, `commit` reviews one commit, and `branch` reviews the cumulative branch diff. Use `--dry-run` when the task is to inspect the generated review instructions without invoking a provider.
+
+Because agent-captured stdout is non-interactive, the final response is already Markdown suitable for parsing or relaying. The same report is persisted to the temporary artifact path printed after the review.
 
 ## Architecture
 

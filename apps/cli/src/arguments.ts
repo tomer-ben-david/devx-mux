@@ -5,6 +5,7 @@ export interface ReviewArguments {
   readonly repositoryPath: string;
   readonly scope: ReviewScope;
   readonly provider: "grok" | "codex";
+  readonly reasoningEffort?: "medium" | "high" | "xhigh";
   readonly dryRun: boolean;
 }
 
@@ -29,7 +30,7 @@ Usage:
   devx review branch --provider <grok|codex> [--base origin/main] [--repo PATH] [--dry-run]
   devx review commit [REF] --provider <grok|codex> [--repo PATH] [--dry-run]
   devx review local --provider <grok|codex> [--repo PATH] [--dry-run]
-  devx review codebase --provider <grok|codex> [--repo PATH] [--dry-run]
+  devx review codebase --provider <grok|codex> [--reasoning LEVEL] [--repo PATH] [--dry-run]
 
 Scopes:
   branch  Review HEAD against the merge base with --base.
@@ -39,6 +40,7 @@ Scopes:
 
 Options:
   --provider NAME  Required review provider. Supported: grok, codex.
+  --reasoning LEVEL Override reasoning effort. Codex: medium, high, xhigh. Grok: medium, high.
   --base REF       Branch comparison base. Default: origin/main.
   --repo PATH      Repository to review. Default: current directory.
   --dry-run        Print the composed prompt without invoking the provider.
@@ -55,6 +57,7 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
       base: { type: "string", default: "origin/main" },
       repo: { type: "string", default: process.cwd() },
       provider: { type: "string" },
+      reasoning: { type: "string" },
       "dry-run": { type: "boolean", default: false },
     },
   });
@@ -97,11 +100,19 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
   if (parsed.values.provider !== "grok" && parsed.values.provider !== "codex") {
     throw new Error(`Unsupported provider: ${parsed.values.provider}. Supported providers: grok, codex.`);
   }
+  const reasoningEffort = parsed.values.reasoning;
+  if (reasoningEffort !== undefined && !["medium", "high", "xhigh"].includes(reasoningEffort)) {
+    throw new Error(`Unsupported reasoning effort: ${reasoningEffort}. Supported: medium, high, xhigh.`);
+  }
+  if (parsed.values.provider === "grok" && reasoningEffort === "xhigh") {
+    throw new Error("Grok does not support xhigh reasoning. Supported: medium, high.");
+  }
 
   return {
     repositoryPath: parsed.values.repo ?? process.cwd(),
     scope,
     provider: parsed.values.provider,
+    ...(reasoningEffort !== undefined ? { reasoningEffort: reasoningEffort as "medium" | "high" | "xhigh" } : {}),
     dryRun: parsed.values["dry-run"] ?? false,
   };
 }

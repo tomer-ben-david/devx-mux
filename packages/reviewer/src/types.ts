@@ -12,11 +12,17 @@ export interface ReviewRequest {
 export interface ReviewProvider {
   readonly name: string;
   version(): Promise<string>;
+  configuration?(repositoryPath: string): Promise<ReviewProviderConfiguration>;
   review(
     prompt: string,
     repositoryPath: string,
     onProgress?: (update: ReviewProgress) => void,
   ): Promise<ReviewExecutionResult>;
+}
+
+export interface ReviewProviderConfiguration {
+  readonly model?: string;
+  readonly reasoningEffort?: string;
 }
 
 export interface ReviewProgress {

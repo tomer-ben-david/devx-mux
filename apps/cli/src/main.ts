@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt } from "@devx-crew/reviewer";
 import { TerminalReporter } from "@devx-crew/terminal-ui";
@@ -7,6 +9,12 @@ import { helpText, parseReviewArguments, reviewHelpText } from "./arguments.js";
 import { resolveRepositoryPath } from "./git.js";
 
 const STANDARDS_URL = "https://github.com/tomer-ben-david/devx-coding-standards";
+
+function compactNumber(value: number): string {
+  if (value < 1_000) return value.toLocaleString();
+  if (value < 1_000_000) return `${Number((value / 1_000).toFixed(value < 10_000 ? 1 : 0))}K`;
+  return `${Number((value / 1_000_000).toFixed(1))}M`;
+}
 
 async function run(argv: readonly string[]): Promise<number> {
   const [command, ...commandArguments] = argv;
@@ -47,13 +55,23 @@ async function run(argv: readonly string[]): Promise<number> {
   }
 
   const provider = options.provider === "grok"
-    ? new GrokReviewProvider()
-    : new CodexReviewProvider();
+    ? new GrokReviewProvider(options.reasoningEffort === "medium" ? "medium" : "high")
+    : new CodexReviewProvider(options.reasoningEffort);
   const providerDetail = options.provider === "grok"
     ? "Grok · high reasoning · verification enabled"
     : "Codex · read-only · ephemeral";
+  let providerVersion = provider.name;
+  let providerModel = "provider default";
+  let providerReasoning: string | undefined;
   try {
-    reporter.success("Provider", `${await provider.version()} · model: provider default`);
+    const configuration = await provider.configuration?.(repositoryPath);
+    providerVersion = await provider.version();
+    providerModel = configuration?.model ?? "provider default";
+    providerReasoning = configuration?.reasoningEffort;
+    const reasoning = providerReasoning !== undefined
+      ? ` · ${providerReasoning} reasoning`
+      : "";
+    reporter.success("Provider", `${providerVersion} · ${providerModel}${reasoning}`);
   } catch (error) {
     reporter.failure(error instanceof Error ? error.message : String(error));
     return 1;
@@ -80,13 +98,27 @@ async function run(argv: readonly string[]): Promise<number> {
       return 1;
     }
 
+    const reportDirectory = path.join(tmpdir(), "devx-crew");
+    await mkdir(reportDirectory, { recursive: true });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const reportPath = path.join(reportDirectory, `${path.basename(repositoryPath)}-${options.scope.kind}-${timestamp}.md`);
+    const exactUsage = execution.usage === undefined ? [] : [
+      ...(execution.usage.inputTokens !== undefined ? [`Input tokens: ${execution.usage.inputTokens.toLocaleString()}`] : []),
+      ...(execution.usage.cachedInputTokens !== undefined ? [`Cached input tokens: ${execution.usage.cachedInputTokens.toLocaleString()}`] : []),
+      ...(execution.usage.outputTokens !== undefined ? [`Output tokens: ${execution.usage.outputTokens.toLocaleString()}`] : []),
+      ...(execution.usage.reasoningTokens !== undefined ? [`Reasoning tokens: ${execution.usage.reasoningTokens.toLocaleString()}`] : []),
+    ];
+    const artifactUsage = exactUsage.length > 0 ? `\n\n---\n\n## Provider usage\n\n${exactUsage.map((line) => `- ${line}`).join("\n")}\n` : "\n";
+    const artifactProvider = [`Provider: ${providerVersion}`, `Model: ${providerModel}`, ...(providerReasoning !== undefined ? [`Reasoning effort: ${providerReasoning}`] : [])];
+    await writeFile(reportPath, `${execution.finalText.trim()}\n\n---\n\n## Provider\n\n${artifactProvider.map((line) => `- ${line}`).join("\n")}${artifactUsage}`, "utf8");
     reporter.document(execution.finalText);
+    reporter.artifact(reportPath);
     if (execution.usage !== undefined) {
       reporter.usage([
-        ...(execution.usage.inputTokens !== undefined ? [`${execution.usage.inputTokens.toLocaleString()} input`] : []),
-        ...(execution.usage.cachedInputTokens !== undefined ? [`${execution.usage.cachedInputTokens.toLocaleString()} cached`] : []),
-        ...(execution.usage.outputTokens !== undefined ? [`${execution.usage.outputTokens.toLocaleString()} output`] : []),
-        ...(execution.usage.reasoningTokens !== undefined ? [`${execution.usage.reasoningTokens.toLocaleString()} reasoning`] : []),
+        ...(execution.usage.inputTokens !== undefined ? [`${compactNumber(execution.usage.inputTokens)} in`] : []),
+        ...(execution.usage.cachedInputTokens !== undefined ? [`${compactNumber(execution.usage.cachedInputTokens)} cached`] : []),
+        ...(execution.usage.outputTokens !== undefined ? [`${compactNumber(execution.usage.outputTokens)} out`] : []),
+        ...(execution.usage.reasoningTokens !== undefined ? [`${compactNumber(execution.usage.reasoningTokens)} reasoning`] : []),
         "quota remaining: unavailable",
       ]);
     }

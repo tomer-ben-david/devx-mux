@@ -1,7 +1,7 @@
 import { commandVersion, recordValue, runJsonLinesProvider } from "./json-lines-provider.js";
-import type { ReviewExecutionResult, ReviewProgress, ReviewProvider } from "./types.js";
+import type { ReviewExecutionResult, ReviewProgress, ReviewProvider, ReviewProviderConfiguration } from "./types.js";
 
-export function grokReviewArguments(prompt: string, repositoryPath: string): string[] {
+export function grokReviewArguments(prompt: string, repositoryPath: string, reasoningEffort: "medium" | "high" = "high"): string[] {
   return [
     "--cwd",
     repositoryPath,
@@ -10,7 +10,7 @@ export function grokReviewArguments(prompt: string, repositoryPath: string): str
     "--output-format",
     "streaming-json",
     "--reasoning-effort",
-    "high",
+    reasoningEffort,
     "--check",
     "--no-ask-user",
   ];
@@ -19,8 +19,14 @@ export function grokReviewArguments(prompt: string, repositoryPath: string): str
 export class GrokReviewProvider implements ReviewProvider {
   readonly name = "grok";
 
+  constructor(private readonly reasoningEffort: "medium" | "high" = "high") {}
+
   version(): Promise<string> {
     return commandVersion("grok");
+  }
+
+  async configuration(): Promise<ReviewProviderConfiguration> {
+    return { reasoningEffort: this.reasoningEffort };
   }
 
   async review(
@@ -33,7 +39,7 @@ export class GrokReviewProvider implements ReviewProvider {
     let error: string | undefined;
     const execution = await runJsonLinesProvider(
       "grok",
-      grokReviewArguments(prompt, repositoryPath),
+      grokReviewArguments(prompt, repositoryPath, this.reasoningEffort),
       "Grok",
       ({ source, value }) => {
         if (source !== "stdout") return;

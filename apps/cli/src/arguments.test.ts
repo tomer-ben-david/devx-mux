@@ -39,8 +39,16 @@ test("rejects an unsupported provider", () => {
 });
 
 test("parses a full codebase audit", () => {
-  const result = parseReviewArguments(["codebase", "--provider", "codex"]);
+  const result = parseReviewArguments(["codebase", "--provider", "codex", "--reasoning", "xhigh"]);
 
   assert.deepEqual(result.scope, { kind: "codebase" });
   assert.equal(result.provider, "codex");
+  assert.equal(result.reasoningEffort, "xhigh");
+});
+
+test("rejects xhigh reasoning for Grok", () => {
+  assert.throws(
+    () => parseReviewArguments(["codebase", "--provider", "grok", "--reasoning", "xhigh"]),
+    /Grok does not support xhigh/,
+  );
 });

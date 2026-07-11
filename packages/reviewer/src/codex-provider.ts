@@ -1,7 +1,10 @@
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { commandVersion, recordValue, runJsonLinesProvider } from "./json-lines-provider.js";
-import type { ReviewExecutionResult, ReviewProgress, ReviewProvider, ReviewUsage } from "./types.js";
+import type { ReviewExecutionResult, ReviewProgress, ReviewProvider, ReviewProviderConfiguration, ReviewUsage } from "./types.js";
 
-export function codexReviewArguments(prompt: string, repositoryPath: string): string[] {
+export function codexReviewArguments(prompt: string, repositoryPath: string, reasoningEffort?: "medium" | "high" | "xhigh"): string[] {
   return [
     "exec",
     "--json",
@@ -12,6 +15,7 @@ export function codexReviewArguments(prompt: string, repositoryPath: string): st
     "never",
     "-C",
     repositoryPath,
+    ...(reasoningEffort !== undefined ? ["-c", `model_reasoning_effort=\"${reasoningEffort}\"`] : []),
     prompt,
   ];
 }
@@ -19,8 +23,28 @@ export function codexReviewArguments(prompt: string, repositoryPath: string): st
 export class CodexReviewProvider implements ReviewProvider {
   readonly name = "codex";
 
+  constructor(private readonly reasoningEffort?: "medium" | "high" | "xhigh") {}
+
   version(): Promise<string> {
     return commandVersion("codex");
+  }
+
+  async configuration(repositoryPath: string): Promise<ReviewProviderConfiguration> {
+    const configuration: { model?: string; reasoningEffort?: string } = {};
+    const codexHome = process.env.CODEX_HOME ?? join(homedir(), ".codex");
+    for (const path of [join(codexHome, "config.toml"), join(repositoryPath, ".codex", "config.toml")]) {
+      try {
+        const topLevel = (await readFile(path, "utf8")).split(/^\s*\[/m)[0] ?? "";
+        const model = topLevel.match(/^\s*model\s*=\s*["']([^"']+)["']/m)?.[1];
+        const reasoningEffort = topLevel.match(/^\s*model_reasoning_effort\s*=\s*["']([^"']+)["']/m)?.[1];
+        if (model !== undefined) configuration.model = model;
+        if (reasoningEffort !== undefined) configuration.reasoningEffort = reasoningEffort;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+    }
+    if (this.reasoningEffort !== undefined) configuration.reasoningEffort = this.reasoningEffort;
+    return configuration;
   }
 
   async review(
@@ -34,7 +58,7 @@ export class CodexReviewProvider implements ReviewProvider {
     let usage: ReviewUsage | undefined;
     const execution = await runJsonLinesProvider(
       "codex",
-      codexReviewArguments(prompt, repositoryPath),
+      codexReviewArguments(prompt, repositoryPath, this.reasoningEffort),
       "Codex",
       ({ source, value }) => {
         if (source !== "stdout") return;
