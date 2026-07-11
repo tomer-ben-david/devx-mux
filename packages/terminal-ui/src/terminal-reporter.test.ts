@@ -39,3 +39,20 @@ test("renders provider activity without allowing terminal escapes", () => {
   assert.match(rendered, /│ │ review ready/);
   assert.doesNotMatch(rendered, /\u001B\[2J/);
 });
+
+test("wraps live activity instead of truncating it", async () => {
+  const output = new PassThrough() as PassThrough & { isTTY: boolean; columns: number };
+  output.isTTY = true;
+  output.columns = 40;
+  let rendered = "";
+  output.on("data", (chunk) => { rendered += chunk.toString(); });
+  const reporter = new TerminalReporter({ output, color: false, animated: true });
+
+  reporter.active("Reviewer", "Inspecting");
+  reporter.live("message", "Another deliberately long reviewer message that must remain complete");
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  reporter.result("done");
+
+  assert.doesNotMatch(rendered, /…/);
+  assert.match(rendered, /must remain complete/);
+});

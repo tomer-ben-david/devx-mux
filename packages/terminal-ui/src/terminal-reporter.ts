@@ -159,7 +159,10 @@ export class TerminalReporter {
   private redrawActivity(activity: string): void {
     if (this.viewportDrawn) this.write(`\r${ESCAPE}11A`);
     this.write(`${ESCAPE}2K${activity}\n`);
-    const visible = this.liveLines.slice(-10);
+    const width = Math.max(24, ((this.output as NodeJS.WriteStream).columns ?? 100) - 4);
+    const visible = this.liveLines.flatMap((entry) =>
+      this.wrap(entry.text, width).map((text) => ({ ...entry, text })),
+    ).slice(-10);
     for (let index = 0; index < 10; index += 1) {
       this.write(`${ESCAPE}2K`);
       const entry = visible[index];
@@ -171,9 +174,21 @@ export class TerminalReporter {
 
   private writeLiveLine(kind: "reasoning" | "tool" | "message", text: string, newline = true): void {
     const marker = kind === "tool" ? this.paint("33", "›") : kind === "reasoning" ? this.paint("35", "◆") : this.paint("36", "│");
-    const width = Math.max(24, ((this.output as NodeJS.WriteStream).columns ?? 100) - 4);
-    const clipped = text.length > width ? `${text.slice(0, width - 1)}…` : text;
-    this.write(`${this.paint("2", "│")} ${marker} ${this.paint(kind === "tool" ? "33" : kind === "reasoning" ? "35" : "36", clipped)}${newline ? "\n" : ""}`);
+    this.write(`${this.paint("2", "│")} ${marker} ${this.paint(kind === "tool" ? "33" : kind === "reasoning" ? "35" : "36", text)}${newline ? "\n" : ""}`);
+  }
+
+  private wrap(text: string, width: number): string[] {
+    const lines: string[] = [];
+    let remaining = text;
+    while (remaining.length > width) {
+      const candidate = remaining.slice(0, width + 1);
+      const space = candidate.lastIndexOf(" ");
+      const splitAt = space > Math.floor(width / 2) ? space : width;
+      lines.push(remaining.slice(0, splitAt));
+      remaining = remaining.slice(splitAt).trimStart();
+    }
+    lines.push(remaining);
+    return lines;
   }
 
   private writeProviderLine(line: string): void {
