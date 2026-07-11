@@ -83,11 +83,15 @@ This keeps the reviewer's identity stable across model providers and allows futu
 
 ## Development
 
+Use the local runner for the complete development workflow:
+
 ```bash
-npm test
-npm run typecheck
-npm run build
+./run.sh setup
+./run.sh check
+./run.sh review branch --dry-run
 ```
+
+Run `./run.sh help` for individual test, type-check, build, link, review, and cleanup commands. The project intentionally uses local verification instead of consuming hosted CI minutes.
 
 ## License
 
