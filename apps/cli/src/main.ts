@@ -2,8 +2,9 @@
 
 import path from "node:path";
 import { GrokReviewProvider, buildReviewPrompt } from "@devx-crew/reviewer";
+import { TerminalReporter } from "@devx-crew/terminal-ui";
 import { helpText, parseReviewArguments, reviewHelpText } from "./arguments.js";
-import { discoverRepositoryInstructions, git, resolveRepositoryPath } from "./git.js";
+import { discoverRepositoryInstructions, git, inspectLocalChanges, resolveRepositoryPath } from "./git.js";
 
 const STANDARDS_URL = "https://github.com/tomer-ben-david/devx-coding-standards";
 
@@ -22,7 +23,33 @@ async function run(argv: readonly string[]): Promise<number> {
   }
 
   const options = parseReviewArguments(commandArguments);
+  const reporter = new TerminalReporter();
   const repositoryPath = await resolveRepositoryPath(options.repositoryPath);
+  const scopeLabel = options.scope.kind === "local"
+    ? "Local changes"
+    : options.scope.kind === "codebase"
+      ? "Full codebase"
+      : options.scope.kind;
+  reporter.heading("Review", `${scopeLabel} · ${options.provider === "grok" ? "Grok" : options.provider}`);
+  reporter.success("Repository", path.basename(repositoryPath));
+
+  if (options.scope.kind === "local") {
+    const changes = await inspectLocalChanges(repositoryPath);
+    if (changes.files === 0) {
+      reporter.success("Scope", "Working tree clean");
+      reporter.empty("No staged, unstaged, or untracked changes.");
+      return 0;
+    }
+    const details = [
+      `${changes.files} ${changes.files === 1 ? "file" : "files"}`,
+      changes.staged > 0 ? `${changes.staged} staged` : undefined,
+      changes.modified > 0 ? `${changes.modified} modified` : undefined,
+      changes.untracked > 0 ? `${changes.untracked} untracked` : undefined,
+    ].filter((value): value is string => value !== undefined);
+    reporter.success("Scope", details.join(" · "));
+  } else {
+    reporter.success("Scope", scopeLabel);
+  }
   const request = {
     repositoryPath,
     repositoryName: path.basename(repositoryPath),
@@ -40,7 +67,25 @@ async function run(argv: readonly string[]): Promise<number> {
 
   switch (options.provider) {
     case "grok":
-      return new GrokReviewProvider().review(prompt, repositoryPath);
+      reporter.active("Reviewer", "Grok · high reasoning · verification enabled");
+      let exitCode: number;
+      try {
+        exitCode = await new GrokReviewProvider().review(
+          prompt,
+          repositoryPath,
+          (chunk) => reporter.providerChunk(chunk),
+        );
+      } catch (error) {
+        reporter.failure(error instanceof Error ? error.message : String(error));
+        return 1;
+      }
+      reporter.flushProvider();
+      if (exitCode === 0) {
+        reporter.result("Review finished");
+      } else {
+        reporter.failure(`Grok exited with status ${exitCode}`);
+      }
+      return exitCode;
   }
 }
 

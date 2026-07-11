@@ -10,11 +10,11 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b packages/reviewer apps/cli",
+    "build": "tsc -b packages/terminal-ui packages/reviewer apps/cli",
     "crew": "node scripts/run.ts",
     "devx": "node scripts/devx.ts",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "tsc -b packages/reviewer apps/cli && tsc -p tsconfig.scripts.json --noEmit"
+    "typecheck": "tsc -b packages/terminal-ui packages/reviewer apps/cli && tsc -p tsconfig.scripts.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

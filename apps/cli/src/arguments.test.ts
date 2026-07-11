@@ -37,3 +37,9 @@ test("rejects an unsupported provider", () => {
     /Unsupported provider: codex/,
   );
 });
+
+test("parses a full codebase audit", () => {
+  const result = parseReviewArguments(["codebase", "--provider", "grok"]);
+
+  assert.deepEqual(result.scope, { kind: "codebase" });
+});

@@ -1,0 +1,129 @@
+import type { Writable } from "node:stream";
+
+const ESCAPE = "\u001B[";
+
+interface TerminalReporterOptions {
+  readonly output?: Writable;
+  readonly color?: boolean;
+  readonly animated?: boolean;
+  readonly startedAt?: number;
+}
+
+export class TerminalReporter {
+  private readonly output: Writable;
+  private readonly color: boolean;
+  private readonly animated: boolean;
+  private readonly startedAt: number;
+  private providerBuffer = "";
+  private activityTimer: NodeJS.Timeout | undefined;
+  private activityLabel: string | undefined;
+  private activityDetail: string | undefined;
+
+  constructor(options: TerminalReporterOptions = {}) {
+    this.output = options.output ?? process.stdout;
+    this.color = options.color ?? (process.stdout.isTTY === true && process.env.NO_COLOR === undefined);
+    this.animated = options.animated ?? ((this.output as NodeJS.WriteStream).isTTY === true);
+    this.startedAt = options.startedAt ?? Date.now();
+  }
+
+  heading(tool: string, detail: string): void {
+    this.write(this.paint("36", "╭─") + ` ${this.paint("1;36", "DEVX CREW")} ${this.paint("35", "//")} ${this.paint("1", tool.toUpperCase())}\n`);
+    this.write(this.paint("36", "│") + `  ${detail}\n`);
+    this.write(this.paint("36", "╰─") + "\n\n");
+  }
+
+  success(label: string, detail: string): void {
+    this.row(this.paint("32", "✓"), label, detail);
+  }
+
+  active(label: string, detail: string): void {
+    if (!this.animated) {
+      this.row(this.paint("36", "◆"), label, detail);
+      return;
+    }
+
+    this.activityLabel = label;
+    this.activityDetail = detail;
+    const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    let frame = 0;
+    const render = () => {
+      const symbol = this.paint("36", frames[frame % frames.length] ?? "◆");
+      this.write(`\r${ESCAPE}2K${symbol} ${this.paint("1", label.padEnd(12))} ${detail}`);
+      frame += 1;
+    };
+    render();
+    this.activityTimer = setInterval(render, 80);
+  }
+
+  result(detail: string): void {
+    this.finishActivity();
+    this.write(`\n${this.paint("1;32", "✓ Complete")} ${detail} ${this.paint("2", `· ${this.elapsed()}`)}\n`);
+  }
+
+  empty(detail: string): void {
+    this.write(`\n${this.paint("1;32", "✓ Nothing to review")} ${detail} ${this.paint("2", `· ${this.elapsed()}`)}\n`);
+  }
+
+  failure(detail: string): void {
+    this.finishActivity();
+    this.write(`\n${this.paint("1;31", "✗ Failed")} ${detail} ${this.paint("2", `· ${this.elapsed()}`)}\n`);
+  }
+
+  providerChunk(chunk: string): void {
+    this.finishActivity();
+    this.providerBuffer += chunk;
+    const lines = this.providerBuffer.split(/\r?\n/);
+    this.providerBuffer = lines.pop() ?? "";
+    for (const line of lines) {
+      this.writeProviderLine(line);
+    }
+  }
+
+  flushProvider(): void {
+    this.finishActivity();
+    if (this.providerBuffer.length > 0) {
+      this.writeProviderLine(this.providerBuffer);
+      this.providerBuffer = "";
+    }
+  }
+
+  private row(symbol: string, label: string, detail: string): void {
+    this.write(`${symbol} ${this.paint("1", label.padEnd(12))} ${detail}\n`);
+  }
+
+  private finishActivity(): void {
+    if (this.activityTimer === undefined) {
+      return;
+    }
+    clearInterval(this.activityTimer);
+    this.activityTimer = undefined;
+    this.write(`\r${ESCAPE}2K`);
+    this.row(
+      this.paint("32", "✓"),
+      this.activityLabel ?? "Reviewer",
+      this.activityDetail ?? "Ready",
+    );
+    this.activityLabel = undefined;
+    this.activityDetail = undefined;
+  }
+
+  private writeProviderLine(line: string): void {
+    this.write(`${this.paint("2", "│")} ${line}\n`);
+  }
+
+  private elapsed(): string {
+    const milliseconds = Math.max(0, Date.now() - this.startedAt);
+    if (milliseconds < 1_000) {
+      return `${milliseconds}ms`;
+    }
+    return `${(milliseconds / 1_000).toFixed(1)}s`;
+  }
+
+  private paint(code: string, value: string): string {
+    return this.color ? `${ESCAPE}${code}m${value}${ESCAPE}0m` : value;
+  }
+
+  private write(value: string): void {
+    this.output.write(value);
+  }
+}

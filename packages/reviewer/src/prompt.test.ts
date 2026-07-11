@@ -45,3 +45,15 @@ test("local review covers staged, unstaged, and untracked changes", () => {
   assert.match(prompt, /staged, unstaged, and untracked/);
   assert.match(prompt, /No repository instruction files were discovered/);
 });
+
+test("codebase review uses the repository-wide audit protocol", () => {
+  const prompt = buildReviewPrompt({
+    ...baseRequest,
+    scope: { kind: "codebase" },
+  });
+
+  assert.match(prompt, /# Protocol: full-codebase-audit/);
+  assert.match(prompt, /Audit the entire repository at HEAD/);
+  assert.match(prompt, /Existing issues are in scope/);
+  assert.doesNotMatch(prompt, /Do not report pre-existing issues outside that scope/);
+});

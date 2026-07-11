@@ -1,25 +1,19 @@
 {
-  "name": "@devx-crew/cli",
+  "name": "@devx-crew/terminal-ui",
   "version": "0.1.0",
-  "description": "DevX Crew command-line interface",
+  "description": "Shared terminal presentation for DevX Crew tools",
   "license": "MIT",
   "type": "module",
-  "bin": {
-    "devx": "dist/main.js"
-  },
-  "files": [
-    "dist"
-  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "node --test --import=tsx 'src/**/*.test.ts'",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "dependencies": {
-    "@devx-crew/reviewer": "0.1.0",
-    "@devx-crew/terminal-ui": "0.1.0"
-  },
   "devDependencies": {
     "tsx": "^4.20.0"
   }
 }
+

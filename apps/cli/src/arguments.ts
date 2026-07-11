@@ -15,6 +15,7 @@ Usage:
   devx review branch --provider PROVIDER [options]
   devx review commit [REF] --provider PROVIDER [options]
   devx review local --provider PROVIDER [options]
+  devx review codebase --provider PROVIDER [options]
 `;
 
 export function helpText(): string {
@@ -28,11 +29,13 @@ Usage:
   devx review branch --provider grok [--base origin/main] [--repo PATH] [--dry-run]
   devx review commit [REF] --provider grok [--repo PATH] [--dry-run]
   devx review local --provider grok [--repo PATH] [--dry-run]
+  devx review codebase --provider grok [--repo PATH] [--dry-run]
 
 Scopes:
   branch  Review HEAD against the merge base with --base.
   commit  Review one commit. REF defaults to HEAD.
   local   Review staged, unstaged, and untracked changes.
+  codebase Audit the entire repository at HEAD.
 
 Options:
   --provider NAME  Required review provider. Supported: grok.
@@ -77,6 +80,12 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
         throw new Error("Local scope does not accept a reference.");
       }
       scope = { kind: "local" };
+      break;
+    case "codebase":
+      if (scopeValue !== undefined) {
+        throw new Error("Codebase scope does not accept a reference.");
+      }
+      scope = { kind: "codebase" };
       break;
     default:
       throw new Error(`Unknown review scope: ${scopeName}`);

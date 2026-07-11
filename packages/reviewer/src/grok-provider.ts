@@ -18,16 +18,30 @@ export function grokReviewArguments(prompt: string, repositoryPath: string): str
 export class GrokReviewProvider implements ReviewProvider {
   readonly name = "grok";
 
-  review(prompt: string, repositoryPath: string): Promise<number> {
+  review(prompt: string, repositoryPath: string, onOutput?: (chunk: string) => void): Promise<number> {
     return new Promise((resolve, reject) => {
-      const process = spawn(
+      const childProcess = spawn(
         "grok",
         grokReviewArguments(prompt, repositoryPath),
-        { stdio: "inherit" },
+        { stdio: ["inherit", "pipe", "pipe"] },
       );
 
-      process.on("error", reject);
-      process.on("exit", (code, signal) => {
+      childProcess.stdout.on("data", (chunk: Buffer) => {
+        if (onOutput === undefined) {
+          process.stdout.write(chunk);
+        } else {
+          onOutput(chunk.toString("utf8"));
+        }
+      });
+      childProcess.stderr.on("data", (chunk: Buffer) => {
+        if (onOutput === undefined) {
+          process.stderr.write(chunk);
+        } else {
+          onOutput(chunk.toString("utf8"));
+        }
+      });
+      childProcess.on("error", reject);
+      childProcess.on("exit", (code, signal) => {
         if (signal !== null) {
           reject(new Error(`Grok review terminated by signal ${signal}`));
           return;

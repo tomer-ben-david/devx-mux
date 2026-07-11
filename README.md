@@ -32,6 +32,7 @@ Run inside any Git repository:
 devx review branch --provider grok
 devx review commit HEAD --provider grok
 devx review local --provider grok
+devx review codebase --provider grok
 ```
 
 When working directly from the cloned DevX Crew repository, use `./devx.sh` instead:
@@ -40,6 +41,7 @@ When working directly from the cloned DevX Crew repository, use `./devx.sh` inst
 ./devx.sh review branch --provider grok
 ./devx.sh review commit HEAD --provider grok
 ./devx.sh review local --provider grok
+./devx.sh review codebase --provider grok
 ```
 
 To install the shorter global `devx` command, run `./run.sh link` once.
@@ -65,6 +67,7 @@ devx review branch --provider grok --base origin/main --repo /path/to/repository
 | `branch` | Merge-base diff from the base branch to `HEAD` |
 | `commit [ref]` | The selected commit, defaulting to `HEAD` |
 | `local` | Staged, unstaged, and untracked working-tree changes |
+| `codebase` | Repository-wide architecture and implementation audit at `HEAD` |
 
 Review execution is read-only. The reviewer is instructed not to edit files, and DevX Crew does not expose a mutation workflow.
 
@@ -87,6 +90,9 @@ devx review branch --provider grok --base origin/main
 
 # One completed commit
 devx review commit HEAD --provider grok
+
+# Entire repository
+devx review codebase --provider grok
 ```
 
 Agents must not substitute one scope for another: `local` includes working-tree changes, `commit` reviews one commit, and `branch` reviews the cumulative branch diff. Use `--dry-run` when the task is to inspect the generated review instructions without invoking a provider.
