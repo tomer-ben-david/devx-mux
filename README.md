@@ -49,6 +49,20 @@ When working directly from the cloned DevX Crew repository, use `./devx.sh` inst
 
 To install the shorter global `devx` command, run `./run.sh link` once.
 
+### Run the same review with Codex and Grok
+
+Run each command from the repository you want to review:
+
+```bash
+# Codex, using the Codex CLI's configured model
+devx review codebase --provider codex --reasoning high
+
+# Grok, using the Grok CLI's latest default model
+devx review codebase --provider grok --reasoning high
+```
+
+Replace `codebase` with `local`, `branch`, or `commit HEAD` to review a narrower scope. DevX Crew does not pin either provider's model. It asks the selected CLI to use its configured default model and reports the exact model when the provider exposes it.
+
 Provider selection is always explicit. DevX Crew never guesses based on installed executables or silently falls back to another model.
 
 Supported providers:
