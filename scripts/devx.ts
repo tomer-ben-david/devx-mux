@@ -11,9 +11,6 @@ if (!existsSync("node_modules")) {
   process.exit(1);
 }
 
-if (!existsSync("apps/cli/dist/main.js")) {
-  run("npm", ["run", "build"]);
-}
+run("npm", ["run", "build"]);
 
 run(process.execPath, ["apps/cli/dist/main.js", ...process.argv.slice(2)]);
-

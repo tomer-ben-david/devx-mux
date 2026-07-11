@@ -28,7 +28,7 @@ function scopeInstructions(scope: ReviewScope): string {
     case "local":
       return "Review the staged, unstaged, and untracked working-tree changes.";
     case "codebase":
-      return "Audit the entire repository at HEAD. This is not a diff review: existing high-confidence issues are in scope.";
+      return "Audit the entire current repository state, including tracked local modifications. This is not a diff review: existing high-confidence issues are in scope.";
   }
 }
 

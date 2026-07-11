@@ -87,7 +87,7 @@ devx review branch --provider grok --base origin/main --repo /path/to/repository
 | `branch` | Merge-base diff from the base branch to `HEAD` |
 | `commit [ref]` | The selected commit, defaulting to `HEAD` |
 | `local` | Staged, unstaged, and untracked working-tree changes |
-| `codebase` | Repository-wide architecture and implementation audit at `HEAD` |
+| `codebase` | Repository-wide architecture and implementation audit of the current checkout |
 
 Review execution is read-only. The reviewer is instructed not to edit files, and DevX Crew does not expose a mutation workflow.
 

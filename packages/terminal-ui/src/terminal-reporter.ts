@@ -82,6 +82,10 @@ export class TerminalReporter {
     if (!this.animated) {
       const latest = this.liveLines.at(-1);
       if (latest !== undefined) this.writeLiveLine(latest.kind, latest.text);
+    } else if (this.viewportDrawn) {
+      const label = this.activityLabel ?? "Reviewer";
+      const detail = this.activityDetail ?? "Working";
+      this.redrawActivity(`${this.paint("36", "◆")} ${this.paint("1", label.padEnd(12))} ${detail}`);
     }
   }
 
@@ -98,14 +102,22 @@ export class TerminalReporter {
       return [{ item: this.plain(cells[0] ?? ""), status: cells[1] as "PASS" | "FAIL" | "N/A", evidence: this.plain(cells.slice(2).join(" | ")) }];
     });
     const findings = lines.flatMap((line, index) => {
-      const match = line.match(/^###\s+(P[123])(?:\s+\d+\.)?\s*(.+)$/);
+      const match = line.match(/^###\s+(P[123])(?:\s+\d+[.:])?\s*(.+)$/);
       if (match === null) return [];
       const nextHeading = lines.findIndex((candidate, bodyIndex) => bodyIndex > index && /^#{2,3}\s/.test(candidate));
       const body = lines.slice(index + 1, nextHeading === -1 ? lines.length : nextHeading);
       const location = body.find((candidate) => /^\*\*Location:\*\*/.test(candidate));
       const consequenceIndex = body.findIndex((candidate) => /^\*\*Consequence:\*\*/.test(candidate));
       const consequence = consequenceIndex >= 0 ? body.slice(consequenceIndex, consequenceIndex + 2).join(" ") : "";
-      return [{ severity: match[1] ?? "P3", title: this.plain(match[2] ?? "Finding"), location: this.plain(location?.replace(/^\*\*Location:\*\*\s*/, "") ?? ""), consequence: this.plain(consequence.replace(/^\*\*Consequence:\*\*\s*/, "")) }];
+      const correctionIndex = body.findIndex((candidate) => /^\*\*Durable correction:\*\*/.test(candidate));
+      const correction = correctionIndex >= 0 ? body.slice(correctionIndex, correctionIndex + 2).join(" ") : "";
+      return [{
+        severity: match[1] ?? "P3",
+        title: this.plain(match[2] ?? "Finding"),
+        location: this.plain(location?.replace(/^\*\*Location:\*\*\s*/, "") ?? ""),
+        consequence: this.plain(consequence.replace(/^\*\*Consequence:\*\*\s*/, "")),
+        correction: this.plain(correction.replace(/^\*\*Durable correction:\*\*\s*/, "")),
+      }];
     });
     const counts = { P1: 0, P2: 0, P3: 0 };
     for (const finding of findings) counts[finding.severity as keyof typeof counts] += 1;
@@ -116,32 +128,35 @@ export class TerminalReporter {
 
     this.write("\n");
     this.write(`${this.paint(failed > 0 ? "1;33" : "1;32", `╭─ ${verdict} `)}${this.paint("2", "─".repeat(42))}\n`);
-    this.write(`${this.paint("2", "│")} ${this.severity("P1", counts.P1)}   ${this.severity("P2", counts.P2)}   ${this.severity("P3", counts.P3)}\n`);
+    this.write(`${this.paint("2", "│")} ${this.severity("P1", counts.P1)} ${this.paint("2", "blocker")}   ${this.severity("P2", counts.P2)} ${this.paint("2", "important")}   ${this.severity("P3", counts.P3)} ${this.paint("2", "improvement")}\n`);
     this.write(`${this.paint("2", "│")} Standards  ${this.paint("32", `${passed} pass`)}  ${this.paint("31", `${failed} fail`)}  ${this.paint("2", `${notApplicable} n/a`)}\n`);
     this.write(`${this.paint("2", "╰" + "─".repeat(56))}\n`);
 
     if (findings.length > 0) {
       this.section("Findings");
       for (const finding of findings) {
-        this.write(`${this.severity(finding.severity, undefined)}  ${this.paint("1", finding.title)}\n`);
-        if (finding.location.length > 0) this.writeWrapped(`   ${this.paint("2", finding.location)}`, 3);
-        if (finding.consequence.length > 0) this.writeWrapped(`   ${finding.consequence}`, 3);
+        this.write(`${this.severity(finding.severity, undefined)} ${this.paint("2", this.severityMeaning(finding.severity))}  ${this.paint("1", finding.title)}\n`);
+        if (finding.location.length > 0) this.labeledDetail("Where", finding.location);
+        if (finding.consequence.length > 0) this.labeledDetail("Impact", finding.consequence);
+        if (finding.correction.length > 0) this.labeledDetail("Fix", finding.correction);
         this.write("\n");
       }
     }
 
     this.section("Standards");
+    this.write(`${this.paint("32", "PASS")} met   ${this.paint("31", "FAIL")} violated, linked to a finding   ${this.paint("2", "N/A")} not applicable\n\n`);
     for (const entry of checklist) {
-      const symbol = entry.status === "PASS" ? this.paint("32", "✓") : entry.status === "FAIL" ? this.paint("31", "✗") : this.paint("2", "○");
-      this.write(`${symbol} ${entry.item}\n`);
-      if (entry.status === "FAIL") this.writeWrapped(`  ${this.paint("31", entry.evidence)}`, 2);
+      const badge = entry.status === "PASS" ? this.paint("32", "PASS") : entry.status === "FAIL" ? this.paint("31", "FAIL") : this.paint("2", "N/A ");
+      this.write(`${badge}  ${entry.item}\n`);
+      if (entry.status === "FAIL") this.labeledDetail("Why", entry.evidence);
     }
 
     const gapsStart = lines.findIndex((line) => /^##\s+(?:\d+\.\s*)?Verification gaps/i.test(line));
     if (gapsStart >= 0) {
       const gaps = lines.slice(gapsStart + 1).filter((line) => /^[-*]\s+/.test(line));
       if (gaps.length > 0) {
-        this.section("Verification gaps");
+        this.section("Not verified");
+        this.write(`${this.paint("2", "These are coverage gaps, not confirmed failures.")}\n`);
         for (const gap of gaps) this.writeWrapped(`• ${this.plain(gap.replace(/^[-*]\s+/, ""))}`, 2);
       }
     }
@@ -256,11 +271,22 @@ export class TerminalReporter {
     return this.paint(code, count === undefined ? level : `${level} ${count}`);
   }
 
-  private writeWrapped(text: string, indent: number): void {
+  private severityMeaning(level: string): string {
+    return level === "P1" ? "BLOCKER" : level === "P2" ? "IMPORTANT" : "IMPROVEMENT";
+  }
+
+  private labeledDetail(label: string, value: string): void {
+    this.write(`${this.paint("2", label.padEnd(8))}`);
+    this.writeWrapped(value, 8, false);
+  }
+
+  private writeWrapped(text: string, indent: number, firstLineIndented = true): void {
     const width = Math.max(30, ((this.output as NodeJS.WriteStream).columns ?? 100) - indent);
     const plainText = text.replace(/\u001B\[[0-?]*[ -\/]*[@-~]/g, "");
     const prefix = " ".repeat(indent);
-    for (const line of this.wrap(plainText.trimStart(), width)) this.write(`${prefix}${line}\n`);
+    for (const [index, line] of this.wrap(plainText.trimStart(), width).entries()) {
+      this.write(`${index === 0 && !firstLineIndented ? "" : prefix}${line}\n`);
+    }
   }
 
   private writeProviderLine(line: string): void {

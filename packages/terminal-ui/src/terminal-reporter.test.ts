@@ -40,7 +40,7 @@ test("renders provider activity without allowing terminal escapes", () => {
   assert.doesNotMatch(rendered, /\u001B\[2J/);
 });
 
-test("wraps live activity instead of truncating it", async () => {
+test("wraps live activity instead of truncating it", () => {
   const output = new PassThrough() as PassThrough & { isTTY: boolean; columns: number };
   output.isTTY = true;
   output.columns = 40;
@@ -50,7 +50,6 @@ test("wraps live activity instead of truncating it", async () => {
 
   reporter.active("Reviewer", "Inspecting");
   reporter.live("message", "Another deliberately long reviewer message that must remain complete");
-  await new Promise((resolve) => setTimeout(resolve, 100));
   reporter.result("done");
 
   assert.doesNotMatch(rendered, /…/);
@@ -81,9 +80,9 @@ test("renders an interactive review as a scannable dashboard", () => {
 
   assert.match(rendered, /NEEDS ATTENTION/);
   assert.match(rendered, /Standards  1 pass  1 fail  1 n\/a/);
-  assert.match(rendered, /P2  Validate provider output/);
-  assert.match(rendered, /✓ Types/);
-  assert.match(rendered, /✗ Output contract/);
-  assert.match(rendered, /Verification gaps/);
+  assert.match(rendered, /P2 IMPORTANT  Validate provider output/);
+  assert.match(rendered, /PASS  Types/);
+  assert.match(rendered, /FAIL  Output contract/);
+  assert.match(rendered, /Not verified/);
   assert.doesNotMatch(rendered, /\| Item \| Status/);
 });

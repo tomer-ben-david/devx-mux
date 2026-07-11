@@ -28,26 +28,44 @@ export function runJsonLinesProvider(
     const childProcess = spawn(command, arguments_, { stdio: ["ignore", "pipe", "pipe"] });
     let stdoutBuffer = "";
     let stderrText = "";
+    let structuredOutputError: Error | undefined;
+
+    const consumeLine = (line: string) => {
+      if (line.trim().length === 0) return;
+      try {
+        onJsonLine({ source: "stdout", value: JSON.parse(line) });
+      } catch (error) {
+        throw new Error(`${providerName} emitted malformed structured output: ${line.slice(0, 160)}`, { cause: error });
+      }
+    };
 
     const consumeStdout = (chunk: Buffer) => {
       const lines = (stdoutBuffer + chunk.toString("utf8")).split(/\r?\n/);
       stdoutBuffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (line.trim().length === 0) continue;
-        try {
-          onJsonLine({ source: "stdout", value: JSON.parse(line) });
-        } catch {
-          // Structured providers may emit a non-JSON notice before their event stream.
-        }
+      try {
+        for (const line of lines) consumeLine(line);
+      } catch (error) {
+        structuredOutputError = error instanceof Error ? error : new Error(String(error));
+        childProcess.kill();
       }
     };
 
     childProcess.stdout.on("data", consumeStdout);
     childProcess.stderr.on("data", (chunk: Buffer) => { stderrText += chunk.toString("utf8"); });
     childProcess.on("error", reject);
-    childProcess.on("exit", (code, signal) => {
+    childProcess.on("close", (code, signal) => {
+      if (structuredOutputError !== undefined) {
+        reject(structuredOutputError);
+        return;
+      }
       if (signal !== null) {
         reject(new Error(`${providerName} review terminated by signal ${signal}`));
+        return;
+      }
+      try {
+        consumeLine(stdoutBuffer);
+      } catch (error) {
+        reject(error);
         return;
       }
       resolve({ exitCode: code ?? 1, stderr: stderrText.trim() });
