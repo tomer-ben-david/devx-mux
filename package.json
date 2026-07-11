@@ -1,0 +1,24 @@
+{
+  "name": "devx-crew",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Your engineering crew for AI-written code.",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "tsc -b packages/reviewer apps/cli",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "tsc -b packages/reviewer apps/cli"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

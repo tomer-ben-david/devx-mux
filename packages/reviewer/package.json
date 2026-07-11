@@ -1,0 +1,21 @@
+{
+  "name": "@devx-crew/reviewer",
+  "version": "0.1.0",
+  "description": "Review engine for DevX Crew",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test --import=tsx 'src/**/*.test.ts'",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0"
+  }
+}
+

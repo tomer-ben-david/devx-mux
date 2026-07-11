@@ -1,0 +1,25 @@
+{
+  "name": "@devx-crew/cli",
+  "version": "0.1.0",
+  "description": "DevX Crew command-line interface",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "devx": "dist/main.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test --import=tsx 'src/**/*.test.ts'",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@devx-crew/reviewer": "0.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0"
+  }
+}
+
