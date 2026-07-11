@@ -31,6 +31,15 @@ test("commit review identifies the selected commit", () => {
   assert.match(prompt, /Review commit HEAD~1 only/);
 });
 
+test("pull request review reads stated intent before the diff", () => {
+  const prompt = buildReviewPrompt({
+    scope: { kind: "pr", number: 42, base: "origin/main" },
+    standardsReference: "https://example.com/standards",
+  });
+  assert.match(prompt, /read its title and description/);
+  assert.match(prompt, /Briefly report that PR-context step in live progress/);
+});
+
 test("local review covers staged, unstaged, and untracked changes", () => {
   const prompt = buildReviewPrompt({
     ...baseRequest,

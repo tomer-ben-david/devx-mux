@@ -14,6 +14,7 @@ const ROOT_HELP = `DevX Crew
 Usage:
   devx review --help
   devx review branch --provider PROVIDER [options]
+  devx review pr [NUMBER] --provider PROVIDER [options]
   devx review commit [REF] --provider PROVIDER [options]
   devx review local --provider PROVIDER [options]
   devx review codebase --provider PROVIDER [options]
@@ -28,11 +29,13 @@ export function reviewHelpText(): string {
 
 Usage:
   devx review branch --provider <grok|codex> [--base origin/main] [--repo PATH] [--dry-run]
+  devx review pr [NUMBER] --provider <grok|codex> [--base origin/main] [--repo PATH] [--dry-run]
   devx review commit [REF] --provider <grok|codex> [--repo PATH] [--dry-run]
   devx review local --provider <grok|codex> [--repo PATH] [--dry-run]
   devx review codebase --provider <grok|codex> [--reasoning LEVEL] [--repo PATH] [--dry-run]
 
 Scopes:
+  pr      Read PR metadata first, then review its branch diff against --base.
   branch  Review HEAD against the merge base with --base.
   commit  Review one commit. REF defaults to HEAD.
   local   Review staged, unstaged, and untracked changes.
@@ -69,6 +72,14 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
 
   let scope: ReviewScope;
   switch (scopeName) {
+    case "pr": {
+      const number = scopeValue === undefined ? undefined : Number(scopeValue);
+      if (number !== undefined && (!Number.isInteger(number) || number <= 0)) {
+        throw new Error("Pull-request number must be a positive integer.");
+      }
+      scope = { kind: "pr", ...(number !== undefined ? { number } : {}), base: parsed.values.base ?? "origin/main" };
+      break;
+    }
     case "branch":
       if (scopeValue !== undefined) {
         throw new Error("Branch scope does not accept a positional reference. Use --base.");

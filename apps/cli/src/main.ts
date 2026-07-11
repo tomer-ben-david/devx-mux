@@ -37,6 +37,8 @@ async function run(argv: readonly string[]): Promise<number> {
     ? "Local changes"
     : options.scope.kind === "codebase"
       ? "Full codebase"
+      : options.scope.kind === "pr"
+        ? `Pull request${options.scope.number === undefined ? "" : ` #${options.scope.number}`}`
       : options.scope.kind;
   const providerLabel = options.provider === "grok" ? "Grok" : "Codex";
   reporter.heading("Review", `${scopeLabel} · ${providerLabel}`);

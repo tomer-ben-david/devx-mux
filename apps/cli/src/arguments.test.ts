@@ -46,6 +46,11 @@ test("parses a full codebase audit", () => {
   assert.equal(result.reasoningEffort, "xhigh");
 });
 
+test("parses a pull request with its comparison base", () => {
+  const result = parseReviewArguments(["pr", "42", "--provider", "codex", "--base", "origin/develop"]);
+  assert.deepEqual(result.scope, { kind: "pr", number: 42, base: "origin/develop" });
+});
+
 test("rejects xhigh reasoning for Grok", () => {
   assert.throws(
     () => parseReviewArguments(["codebase", "--provider", "grok", "--reasoning", "xhigh"]),

@@ -21,6 +21,8 @@ If there are no actionable issues, say "No actionable findings."`;
 
 function scopeInstructions(scope: ReviewScope): string {
   switch (scope.kind) {
+    case "pr":
+      return `Review pull request ${scope.number ?? "for the current branch"} relative to ${scope.base}. Before inspecting the diff, use the repository's read-only PR tooling to read its title and description. Briefly report that PR-context step in live progress, then independently review the change with that context. If PR metadata is unavailable, state that as a verification gap.`;
     case "branch":
       return `Review the current branch changes relative to ${scope.base}.`;
     case "commit":

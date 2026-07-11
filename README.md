@@ -30,6 +30,7 @@ Run inside any Git repository:
 
 ```bash
 devx review branch --provider grok
+devx review pr 123 --provider grok --base origin/main
 devx review commit HEAD --provider grok
 devx review local --provider grok
 devx review codebase --provider grok
@@ -41,6 +42,7 @@ When working directly from the cloned DevX Crew repository, use `./devx.sh` inst
 
 ```bash
 ./devx.sh review branch --provider grok
+./devx.sh review pr 123 --provider grok --base origin/main
 ./devx.sh review commit HEAD --provider grok
 ./devx.sh review local --provider grok
 ./devx.sh review codebase --provider grok
@@ -61,7 +63,7 @@ devx review codebase --provider codex --reasoning high
 devx review codebase --provider grok --reasoning high
 ```
 
-Replace `codebase` with `local`, `branch`, or `commit HEAD` to review a narrower scope. DevX Crew does not pin either provider's model. It asks the selected CLI to use its configured default model and reports the exact model when the provider exposes it.
+Replace `codebase` with `pr 123 --base origin/main`, `local`, `branch`, or `commit HEAD` to review a narrower scope. A PR review first reads the PR title and description, then reviews its diff against the stated intent. DevX Crew does not pin either provider's model. It asks the selected CLI to use its configured default model and reports the exact model when the provider exposes it.
 
 Provider selection is always explicit. DevX Crew never guesses based on installed executables or silently falls back to another model.
 
@@ -98,6 +100,7 @@ devx review branch --provider grok --base origin/main --repo /path/to/repository
 
 | Scope | Reviewed changes |
 | --- | --- |
+| `pr [number]` | PR metadata and stated intent first, then the branch diff from its base to `HEAD` |
 | `branch` | Merge-base diff from the base branch to `HEAD` |
 | `commit [ref]` | The selected commit, defaulting to `HEAD` |
 | `local` | Staged, unstaged, and untracked working-tree changes |
