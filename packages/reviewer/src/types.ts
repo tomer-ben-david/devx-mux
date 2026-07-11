@@ -15,5 +15,15 @@ export interface ReviewRequest {
 
 export interface ReviewProvider {
   readonly name: string;
-  review(prompt: string, repositoryPath: string, onOutput?: (chunk: string) => void): Promise<number>;
+  review(
+    prompt: string,
+    repositoryPath: string,
+    onProgress?: (detail: string) => void,
+  ): Promise<ReviewExecutionResult>;
+}
+
+export interface ReviewExecutionResult {
+  readonly exitCode: number;
+  readonly finalText: string;
+  readonly error?: string;
 }

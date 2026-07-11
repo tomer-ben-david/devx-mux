@@ -16,7 +16,7 @@ test("branch review uses a merge-base diff and introduced-code scope", () => {
     scope: { kind: "branch", base: "origin/main" },
   });
 
-  assert.match(prompt, /git diff origin\/main\.\.\.HEAD/);
+  assert.match(prompt, /current branch changes relative to origin\/main/);
   assert.match(prompt, /Do not report pre-existing issues/);
   assert.match(prompt, /No actionable findings/);
   assert.match(prompt, /# Role: reviewer/);
@@ -32,7 +32,7 @@ test("commit review identifies the selected commit", () => {
     scope: { kind: "commit", ref: "HEAD~1" },
   });
 
-  assert.match(prompt, /git show --find-renames HEAD~1/);
+  assert.match(prompt, /Review commit HEAD~1 only/);
 });
 
 test("local review covers staged, unstaged, and untracked changes", () => {

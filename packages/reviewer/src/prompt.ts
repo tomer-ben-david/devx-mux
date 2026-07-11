@@ -24,13 +24,13 @@ If there are no actionable issues, say "No actionable findings."`;
 function scopeInstructions(scope: ReviewScope): string {
   switch (scope.kind) {
     case "branch":
-      return `Review the branch-introduced diff using the merge base with ${scope.base}. Use git diff ${scope.base}...HEAD.`;
+      return `Review the current branch changes relative to ${scope.base}.`;
     case "commit":
-      return `Review commit ${scope.ref} only. Use git show --find-renames ${scope.ref}.`;
+      return `Review commit ${scope.ref} only.`;
     case "local":
-      return "Review staged, unstaged, and untracked working-tree changes. Inspect git diff, git diff --staged, and untracked files reported by git status.";
+      return "Review the staged, unstaged, and untracked working-tree changes.";
     case "codebase":
-      return "Audit the entire repository at HEAD. This is not a diff review: existing high-confidence issues are in scope. Map the architecture before selecting representative and high-risk areas to inspect deeply.";
+      return "Audit the entire repository at HEAD. This is not a diff review: existing high-confidence issues are in scope.";
   }
 }
 
@@ -74,16 +74,23 @@ ${instructionFiles}
 Read the coding standards fully before reviewing:
 - ${request.standardsReference}
 
+Choose your own read-only repository tools and investigation strategy. DevX Crew defines the target and quality bar, not the commands you should run.
+
+Review the applicable DevX coding standards item by item. Do not silently skip sections. Report every item as PASS, FAIL, or N/A. Every FAIL must link to a P1/P2/P3 finding; every N/A must include a short reason.
+
 ${request.scope.kind === "codebase"
     ? "State the repository purpose you inferred from its documentation and implementation."
     : "When the repository or PR states a goal and non-goals, restate them and honor them. If they are absent, infer the narrow goal from the diff and say that it is inferred."}
 
 ## Output
 
-1. Goal and non-goals
-2. Findings ordered by P1, P2, P3. Include file or area, consequence, evidence, and durable correction. If none, write "No actionable findings."
-3. What went well, limited to decisions that materially improved correctness or structure
-4. Residual risks or verification gaps, if any
-5. ${request.scope.kind === "codebase" ? "Repository health: strong, mixed, or at risk" : "Merge confidence: yes, medium, or no"}
+Return concise Markdown in exactly this order:
+
+1. **Review target**: purpose, goal, and non-goals.
+2. **Standards checklist**: a Markdown table with columns Item, Status, Evidence. Include one row for every applicable standards item or section. Status is exactly PASS, FAIL, or N/A.
+3. **Findings**: ordered P1, P2, P3. Each includes location, consequence, evidence, and durable correction. If none, write "No actionable findings."
+4. **What went well**: only decisions that materially improved correctness or structure.
+5. **Verification gaps**: important areas you could not verify.
+6. **Summary**: P1/P2/P3 counts and ${request.scope.kind === "codebase" ? "repository health: strong, mixed, or at risk" : "merge confidence: yes, medium, or no"}.
 `;
 }

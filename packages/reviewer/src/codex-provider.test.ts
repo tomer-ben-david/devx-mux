@@ -7,6 +7,7 @@ test("runs Codex ephemerally in the read-only sandbox", () => {
 
   assert.deepEqual(arguments_, [
     "exec",
+    "--json",
     "--sandbox",
     "read-only",
     "--ephemeral",
@@ -17,4 +18,3 @@ test("runs Codex ephemerally in the read-only sandbox", () => {
     "review prompt",
   ]);
 });
-

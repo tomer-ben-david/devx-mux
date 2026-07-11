@@ -16,7 +16,7 @@ AI code review is only useful when it is scoped, skeptical, and low-noise. DevX 
 
 ## Install from source
 
-Requires Node.js 22 or newer and the [Grok CLI](https://grok.com/) for the initial provider.
+Requires Node.js 22 or newer and at least one supported provider CLI: Grok or Codex.
 
 ```bash
 git clone https://github.com/tomer-ben-david/devx-crew.git
@@ -43,6 +43,7 @@ When working directly from the cloned DevX Crew repository, use `./devx.sh` inst
 ./devx.sh review commit HEAD --provider grok
 ./devx.sh review local --provider grok
 ./devx.sh review codebase --provider grok
+./devx.sh review codebase --provider codex
 ```
 
 To install the shorter global `devx` command, run `./run.sh link` once.
@@ -79,6 +80,18 @@ devx review branch --provider grok --base origin/main --repo /path/to/repository
 
 Review execution is read-only. The reviewer is instructed not to edit files, and DevX Crew does not expose a mutation workflow.
 
+### Review output
+
+Every provider returns the same review structure:
+
+- A standards checklist table with PASS, FAIL, or N/A for every applicable item
+- P1, P2, and P3 findings with evidence and durable corrections
+- Decisions that went well
+- Verification gaps
+- A Markdown-friendly summary with finding counts and the final verdict
+
+DevX Crew hides provider prompts, reasoning, tool commands, and file-reading transcripts. The terminal shows concise progress while the provider works, followed only by the formatted final review.
+
 ### Using DevX Crew from an AI agent
 
 An agent should first inspect the command contract:
@@ -112,7 +125,7 @@ apps/cli              command parsing and process boundary
 packages/reviewer     review scope, prompt contract, provider interface
 ```
 
-The initial provider is Grok. The provider interface is intentionally small so additional model backends can be added without changing review semantics.
+Grok and Codex are currently supported. The provider interface is intentionally small so additional model backends can be added without changing review semantics or terminal output.
 
 ### Agent model
 

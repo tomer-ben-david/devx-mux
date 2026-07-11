@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { summarizePorcelainStatus } from "./git.js";
+import { instructionPathsFromGitFiles, summarizePorcelainStatus } from "./git.js";
 
 test("preserves porcelain status columns for modified and staged files", () => {
   const summary = summarizePorcelainStatus([
@@ -17,6 +17,13 @@ test("preserves porcelain status columns for modified and staged files", () => {
     modified: 2,
     untracked: 1,
   });
+});
+
+test("discovers root and nested repository instructions", () => {
+  assert.deepEqual(
+    instructionPathsFromGitFiles("/repo", "src/AGENTS.md\nREADME.md\nCLAUDE.md\npackages/api/claude.md\n"),
+    ["/repo/CLAUDE.md", "/repo/packages/api/claude.md", "/repo/src/AGENTS.md"],
+  );
 });
 
 test("reports an empty working tree", () => {

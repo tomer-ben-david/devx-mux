@@ -1,5 +1,4 @@
 import { execFile } from "node:child_process";
-import { access } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -44,20 +43,19 @@ export async function inspectLocalChanges(repositoryPath: string): Promise<Local
 }
 
 export async function discoverRepositoryInstructions(repositoryPath: string): Promise<string[]> {
-  const candidates = ["AGENTS.md", "CLAUDE.md"];
-  const discovered: string[] = [];
+  const tracked = await git(repositoryPath, ["ls-files"]);
+  const untracked = await git(repositoryPath, ["ls-files", "--others", "--exclude-standard"]);
+  return instructionPathsFromGitFiles(repositoryPath, [tracked, untracked].filter(Boolean).join("\n"));
+}
 
-  for (const candidate of candidates) {
-    const candidatePath = path.join(repositoryPath, candidate);
-    try {
-      await access(candidatePath);
-      discovered.push(candidatePath);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        throw error;
-      }
-    }
-  }
-
-  return discovered;
+export function instructionPathsFromGitFiles(repositoryPath: string, files: string): string[] {
+  return files
+    .split(/\r?\n/)
+    .filter((file) => file.length > 0)
+    .filter((file) => {
+      const name = path.basename(file).toLowerCase();
+      return name === "agents.md" || name === "claude.md";
+    })
+    .sort()
+    .map((file) => path.join(repositoryPath, file));
 }

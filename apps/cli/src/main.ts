@@ -34,8 +34,8 @@ async function run(argv: readonly string[]): Promise<number> {
   reporter.heading("Review", `${scopeLabel} · ${providerLabel}`);
   reporter.success("Repository", path.basename(repositoryPath));
 
+  const changes = await inspectLocalChanges(repositoryPath);
   if (options.scope.kind === "local") {
-    const changes = await inspectLocalChanges(repositoryPath);
     if (changes.files === 0) {
       reporter.success("Scope", "Working tree clean");
       reporter.empty("No staged, unstaged, or untracked changes.");
@@ -49,6 +49,10 @@ async function run(argv: readonly string[]): Promise<number> {
     ].filter((value): value is string => value !== undefined);
     reporter.success("Scope", details.join(" · "));
   } else {
+    if (changes.files > 0) {
+      reporter.failure(`Working tree has ${changes.files} changed ${changes.files === 1 ? "file" : "files"}. Use local scope or a clean worktree.`);
+      return 1;
+    }
     reporter.success("Scope", scopeLabel);
   }
   const request = {
@@ -66,46 +70,38 @@ async function run(argv: readonly string[]): Promise<number> {
     return 0;
   }
 
-  switch (options.provider) {
-    case "grok":
-      reporter.active("Reviewer", "Grok · high reasoning · verification enabled");
-      let exitCode: number;
-      try {
-        exitCode = await new GrokReviewProvider().review(
-          prompt,
-          repositoryPath,
-          (chunk) => reporter.providerChunk(chunk),
-        );
-      } catch (error) {
-        reporter.failure(error instanceof Error ? error.message : String(error));
-        return 1;
-      }
-      reporter.flushProvider();
-      if (exitCode === 0) {
-        reporter.result("Review finished");
-      } else {
-        reporter.failure(`Grok exited with status ${exitCode}`);
-      }
-      return exitCode;
-    case "codex":
-      reporter.active("Reviewer", "Codex · read-only · ephemeral");
-      try {
-        exitCode = await new CodexReviewProvider().review(
-          prompt,
-          repositoryPath,
-          (chunk) => reporter.providerChunk(chunk),
-        );
-      } catch (error) {
-        reporter.failure(error instanceof Error ? error.message : String(error));
-        return 1;
-      }
-      reporter.flushProvider();
-      if (exitCode === 0) {
-        reporter.result("Review finished");
-      } else {
-        reporter.failure(`Codex exited with status ${exitCode}`);
-      }
-      return exitCode;
+  const provider = options.provider === "grok"
+    ? new GrokReviewProvider()
+    : new CodexReviewProvider();
+  const providerDetail = options.provider === "grok"
+    ? "Grok · high reasoning · verification enabled"
+    : "Codex · read-only · ephemeral";
+  reporter.active("Reviewer", providerDetail);
+
+  try {
+    const execution = await provider.review(
+      prompt,
+      repositoryPath,
+      (detail) => reporter.updateActivity("Reviewer", detail),
+    );
+    if (execution.exitCode !== 0) {
+      reporter.failure(execution.error ?? `${providerLabel} exited with status ${execution.exitCode}`);
+      return execution.exitCode;
+    }
+    if (execution.finalText.trim().length === 0) {
+      reporter.failure(`${providerLabel} returned no final review`);
+      return 1;
+    }
+
+    reporter.document(execution.finalText);
+    const p1 = (execution.finalText.match(/^###? P1\b/gm) ?? []).length;
+    const p2 = (execution.finalText.match(/^###? P2\b/gm) ?? []).length;
+    const p3 = (execution.finalText.match(/^###? P3\b/gm) ?? []).length;
+    reporter.result(`${p1} P1 · ${p2} P2 · ${p3} P3`);
+    return 0;
+  } catch (error) {
+    reporter.failure(error instanceof Error ? error.message : String(error));
+    return 1;
   }
 }
 

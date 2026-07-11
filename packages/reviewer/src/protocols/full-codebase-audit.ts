@@ -7,7 +7,7 @@ export const fullCodebaseAuditProtocol: ReviewProtocol = {
 
 1. Establish purpose. Read repository instructions and documentation to understand what the system promises to users.
 2. Map the system. Identify entry points, packages, dependency direction, state owners, persistence boundaries, external integrations, and test strategy.
-3. Find hotspots. Use repository structure and Git history to identify large, highly coupled, frequently changed, or failure-prone areas. Do not read files in arbitrary order.
+3. Find hotspots. Identify large, highly coupled, frequently changed, or failure-prone areas using the repository evidence you consider most useful. Do not read files in arbitrary order.
 4. Trace representative flows. Follow the most important user and data flows end to end, including their failure and cancellation paths.
 5. Audit invariants. Check correctness, security, data integrity, concurrency, lifecycle, configuration, and reproducibility where relevant.
 6. Audit structure. Look for duplicated policy, unclear ownership, tangled state, leaky boundaries, accidental complexity, and abstractions that obscure rather than simplify.

@@ -48,7 +48,9 @@ export class TerminalReporter {
     let frame = 0;
     const render = () => {
       const symbol = this.paint("36", frames[frame % frames.length] ?? "◆");
-      this.write(`\r${ESCAPE}2K${symbol} ${this.paint("1", label.padEnd(12))} ${detail}`);
+      const activeLabel = this.activityLabel ?? label;
+      const activeDetail = this.activityDetail ?? detail;
+      this.write(`\r${ESCAPE}2K${symbol} ${this.paint("1", activeLabel.padEnd(12))} ${activeDetail}`);
       frame += 1;
     };
     render();
@@ -58,6 +60,26 @@ export class TerminalReporter {
   result(detail: string): void {
     this.finishActivity();
     this.write(`\n${this.paint("1;32", "✓ Complete")} ${detail} ${this.paint("2", `· ${this.elapsed()}`)}\n`);
+  }
+
+  updateActivity(label: string, detail: string): void {
+    this.activityLabel = label;
+    this.activityDetail = detail;
+  }
+
+  document(markdown: string): void {
+    this.finishActivity();
+    this.write("\n");
+    for (const line of markdown.trim().split(/\r?\n/)) {
+      if (/\|\s*PASS\s*\|/.test(line)) this.write(`${this.paint("32", line)}\n`);
+      else if (/\|\s*FAIL\s*\|/.test(line)) this.write(`${this.paint("31", line)}\n`);
+      else if (/\|\s*N\/A\s*\|/.test(line)) this.write(`${this.paint("2", line)}\n`);
+      else if (/^###? P1\b/.test(line)) this.write(`${this.paint("1;31", line)}\n`);
+      else if (/^###? P2\b/.test(line)) this.write(`${this.paint("1;33", line)}\n`);
+      else if (/^###? P3\b/.test(line)) this.write(`${this.paint("1;36", line)}\n`);
+      else if (/^#{1,3} /.test(line)) this.write(`${this.paint("1;35", line)}\n`);
+      else this.write(`${line}\n`);
+    }
   }
 
   empty(detail: string): void {
