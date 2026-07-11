@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import path from "node:path";
-import { GrokReviewProvider, buildReviewPrompt } from "@devx-crew/reviewer";
+import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt } from "@devx-crew/reviewer";
 import { TerminalReporter } from "@devx-crew/terminal-ui";
 import { helpText, parseReviewArguments, reviewHelpText } from "./arguments.js";
 import { discoverRepositoryInstructions, git, inspectLocalChanges, resolveRepositoryPath } from "./git.js";
@@ -30,7 +30,8 @@ async function run(argv: readonly string[]): Promise<number> {
     : options.scope.kind === "codebase"
       ? "Full codebase"
       : options.scope.kind;
-  reporter.heading("Review", `${scopeLabel} · ${options.provider === "grok" ? "Grok" : options.provider}`);
+  const providerLabel = options.provider === "grok" ? "Grok" : "Codex";
+  reporter.heading("Review", `${scopeLabel} · ${providerLabel}`);
   reporter.success("Repository", path.basename(repositoryPath));
 
   if (options.scope.kind === "local") {
@@ -84,6 +85,25 @@ async function run(argv: readonly string[]): Promise<number> {
         reporter.result("Review finished");
       } else {
         reporter.failure(`Grok exited with status ${exitCode}`);
+      }
+      return exitCode;
+    case "codex":
+      reporter.active("Reviewer", "Codex · read-only · ephemeral");
+      try {
+        exitCode = await new CodexReviewProvider().review(
+          prompt,
+          repositoryPath,
+          (chunk) => reporter.providerChunk(chunk),
+        );
+      } catch (error) {
+        reporter.failure(error instanceof Error ? error.message : String(error));
+        return 1;
+      }
+      reporter.flushProvider();
+      if (exitCode === 0) {
+        reporter.result("Review finished");
+      } else {
+        reporter.failure(`Codex exited with status ${exitCode}`);
       }
       return exitCode;
   }

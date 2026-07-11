@@ -33,13 +33,14 @@ test("requires an explicit provider", () => {
 
 test("rejects an unsupported provider", () => {
   assert.throws(
-    () => parseReviewArguments(["branch", "--provider", "codex"]),
-    /Unsupported provider: codex/,
+    () => parseReviewArguments(["branch", "--provider", "claude"]),
+    /Unsupported provider: claude/,
   );
 });
 
 test("parses a full codebase audit", () => {
-  const result = parseReviewArguments(["codebase", "--provider", "grok"]);
+  const result = parseReviewArguments(["codebase", "--provider", "codex"]);
 
   assert.deepEqual(result.scope, { kind: "codebase" });
+  assert.equal(result.provider, "codex");
 });

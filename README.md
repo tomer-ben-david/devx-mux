@@ -33,6 +33,7 @@ devx review branch --provider grok
 devx review commit HEAD --provider grok
 devx review local --provider grok
 devx review codebase --provider grok
+devx review codebase --provider codex
 ```
 
 When working directly from the cloned DevX Crew repository, use `./devx.sh` instead:
@@ -47,6 +48,13 @@ When working directly from the cloned DevX Crew repository, use `./devx.sh` inst
 To install the shorter global `devx` command, run `./run.sh link` once.
 
 Provider selection is always explicit. DevX Crew never guesses based on installed executables or silently falls back to another model.
+
+Supported providers:
+
+| Provider | Required executable | Execution policy |
+| --- | --- | --- |
+| `grok` | `grok` | High reasoning with verification enabled |
+| `codex` | `codex` | Read-only sandbox with ephemeral session storage |
 
 Preview the exact reviewer prompt without invoking a model:
 

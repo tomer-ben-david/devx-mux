@@ -4,7 +4,7 @@ import type { ReviewScope } from "@devx-crew/reviewer";
 export interface ReviewArguments {
   readonly repositoryPath: string;
   readonly scope: ReviewScope;
-  readonly provider: "grok";
+  readonly provider: "grok" | "codex";
   readonly dryRun: boolean;
 }
 
@@ -26,10 +26,10 @@ export function reviewHelpText(): string {
   return `DevX Crew review
 
 Usage:
-  devx review branch --provider grok [--base origin/main] [--repo PATH] [--dry-run]
-  devx review commit [REF] --provider grok [--repo PATH] [--dry-run]
-  devx review local --provider grok [--repo PATH] [--dry-run]
-  devx review codebase --provider grok [--repo PATH] [--dry-run]
+  devx review branch --provider <grok|codex> [--base origin/main] [--repo PATH] [--dry-run]
+  devx review commit [REF] --provider <grok|codex> [--repo PATH] [--dry-run]
+  devx review local --provider <grok|codex> [--repo PATH] [--dry-run]
+  devx review codebase --provider <grok|codex> [--repo PATH] [--dry-run]
 
 Scopes:
   branch  Review HEAD against the merge base with --base.
@@ -38,7 +38,7 @@ Scopes:
   codebase Audit the entire repository at HEAD.
 
 Options:
-  --provider NAME  Required review provider. Supported: grok.
+  --provider NAME  Required review provider. Supported: grok, codex.
   --base REF       Branch comparison base. Default: origin/main.
   --repo PATH      Repository to review. Default: current directory.
   --dry-run        Print the composed prompt without invoking the provider.
@@ -92,10 +92,10 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
   }
 
   if (parsed.values.provider === undefined) {
-    throw new Error("Missing required option: --provider. Supported providers: grok.");
+    throw new Error("Missing required option: --provider. Supported providers: grok, codex.");
   }
-  if (parsed.values.provider !== "grok") {
-    throw new Error(`Unsupported provider: ${parsed.values.provider}. Supported providers: grok.`);
+  if (parsed.values.provider !== "grok" && parsed.values.provider !== "codex") {
+    throw new Error(`Unsupported provider: ${parsed.values.provider}. Supported providers: grok, codex.`);
   }
 
   return {
