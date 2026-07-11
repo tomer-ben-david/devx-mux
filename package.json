@@ -11,8 +11,10 @@
   ],
   "scripts": {
     "build": "tsc -b packages/reviewer apps/cli",
+    "crew": "node scripts/run.ts",
+    "devx": "node scripts/devx.ts",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "tsc -b packages/reviewer apps/cli"
+    "typecheck": "tsc -b packages/reviewer apps/cli && tsc -p tsconfig.scripts.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

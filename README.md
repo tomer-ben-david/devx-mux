@@ -126,6 +126,13 @@ Use the local runner for the complete development workflow:
 
 Run `./run.sh help` for individual test, type-check, build, link, review, and cleanup commands. The project intentionally uses local verification instead of consuming hosted CI minutes.
 
+The shell files are minimal launchers only. Workflow behavior lives in TypeScript under `scripts/`. On systems without a POSIX shell, use the equivalent npm entry point:
+
+```bash
+npm run crew -- check
+npm run devx -- review local --provider grok
+```
+
 ## License
 
 MIT
