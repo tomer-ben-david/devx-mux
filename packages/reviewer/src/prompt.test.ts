@@ -18,8 +18,8 @@ test("branch review uses a merge-base diff and introduced-code scope", () => {
   assert.match(prompt, /# Role: reviewer/);
   assert.match(prompt, /# Persona: exacting-engineer/);
   assert.match(prompt, /# Protocol: deep-code-review/);
-  assert.match(prompt, /Actively try to disprove candidate findings/);
-  assert.match(prompt, /simpler designs that remove complexity rather than rearrange it/);
+  assert.match(prompt, /Try to disprove every candidate finding before reporting it/);
+  assert.match(prompt, /structural simplifications that remove complexity rather than rearrange it/);
 });
 
 test("commit review identifies the selected commit", () => {

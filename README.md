@@ -103,7 +103,9 @@ Every provider returns the same review structure:
 
 In a terminal, DevX Crew shows a colored, fixed-height live viewport for provider messages, reasoning, and tool activity. The completed review becomes a compact dashboard with verdict, findings, every standards result, verification gaps, and usage. Raw prompts and protocol noise remain hidden.
 
-When output is piped or captured by an AI agent, DevX Crew emits clean Markdown without cursor animation. Every successful run also saves the complete Markdown report under the operating system's temporary `devx-crew` directory and prints its path.
+When output is piped or captured by an AI agent, DevX Crew emits clean Markdown without cursor animation. Every successful run saves both a concise handoff summary and the complete PASS/FAIL/N/A report in a private per-user temporary directory, then prints both paths. Unix-like systems use `/tmp/devx-crew-<uid>/`; Windows uses the native temporary directory.
+
+The artifact-first review handoff and strict read-only reviewer separation are inspired by the strongest workflow ideas in Grok's `/review`. DevX Crew implements its own provider-neutral persona, validated report model, exhaustive DevX standards checklist, severity system, terminal dashboard, and multi-provider adapters.
 
 The console reports the provider CLI version, configured model, and reasoning effort when they can be verified. Token usage is shown in compact form when the provider emits it, while the report artifact preserves exact counts. Remaining account quota is reported as unavailable rather than estimated.
 

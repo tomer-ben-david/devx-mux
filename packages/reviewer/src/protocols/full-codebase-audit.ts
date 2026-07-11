@@ -5,5 +5,11 @@ export const fullCodebaseAuditProtocol: ReviewProtocol = {
   description: "A repository-wide audit of architecture, representative flows, and high-risk implementation areas.",
   instructions: `Independently audit the repository as a whole. Choose the repository tools, architecture-discovery approach, evidence, and investigation strategy you consider appropriate.
 
-Understand the product, important flows, boundaries, invariants, and high-risk areas deeply enough to assess correctness and maintainability. Look for structural simplifications with demonstrated value. Actively try to disprove candidate findings before reporting them, state meaningful gaps in coverage, and give an honest repository-health assessment.`,
+Audit phases:
+1. Infer the product purpose, goals, boundaries, and important user-visible flows.
+2. Map the architecture, ownership, state, external dependencies, and high-risk invariants.
+3. Inspect representative implementations and failure paths deeply enough to test those invariants.
+4. Evaluate every named DevX standard and search for structural simplifications with demonstrated value.
+5. Attempt to disprove every candidate finding with repository evidence.
+6. Report high-confidence findings, meaningful coverage gaps, and an honest repository-health assessment.`,
 };

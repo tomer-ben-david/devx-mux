@@ -142,8 +142,8 @@ export class TerminalReporter {
     this.write(`\n${this.paint("1;36", "Usage")} ${details.join(this.paint("2", " · "))}\n`);
   }
 
-  artifact(path: string): void {
-    this.write(`\n${this.paint("1;36", "Full report")} ${this.paint("2", path)}\n`);
+  artifact(path: string, label = "Full report"): void {
+    this.write(`\n${this.paint("1;36", label)} ${this.paint("2", path)}\n`);
   }
 
   empty(detail: string): void {

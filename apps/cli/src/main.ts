@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { mkdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt, parseReviewReport } from "@devx-crew/reviewer";
 import { TerminalReporter } from "@devx-crew/terminal-ui";
 import { helpText, parseReviewArguments, reviewHelpText } from "./arguments.js";
 import { resolveRepositoryPath } from "./git.js";
+import { reviewArtifactDirectory } from "./artifacts.js";
 
 const STANDARDS_URL = "https://github.com/tomer-ben-david/devx-coding-standards";
 
@@ -99,10 +99,12 @@ async function run(argv: readonly string[]): Promise<number> {
     }
     const report = parseReviewReport(execution.finalText);
 
-    const reportDirectory = path.join(tmpdir(), "devx-crew");
-    await mkdir(reportDirectory, { recursive: true });
+    const reportDirectory = reviewArtifactDirectory();
+    await mkdir(reportDirectory, { recursive: true, mode: 0o700 });
+    await chmod(reportDirectory, 0o700);
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const reportPath = path.join(reportDirectory, `${path.basename(repositoryPath)}-${options.scope.kind}-${timestamp}.md`);
+    const summaryPath = path.join(reportDirectory, `${path.basename(repositoryPath)}-${options.scope.kind}-${timestamp}-summary.md`);
     const exactUsage = execution.usage === undefined ? [] : [
       ...(execution.usage.inputTokens !== undefined ? [`Input tokens: ${execution.usage.inputTokens.toLocaleString()}`] : []),
       ...(execution.usage.cachedInputTokens !== undefined ? [`Cached input tokens: ${execution.usage.cachedInputTokens.toLocaleString()}`] : []),
@@ -111,8 +113,24 @@ async function run(argv: readonly string[]): Promise<number> {
     ];
     const artifactUsage = exactUsage.length > 0 ? `\n\n---\n\n## Provider usage\n\n${exactUsage.map((line) => `- ${line}`).join("\n")}\n` : "\n";
     const artifactProvider = [`Provider: ${providerVersion}`, `Model: ${providerModel}`, ...(providerReasoning !== undefined ? [`Reasoning effort: ${providerReasoning}`] : [])];
-    await writeFile(reportPath, `${report.markdown}\n\n---\n\n## Provider\n\n${artifactProvider.map((line) => `- ${line}`).join("\n")}${artifactUsage}`, "utf8");
+    await writeFile(reportPath, `${report.markdown}\n\n---\n\n## Provider\n\n${artifactProvider.map((line) => `- ${line}`).join("\n")}${artifactUsage}`, { encoding: "utf8", mode: 0o600 });
+    const p1 = report.findings.filter((finding) => finding.severity === "P1").length;
+    const p2 = report.findings.filter((finding) => finding.severity === "P2").length;
+    const p3 = report.findings.filter((finding) => finding.severity === "P3").length;
+    const passed = report.standards.filter((standard) => standard.status === "PASS").length;
+    const failed = report.standards.filter((standard) => standard.status === "FAIL").length;
+    const notApplicable = report.standards.filter((standard) => standard.status === "N/A").length;
+    const verdict = report.findings.length > 0 || failed > 0 ? "CHANGES RECOMMENDED" : "NO ISSUES FOUND";
+    const findingSummary = report.findings.length === 0
+      ? "- No actionable findings."
+      : report.findings.map((finding) => `- **${finding.severity} ${finding.title}** - ${finding.location}`).join("\n");
+    await writeFile(
+      summaryPath,
+      `# DevX Crew review summary\n\n**Execution:** PASS - reviewer finished successfully  \n**Verdict:** ${verdict}  \n**Findings:** ${p1} P1 · ${p2} P2 · ${p3} P3  \n**Standards:** ${passed} PASS · ${failed} FAIL · ${notApplicable} N/A\n\n## Findings\n\n${findingSummary}\n\n## Artifacts\n\n- Full report: ${reportPath}\n`,
+      { encoding: "utf8", mode: 0o600 },
+    );
     reporter.document(report);
+    reporter.artifact(summaryPath, "Summary");
     reporter.artifact(reportPath);
     if (execution.usage !== undefined) {
       reporter.usage([
@@ -123,9 +141,6 @@ async function run(argv: readonly string[]): Promise<number> {
         "quota remaining: unavailable",
       ]);
     }
-    const p1 = report.findings.filter((finding) => finding.severity === "P1").length;
-    const p2 = report.findings.filter((finding) => finding.severity === "P2").length;
-    const p3 = report.findings.filter((finding) => finding.severity === "P3").length;
     reporter.result(`${p1} P1 · ${p2} P2 · ${p3} P3`);
     return 0;
   } catch (error) {
