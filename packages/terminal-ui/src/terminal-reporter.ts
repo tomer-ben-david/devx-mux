@@ -124,12 +124,14 @@ export class TerminalReporter {
     const passed = checklist.filter((entry) => entry.status === "PASS").length;
     const failed = checklist.filter((entry) => entry.status === "FAIL").length;
     const notApplicable = checklist.filter((entry) => entry.status === "N/A").length;
-    const verdict = checklist.length === 0 ? "INCOMPLETE REVIEW" : failed > 0 || findings.length > 0 ? "NEEDS ATTENTION" : "HEALTHY";
+    const verdict = checklist.length === 0 ? "INCOMPLETE" : failed > 0 || findings.length > 0 ? "CHANGES RECOMMENDED" : "NO ISSUES FOUND";
 
     this.write("\n");
-    this.write(`${this.paint(failed > 0 ? "1;33" : "1;32", `╭─ ${verdict} `)}${this.paint("2", "─".repeat(42))}\n`);
-    this.write(`${this.paint("2", "│")} ${this.severity("P1", counts.P1)} ${this.paint("2", "blocker")}   ${this.severity("P2", counts.P2)} ${this.paint("2", "important")}   ${this.severity("P3", counts.P3)} ${this.paint("2", "improvement")}\n`);
-    this.write(`${this.paint("2", "│")} Standards  ${this.paint("32", `${passed} pass`)}  ${this.paint("31", `${failed} fail`)}  ${this.paint("2", `${notApplicable} n/a`)}\n`);
+    this.write(`${this.paint("1;32", "╭─ REVIEW COMPLETED ")}${this.paint("2", "─".repeat(38))}\n`);
+    this.write(`${this.paint("2", "│")} Execution   ${this.paint("1;32", "PASS")}  Reviewer finished successfully\n`);
+    this.write(`${this.paint("2", "│")} Verdict     ${this.paint(failed > 0 ? "1;33" : "1;32", verdict)}  ${findings.length} ${findings.length === 1 ? "issue" : "issues"} found\n`);
+    this.write(`${this.paint("2", "│")} Severity    ${this.severity("P1", counts.P1)} ${this.paint("2", "blocker")}   ${this.severity("P2", counts.P2)} ${this.paint("2", "important")}   ${this.severity("P3", counts.P3)} ${this.paint("2", "improvement")}\n`);
+    this.write(`${this.paint("2", "│")} Standards   ${this.paint("32", `${passed} met`)}  ${this.paint("31", `${failed} violated`)}  ${this.paint("2", `${notApplicable} not applicable`)}\n`);
     this.write(`${this.paint("2", "╰" + "─".repeat(56))}\n`);
 
     if (findings.length > 0) {

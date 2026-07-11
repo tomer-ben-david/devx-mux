@@ -58,6 +58,7 @@ switch (command) {
   case "clean":
     rmSync("apps/cli/dist", { recursive: true, force: true });
     rmSync("packages/reviewer/dist", { recursive: true, force: true });
+    rmSync("packages/terminal-ui/dist", { recursive: true, force: true });
     break;
   case "help":
   case "-h":
@@ -68,4 +69,3 @@ switch (command) {
     process.stderr.write(`Unknown command: ${command}\n\n${HELP}`);
     process.exit(2);
 }
-

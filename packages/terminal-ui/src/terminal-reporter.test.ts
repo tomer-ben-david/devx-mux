@@ -78,8 +78,10 @@ test("renders an interactive review as a scannable dashboard", () => {
 ## Verification gaps
 - Windows was not exercised.`);
 
-  assert.match(rendered, /NEEDS ATTENTION/);
-  assert.match(rendered, /Standards  1 pass  1 fail  1 n\/a/);
+  assert.match(rendered, /REVIEW COMPLETED/);
+  assert.match(rendered, /Execution   PASS  Reviewer finished successfully/);
+  assert.match(rendered, /Verdict     CHANGES RECOMMENDED  1 issue found/);
+  assert.match(rendered, /Standards   1 met  1 violated  1 not applicable/);
   assert.match(rendered, /P2 IMPORTANT  Validate provider output/);
   assert.match(rendered, /PASS  Types/);
   assert.match(rendered, /FAIL  Output contract/);
