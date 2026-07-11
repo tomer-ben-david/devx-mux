@@ -3,11 +3,7 @@ import test from "node:test";
 import { buildReviewPrompt } from "./prompt.js";
 
 const baseRequest = {
-  repositoryPath: "/work/example",
-  repositoryName: "example",
-  head: "abc123",
   standardsReference: "https://example.com/standards",
-  repositoryInstructions: ["/work/example/AGENTS.md"],
 } as const;
 
 test("branch review uses a merge-base diff and introduced-code scope", () => {
@@ -22,8 +18,8 @@ test("branch review uses a merge-base diff and introduced-code scope", () => {
   assert.match(prompt, /# Role: reviewer/);
   assert.match(prompt, /# Persona: exacting-engineer/);
   assert.match(prompt, /# Protocol: deep-code-review/);
-  assert.match(prompt, /actively search for code, tests, types, or repository instructions that disprove it/);
-  assert.match(prompt, /different framing could delete complexity rather than relocate it/);
+  assert.match(prompt, /Actively try to disprove candidate findings/);
+  assert.match(prompt, /simpler designs that remove complexity rather than rearrange it/);
 });
 
 test("commit review identifies the selected commit", () => {
@@ -38,12 +34,11 @@ test("commit review identifies the selected commit", () => {
 test("local review covers staged, unstaged, and untracked changes", () => {
   const prompt = buildReviewPrompt({
     ...baseRequest,
-    repositoryInstructions: [],
     scope: { kind: "local" },
   });
 
   assert.match(prompt, /staged, unstaged, and untracked/);
-  assert.match(prompt, /No repository instruction files were discovered/);
+  assert.match(prompt, /Choose your own read-only repository tools/);
 });
 
 test("codebase review uses the repository-wide audit protocol", () => {

@@ -3,9 +3,7 @@ export interface AgentRole {
   readonly description: string;
   readonly instructions: string;
   readonly capabilities: {
-    readonly readRepository: boolean;
-    readonly inspectGitHistory: boolean;
-    readonly modifyRepository: boolean;
+    readonly readOnly: boolean;
   };
 }
 
@@ -20,4 +18,3 @@ export interface ReviewProtocol {
   readonly description: string;
   readonly instructions: string;
 }
-

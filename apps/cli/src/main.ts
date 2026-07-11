@@ -4,7 +4,7 @@ import path from "node:path";
 import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt } from "@devx-crew/reviewer";
 import { TerminalReporter } from "@devx-crew/terminal-ui";
 import { helpText, parseReviewArguments, reviewHelpText } from "./arguments.js";
-import { discoverRepositoryInstructions, git, inspectLocalChanges, resolveRepositoryPath } from "./git.js";
+import { resolveRepositoryPath } from "./git.js";
 
 const STANDARDS_URL = "https://github.com/tomer-ben-david/devx-coding-standards";
 
@@ -34,34 +34,10 @@ async function run(argv: readonly string[]): Promise<number> {
   reporter.heading("Review", `${scopeLabel} · ${providerLabel}`);
   reporter.success("Repository", path.basename(repositoryPath));
 
-  const changes = await inspectLocalChanges(repositoryPath);
-  if (options.scope.kind === "local") {
-    if (changes.files === 0) {
-      reporter.success("Scope", "Working tree clean");
-      reporter.empty("No staged, unstaged, or untracked changes.");
-      return 0;
-    }
-    const details = [
-      `${changes.files} ${changes.files === 1 ? "file" : "files"}`,
-      changes.staged > 0 ? `${changes.staged} staged` : undefined,
-      changes.modified > 0 ? `${changes.modified} modified` : undefined,
-      changes.untracked > 0 ? `${changes.untracked} untracked` : undefined,
-    ].filter((value): value is string => value !== undefined);
-    reporter.success("Scope", details.join(" · "));
-  } else {
-    if (changes.files > 0) {
-      reporter.failure(`Working tree has ${changes.files} changed ${changes.files === 1 ? "file" : "files"}. Use local scope or a clean worktree.`);
-      return 1;
-    }
-    reporter.success("Scope", scopeLabel);
-  }
+  reporter.success("Scope", scopeLabel);
   const request = {
-    repositoryPath,
-    repositoryName: path.basename(repositoryPath),
-    head: await git(repositoryPath, ["rev-parse", "HEAD"]),
     scope: options.scope,
     standardsReference: process.env.DEVX_STANDARDS_PATH ?? STANDARDS_URL,
-    repositoryInstructions: await discoverRepositoryInstructions(repositoryPath),
   };
   const prompt = buildReviewPrompt(request);
 

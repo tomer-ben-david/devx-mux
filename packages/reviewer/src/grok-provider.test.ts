@@ -7,6 +7,7 @@ test("enables Grok verification without disabling its required subagents", () =>
 
   assert.ok(arguments_.includes("--check"));
   assert.ok(!arguments_.includes("--no-subagents"));
+  assert.ok(!arguments_.includes("--no-plan"));
 });
 
 test("passes the repository and prompt as distinct arguments", () => {

@@ -5,12 +5,8 @@ export type ReviewScope =
   | { readonly kind: "codebase" };
 
 export interface ReviewRequest {
-  readonly repositoryPath: string;
-  readonly repositoryName: string;
-  readonly head: string;
   readonly scope: ReviewScope;
   readonly standardsReference: string;
-  readonly repositoryInstructions: readonly string[];
 }
 
 export interface ReviewProvider {

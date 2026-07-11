@@ -12,7 +12,6 @@ export function grokReviewArguments(prompt: string, repositoryPath: string): str
     "--reasoning-effort",
     "high",
     "--check",
-    "--no-plan",
     "--no-ask-user",
   ];
 }

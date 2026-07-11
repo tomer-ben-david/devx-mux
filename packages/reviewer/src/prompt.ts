@@ -16,8 +16,6 @@ function findingContract(scope: ReviewScope): string {
 - cite the evidence that makes the finding high-confidence;
 - recommend the smallest durable correction.
 
-Do not report generic advice, speculative edge cases, defensive-catch requests, fallback requests without a required degraded mode, style-only nits, or issues that are already caught clearly by routine compiler, formatter, or linter output.
-
 If there are no actionable issues, say "No actionable findings."`;
 }
 
@@ -36,10 +34,6 @@ function scopeInstructions(scope: ReviewScope): string {
 
 export function buildReviewPrompt(request: ReviewRequest): string {
   const protocol = request.scope.kind === "codebase" ? fullCodebaseAuditProtocol : deepCodeReviewProtocol;
-  const instructionFiles = request.repositoryInstructions.length > 0
-    ? request.repositoryInstructions.map((path) => `- ${path}`).join("\n")
-    : "- No repository instruction files were discovered.";
-
   return `# Role: ${reviewerRole.id}
 
 ${reviewerRole.instructions}
@@ -56,23 +50,13 @@ ${protocol.instructions}
 
 ${findingContract(request.scope)}
 
-Repository: ${request.repositoryName}
-Repository path: ${request.repositoryPath}
-HEAD: ${request.head}
-
 ## Scope
 
 ${scopeInstructions(request.scope)}
 
 ${request.scope.kind === "codebase" ? "Existing issues are in scope. State important areas that were not verified." : "Do not report pre-existing issues outside that scope."}
 
-## Required context
-
-Read these repository instructions before reviewing:
-${instructionFiles}
-
-Read the coding standards fully before reviewing:
-- ${request.standardsReference}
+Honor the repository's own guidance and review against the DevX coding standards at ${request.standardsReference}.
 
 Choose your own read-only repository tools and investigation strategy. DevX Crew defines the target and quality bar, not the commands you should run.
 
