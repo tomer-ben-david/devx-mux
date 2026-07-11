@@ -64,7 +64,12 @@ async function run(argv: readonly string[]): Promise<number> {
     const execution = await provider.review(
       prompt,
       repositoryPath,
-      (detail) => reporter.updateActivity("Reviewer", detail),
+      (update) => {
+        reporter.updateActivity("Reviewer", update.status);
+        if (update.kind !== undefined && update.text !== undefined) {
+          reporter.live(update.kind, update.text);
+        }
+      },
     );
     if (execution.exitCode !== 0) {
       reporter.failure(execution.error ?? `${providerLabel} exited with status ${execution.exitCode}`);

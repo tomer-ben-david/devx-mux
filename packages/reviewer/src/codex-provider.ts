@@ -1,5 +1,5 @@
 import { commandVersion, recordValue, runJsonLinesProvider } from "./json-lines-provider.js";
-import type { ReviewExecutionResult, ReviewProvider, ReviewUsage } from "./types.js";
+import type { ReviewExecutionResult, ReviewProgress, ReviewProvider, ReviewUsage } from "./types.js";
 
 export function codexReviewArguments(prompt: string, repositoryPath: string): string[] {
   return [
@@ -26,7 +26,7 @@ export class CodexReviewProvider implements ReviewProvider {
   async review(
     prompt: string,
     repositoryPath: string,
-    onProgress?: (detail: string) => void,
+    onProgress?: (update: ReviewProgress) => void,
   ): Promise<ReviewExecutionResult> {
     let finalText = "";
     let commandCount = 0;
@@ -40,12 +40,22 @@ export class CodexReviewProvider implements ReviewProvider {
         if (source !== "stdout") return;
         const event = recordValue(value);
         const item = recordValue(event?.item);
-        if (event?.type === "thread.started") onProgress?.("Understanding the review target");
+        if (event?.type === "thread.started") onProgress?.({ status: "Understanding the review target" });
         if (item?.type === "command_execution" && event?.type === "item.started") {
           commandCount += 1;
-          onProgress?.(commandCount < 3 ? "Inspecting the repository" : "Checking standards and risks");
+          onProgress?.({
+            status: commandCount < 3 ? "Inspecting the repository" : "Checking standards and risks",
+            kind: "tool",
+            ...(typeof item.command === "string" ? { text: item.command } : {}),
+          });
         }
-        if (item?.type === "agent_message" && typeof item.text === "string") finalText = item.text;
+        if (item?.type === "reasoning" && typeof item.text === "string") {
+          onProgress?.({ status: "Reasoning about the evidence", kind: "reasoning", text: item.text });
+        }
+        if (item?.type === "agent_message" && typeof item.text === "string") {
+          finalText = item.text;
+          onProgress?.({ status: "Writing the review", kind: "message", text: item.text });
+        }
         if (item?.type === "error" && typeof item.message === "string") error = item.message;
         if (event?.type === "turn.completed") {
           const rawUsage = recordValue(event.usage);
@@ -55,7 +65,7 @@ export class CodexReviewProvider implements ReviewProvider {
             ...(typeof rawUsage?.output_tokens === "number" ? { outputTokens: rawUsage.output_tokens } : {}),
             ...(typeof rawUsage?.reasoning_output_tokens === "number" ? { reasoningTokens: rawUsage.reasoning_output_tokens } : {}),
           };
-          onProgress?.("Finalizing the assessment");
+          onProgress?.({ status: "Finalizing the assessment" });
         }
       },
     );

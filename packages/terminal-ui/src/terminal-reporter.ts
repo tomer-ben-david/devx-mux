@@ -18,6 +18,8 @@ export class TerminalReporter {
   private activityTimer: NodeJS.Timeout | undefined;
   private activityLabel: string | undefined;
   private activityDetail: string | undefined;
+  private readonly liveLines: Array<{ kind: "reasoning" | "tool" | "message"; text: string }> = [];
+  private viewportDrawn = false;
 
   constructor(options: TerminalReporterOptions = {}) {
     this.output = options.output ?? process.stdout;
@@ -50,7 +52,7 @@ export class TerminalReporter {
       const symbol = this.paint("36", frames[frame % frames.length] ?? "◆");
       const activeLabel = this.activityLabel ?? label;
       const activeDetail = this.activityDetail ?? detail;
-      this.write(`\r${ESCAPE}2K${symbol} ${this.paint("1", activeLabel.padEnd(12))} ${activeDetail}`);
+      this.redrawActivity(`${symbol} ${this.paint("1", activeLabel.padEnd(12))} ${activeDetail}`);
       frame += 1;
     };
     render();
@@ -65,6 +67,20 @@ export class TerminalReporter {
   updateActivity(label: string, detail: string): void {
     this.activityLabel = label;
     this.activityDetail = detail;
+  }
+
+  live(kind: "reasoning" | "tool" | "message", text: string): void {
+    const clean = text.replace(/\u001B\[[0-?]*[ -\/]*[@-~]/g, "").replace(/[\r\t]+/g, " ");
+    for (const rawLine of clean.split("\n")) {
+      const line = rawLine.trim();
+      if (line.length === 0) continue;
+      this.liveLines.push({ kind, text: line });
+    }
+    if (this.liveLines.length > 10) this.liveLines.splice(0, this.liveLines.length - 10);
+    if (!this.animated) {
+      const latest = this.liveLines.at(-1);
+      if (latest !== undefined) this.writeLiveLine(latest.kind, latest.text);
+    }
   }
 
   document(markdown: string): void {
@@ -124,14 +140,40 @@ export class TerminalReporter {
     }
     clearInterval(this.activityTimer);
     this.activityTimer = undefined;
+    if (this.viewportDrawn) this.write(`\r${ESCAPE}11A`);
     this.write(`\r${ESCAPE}2K`);
     this.row(
       this.paint("32", "✓"),
       this.activityLabel ?? "Reviewer",
       this.activityDetail ?? "Ready",
     );
+    if (this.viewportDrawn) {
+      for (let index = 0; index < 10; index += 1) this.write(`${ESCAPE}2K\n`);
+      this.write(`${ESCAPE}10A`);
+    }
     this.activityLabel = undefined;
     this.activityDetail = undefined;
+    this.viewportDrawn = false;
+  }
+
+  private redrawActivity(activity: string): void {
+    if (this.viewportDrawn) this.write(`\r${ESCAPE}11A`);
+    this.write(`${ESCAPE}2K${activity}\n`);
+    const visible = this.liveLines.slice(-10);
+    for (let index = 0; index < 10; index += 1) {
+      this.write(`${ESCAPE}2K`);
+      const entry = visible[index];
+      if (entry !== undefined) this.writeLiveLine(entry.kind, entry.text, false);
+      this.write("\n");
+    }
+    this.viewportDrawn = true;
+  }
+
+  private writeLiveLine(kind: "reasoning" | "tool" | "message", text: string, newline = true): void {
+    const marker = kind === "tool" ? this.paint("33", "›") : kind === "reasoning" ? this.paint("35", "◆") : this.paint("36", "│");
+    const width = Math.max(24, ((this.output as NodeJS.WriteStream).columns ?? 100) - 4);
+    const clipped = text.length > width ? `${text.slice(0, width - 1)}…` : text;
+    this.write(`${this.paint("2", "│")} ${marker} ${this.paint(kind === "tool" ? "33" : kind === "reasoning" ? "35" : "36", clipped)}${newline ? "\n" : ""}`);
   }
 
   private writeProviderLine(line: string): void {

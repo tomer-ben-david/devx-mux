@@ -15,8 +15,14 @@ export interface ReviewProvider {
   review(
     prompt: string,
     repositoryPath: string,
-    onProgress?: (detail: string) => void,
+    onProgress?: (update: ReviewProgress) => void,
   ): Promise<ReviewExecutionResult>;
+}
+
+export interface ReviewProgress {
+  readonly status: string;
+  readonly kind?: "reasoning" | "tool" | "message";
+  readonly text?: string;
 }
 
 export interface ReviewExecutionResult {

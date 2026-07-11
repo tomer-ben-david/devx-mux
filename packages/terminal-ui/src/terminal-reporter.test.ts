@@ -23,3 +23,19 @@ test("renders stable review progress without color", () => {
   assert.match(rendered, /│ Found one issue/);
   assert.match(rendered, /\| Types \| PASS \| Explicit \|/);
 });
+
+test("renders provider activity without allowing terminal escapes", () => {
+  const output = new PassThrough();
+  let rendered = "";
+  output.on("data", (chunk) => { rendered += chunk.toString(); });
+  const reporter = new TerminalReporter({ output, color: false, animated: false });
+
+  reporter.live("tool", "git status");
+  reporter.live("reasoning", "checking risks\u001B[2J");
+  reporter.live("message", "review ready");
+
+  assert.match(rendered, /│ › git status/);
+  assert.match(rendered, /│ ◆ checking risks/);
+  assert.match(rendered, /│ │ review ready/);
+  assert.doesNotMatch(rendered, /\u001B\[2J/);
+});

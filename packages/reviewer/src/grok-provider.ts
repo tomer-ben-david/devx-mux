@@ -1,5 +1,5 @@
 import { commandVersion, recordValue, runJsonLinesProvider } from "./json-lines-provider.js";
-import type { ReviewExecutionResult, ReviewProvider } from "./types.js";
+import type { ReviewExecutionResult, ReviewProgress, ReviewProvider } from "./types.js";
 
 export function grokReviewArguments(prompt: string, repositoryPath: string): string[] {
   return [
@@ -26,7 +26,7 @@ export class GrokReviewProvider implements ReviewProvider {
   async review(
     prompt: string,
     repositoryPath: string,
-    onProgress?: (detail: string) => void,
+    onProgress?: (update: ReviewProgress) => void,
   ): Promise<ReviewExecutionResult> {
     let finalText = "";
     let thoughtCount = 0;
@@ -38,10 +38,17 @@ export class GrokReviewProvider implements ReviewProvider {
       ({ source, value }) => {
         if (source !== "stdout") return;
         const event = recordValue(value);
-        if (event?.type === "text" && typeof event.data === "string") finalText += event.data;
+        if (event?.type === "text" && typeof event.data === "string") {
+          finalText += event.data;
+          onProgress?.({ status: "Writing the review", kind: "message", text: event.data });
+        }
         if (event?.type === "thought") {
           thoughtCount += 1;
-          onProgress?.(thoughtCount < 3 ? "Inspecting the repository" : "Checking standards and risks");
+          onProgress?.({
+            status: thoughtCount < 3 ? "Inspecting the repository" : "Checking standards and risks",
+            kind: "reasoning",
+            ...(typeof event.data === "string" ? { text: event.data } : {}),
+          });
         }
         if (event?.type === "error" && typeof event.message === "string") error = event.message;
       },
