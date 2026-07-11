@@ -1,6 +1,20 @@
 import { spawn } from "node:child_process";
 import type { ReviewProvider } from "./types.js";
 
+export function grokReviewArguments(prompt: string, repositoryPath: string): string[] {
+  return [
+    "--cwd",
+    repositoryPath,
+    "--single",
+    prompt,
+    "--reasoning-effort",
+    "high",
+    "--check",
+    "--no-plan",
+    "--no-ask-user",
+  ];
+}
+
 export class GrokReviewProvider implements ReviewProvider {
   readonly name = "grok";
 
@@ -8,18 +22,7 @@ export class GrokReviewProvider implements ReviewProvider {
     return new Promise((resolve, reject) => {
       const process = spawn(
         "grok",
-        [
-          "--cwd",
-          repositoryPath,
-          "--single",
-          prompt,
-          "--reasoning-effort",
-          "high",
-          "--check",
-          "--no-plan",
-          "--no-subagents",
-          "--no-ask-user",
-        ],
+        grokReviewArguments(prompt, repositoryPath),
         { stdio: "inherit" },
       );
 
