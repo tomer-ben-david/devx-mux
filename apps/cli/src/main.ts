@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt, parseReviewReport } from "@devx-crew/reviewer";
@@ -17,13 +17,36 @@ function compactNumber(value: number): string {
   return `${Number((value / 1_000_000).toFixed(1))}M`;
 }
 
-async function runBothProviders(commandArguments: readonly string[]): Promise<number> {
+async function runBothProviders(commandArguments: readonly string[], repositoryPath: string, scopeKind: string): Promise<number> {
   const entryPoint = process.argv[1];
   if (entryPoint === undefined) throw new Error("Cannot resolve the DevX Crew entry point.");
   const providerIndex = commandArguments.indexOf("--provider");
   if (providerIndex < 0) throw new Error("Cannot run both reviewers without --provider.");
+  const interactive = process.stdout.isTTY === true;
+  const activity: Record<"codex" | "grok", string> = { codex: "Starting reviewer", grok: "Starting reviewer" };
+  const completed: Record<"codex" | "grok", boolean> = { codex: false, grok: false };
+  let renderTimer: NodeJS.Timeout | undefined;
+  const renderDashboard = (): void => {
+    renderTimer = undefined;
+    const width = Math.max(40, (process.stdout.columns ?? 100) - 14);
+    const row = (provider: "codex" | "grok", color: number): string => {
+      const label = provider === "codex" ? "CODEX" : "GROK ";
+      const icon = completed[provider] ? "✓" : "◆";
+      const detail = activity[provider].replace(/\s+/g, " ").trim().slice(-width);
+      return `\x1b[2K\x1b[${color}m${icon} ${label}\x1b[0m  ${detail}`;
+    };
+    process.stdout.write(`\x1b[2A${row("codex", 36)}\n${row("grok", 35)}\n`);
+  };
+  const updateDashboard = (provider: "codex" | "grok", rawLine: string): void => {
+    const line = rawLine.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, "").trim();
+    if (line.length === 0) return;
+    activity[provider] = line.length < 28
+      ? `${activity[provider]} ${line}`.split(/\s+/).slice(-16).join(" ")
+      : line;
+    if (renderTimer === undefined) renderTimer = setTimeout(renderDashboard, 80);
+  };
 
-  const runProvider = (provider: "codex" | "grok"): Promise<number> => new Promise((resolve, reject) => {
+  const runProvider = (provider: "codex" | "grok"): Promise<{ readonly exitCode: number; readonly output: string }> => new Promise((resolve, reject) => {
     const childArguments = [...commandArguments];
     childArguments[providerIndex + 1] = provider;
     const child = spawn(process.execPath, [entryPoint, "review", ...childArguments], {
@@ -32,17 +55,26 @@ async function runBothProviders(commandArguments: readonly string[]): Promise<nu
       stdio: ["ignore", "pipe", "pipe"],
     });
     const label = provider === "codex" ? "Codex" : "Grok";
+    let capturedOutput = "";
     const forward = (target: NodeJS.WriteStream) => {
       let pending = "";
       return {
         chunk(value: Buffer): void {
-          pending += value.toString("utf8");
+          const text = value.toString("utf8");
+          capturedOutput += text;
+          pending += text;
           const lines = pending.split("\n");
           pending = lines.pop() ?? "";
-          for (const line of lines) target.write(`[${label}] ${line}\n`);
+          for (const line of lines) {
+            if (interactive) updateDashboard(provider, line);
+            else target.write(`[${label}] ${line}\n`);
+          }
         },
         flush(): void {
-          if (pending.length > 0) target.write(`[${label}] ${pending}\n`);
+          if (pending.length > 0) {
+            if (interactive) updateDashboard(provider, pending);
+            else target.write(`[${label}] ${pending}\n`);
+          }
         },
       };
     };
@@ -54,18 +86,42 @@ async function runBothProviders(commandArguments: readonly string[]): Promise<nu
     child.once("close", (code) => {
       stdout.flush();
       stderr.flush();
-      resolve(code ?? 1);
+      completed[provider] = true;
+      activity[provider] = code === 0 ? "Review complete" : `Reviewer failed with exit ${code ?? 1}`;
+      if (interactive) renderDashboard();
+      resolve({ exitCode: code ?? 1, output: capturedOutput });
     });
   });
 
-  process.stdout.write("DevX Crew: starting Codex and Grok in parallel.\n");
-  const [codexExit, grokExit] = await Promise.all([runProvider("codex"), runProvider("grok")]);
-  if (codexExit === 0 && grokExit === 0) {
-    process.stdout.write("DevX Crew: both reviewers completed. Their independent reports are listed above.\n");
+  if (interactive) {
+    process.stdout.write("\x1b[36m◆ CODEX\x1b[0m  Starting reviewer\n\x1b[35m◆ GROK \x1b[0m  Starting reviewer\n");
+  } else {
+    process.stdout.write("DevX Crew: starting Codex and Grok in parallel.\n");
+  }
+  const [codex, grok] = await Promise.all([runProvider("codex"), runProvider("grok")]);
+  if (renderTimer !== undefined) clearTimeout(renderTimer);
+  if (codex.exitCode === 0 && grok.exitCode === 0) {
+    const reportPath = (output: string): string | undefined => output.match(/^Full report (.+)$/m)?.[1]?.trim();
+    const codexReportPath = reportPath(codex.output);
+    const grokReportPath = reportPath(grok.output);
+    if (codexReportPath === undefined || grokReportPath === undefined) {
+      process.stderr.write("DevX Crew: both reviewers finished but an independent report path was missing.\n");
+      return 1;
+    }
+    const [codexMarkdown, grokMarkdown] = await Promise.all([
+      readFile(codexReportPath, "utf8"),
+      readFile(grokReportPath, "utf8"),
+    ]);
+    const directory = reviewArtifactDirectory();
+    await mkdir(directory, { recursive: true, mode: 0o700 });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const combinedPath = path.join(directory, `${path.basename(repositoryPath)}-${scopeKind}-both-${timestamp}.md`);
+    await writeFile(combinedPath, `# DevX Crew parallel review\n\nCodex and Grok reviewed the same scope independently and concurrently. Disagreements are intentionally preserved.\n\n## Codex review\n\n${codexMarkdown}\n\n## Grok review\n\n${grokMarkdown}\n`, { encoding: "utf8", mode: 0o600 });
+    process.stdout.write(`DevX Crew: both reviewers completed.\nFull report ${combinedPath}\n`);
     return 0;
   }
-  process.stderr.write(`DevX Crew: parallel review incomplete (Codex ${codexExit}, Grok ${grokExit}).\n`);
-  return codexExit !== 0 ? codexExit : grokExit;
+  process.stderr.write(`DevX Crew: parallel review incomplete (Codex ${codex.exitCode}, Grok ${grok.exitCode}).\n`);
+  return codex.exitCode !== 0 ? codex.exitCode : grok.exitCode;
 }
 
 async function run(argv: readonly string[]): Promise<number> {
@@ -109,7 +165,7 @@ async function run(argv: readonly string[]): Promise<number> {
   }
 
   if (options.provider === "both") {
-    return runBothProviders(commandArguments);
+    return runBothProviders(commandArguments, repositoryPath, options.scope.kind);
   }
 
   const provider = options.provider === "grok"
