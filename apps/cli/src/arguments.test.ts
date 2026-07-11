@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { parseReviewArguments } from "./arguments.js";
 
-test("defaults to branch review against origin/main", () => {
+test("defaults to branch review without assuming a base branch", () => {
   const result = parseReviewArguments(["--provider", "grok"]);
 
-  assert.deepEqual(result.scope, { kind: "branch", base: "origin/main" });
+  assert.deepEqual(result.scope, { kind: "branch" });
   assert.equal(result.provider, "grok");
   assert.equal(result.dryRun, false);
 });
@@ -59,6 +59,13 @@ test("rejects xhigh reasoning for Grok", () => {
 });
 
 test("parses parallel Codex and Grok review", () => {
-  const result = parseReviewArguments(["codebase", "--provider", "both", "--reasoning", "high"]);
+  const result = parseReviewArguments(["codebase", "--provider", "both", "--codex-reasoning", "xhigh", "--grok-reasoning", "high"]);
   assert.equal(result.provider, "both");
+  assert.equal(result.codexReasoningEffort, "xhigh");
+  assert.equal(result.grokReasoningEffort, "high");
+});
+
+test("supports low reasoning for inexpensive parallel smoke tests", () => {
+  const result = parseReviewArguments(["codebase", "--provider", "both", "--reasoning", "low"]);
+  assert.equal(result.reasoningEffort, "low");
 });

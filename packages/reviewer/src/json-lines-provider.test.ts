@@ -26,3 +26,18 @@ test("fails loudly when structured provider output is malformed", async () => {
     /Fixture emitted malformed structured output/,
   );
 });
+
+test("terminates provider execution when the review is cancelled", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(
+    runJsonLinesProvider(
+      process.execPath,
+      ["-e", "setInterval(() => undefined, 1000)"],
+      "Fixture",
+      () => undefined,
+      controller.signal,
+    ),
+    /terminated by signal/,
+  );
+});

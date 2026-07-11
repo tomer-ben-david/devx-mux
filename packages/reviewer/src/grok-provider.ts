@@ -1,7 +1,7 @@
 import { commandVersion, recordValue, runJsonLinesProvider } from "./json-lines-provider.js";
 import type { ReviewExecutionResult, ReviewProgress, ReviewProvider, ReviewProviderConfiguration } from "./types.js";
 
-export function grokReviewArguments(prompt: string, repositoryPath: string, reasoningEffort: "medium" | "high" = "high"): string[] {
+export function grokReviewArguments(prompt: string, repositoryPath: string, reasoningEffort: "low" | "medium" | "high" = "high"): string[] {
   return [
     "--cwd",
     repositoryPath,
@@ -19,7 +19,7 @@ export function grokReviewArguments(prompt: string, repositoryPath: string, reas
 export class GrokReviewProvider implements ReviewProvider {
   readonly name = "grok";
 
-  constructor(private readonly reasoningEffort: "medium" | "high" = "high") {}
+  constructor(private readonly reasoningEffort: "low" | "medium" | "high" = "high") {}
 
   version(): Promise<string> {
     return commandVersion("grok");
@@ -33,6 +33,7 @@ export class GrokReviewProvider implements ReviewProvider {
     prompt: string,
     repositoryPath: string,
     onProgress?: (update: ReviewProgress) => void,
+    signal?: AbortSignal,
   ): Promise<ReviewExecutionResult> {
     let finalText = "";
     let thoughtCount = 0;
@@ -58,6 +59,7 @@ export class GrokReviewProvider implements ReviewProvider {
         }
         if (event?.type === "error" && typeof event.message === "string") error = event.message;
       },
+      signal,
     );
     return {
       exitCode: execution.exitCode,

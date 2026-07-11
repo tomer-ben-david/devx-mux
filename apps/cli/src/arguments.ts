@@ -5,7 +5,9 @@ export interface ReviewArguments {
   readonly repositoryPath: string;
   readonly scope: ReviewScope;
   readonly provider: "grok" | "codex" | "both";
-  readonly reasoningEffort?: "medium" | "high" | "xhigh";
+  readonly reasoningEffort?: "low" | "medium" | "high" | "xhigh";
+  readonly codexReasoningEffort?: "low" | "medium" | "high" | "xhigh";
+  readonly grokReasoningEffort?: "low" | "medium" | "high";
   readonly dryRun: boolean;
 }
 
@@ -13,6 +15,7 @@ const ROOT_HELP = `DevX Crew
 
 Usage:
   devx review --help
+  devx multireview codebase [options]
   devx review branch --provider PROVIDER [options]
   devx review pr [NUMBER] --provider PROVIDER [options]
   devx review commit [REF] --provider PROVIDER [options]
@@ -28,8 +31,8 @@ export function reviewHelpText(): string {
   return `DevX Crew review
 
 Usage:
-  devx review branch --provider <grok|codex|both> [--base origin/main] [--repo PATH] [--dry-run]
-  devx review pr [NUMBER] --provider <grok|codex|both> [--base origin/main] [--repo PATH] [--dry-run]
+  devx review branch --provider <grok|codex|both> [--base REF] [--repo PATH] [--dry-run]
+  devx review pr [NUMBER] --provider <grok|codex|both> [--base REF] [--repo PATH] [--dry-run]
   devx review commit [REF] --provider <grok|codex|both> [--repo PATH] [--dry-run]
   devx review local --provider <grok|codex|both> [--repo PATH] [--dry-run]
   devx review codebase --provider <grok|codex|both> [--reasoning LEVEL] [--repo PATH] [--dry-run]
@@ -43,8 +46,10 @@ Scopes:
 
 Options:
   --provider NAME  Required review provider. Supported: grok, codex, both.
-  --reasoning LEVEL Override reasoning effort. Codex: medium, high, xhigh. Grok: medium, high.
-  --base REF       Branch comparison base. Default: origin/main.
+  --reasoning LEVEL Override reasoning effort. Codex: low, medium, high, xhigh. Grok: low, medium, high.
+  --codex-reasoning LEVEL Override Codex only. Supported: low, medium, high, xhigh.
+  --grok-reasoning LEVEL  Override Grok only. Supported: low, medium, high.
+  --base REF       Explicit branch comparison base. Without it, the reviewer determines the merge base with Git.
   --repo PATH      Repository to review. Default: current directory.
   --dry-run        Print the composed prompt without invoking the provider.
   -h, --help       Show this help.
@@ -57,10 +62,12 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
     allowPositionals: true,
     strict: true,
     options: {
-      base: { type: "string", default: "origin/main" },
+      base: { type: "string" },
       repo: { type: "string", default: process.cwd() },
       provider: { type: "string" },
       reasoning: { type: "string" },
+      "codex-reasoning": { type: "string" },
+      "grok-reasoning": { type: "string" },
       "dry-run": { type: "boolean", default: false },
     },
   });
@@ -77,14 +84,14 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
       if (number !== undefined && (!Number.isInteger(number) || number <= 0)) {
         throw new Error("Pull-request number must be a positive integer.");
       }
-      scope = { kind: "pr", ...(number !== undefined ? { number } : {}), base: parsed.values.base ?? "origin/main" };
+      scope = { kind: "pr", ...(number !== undefined ? { number } : {}), ...(parsed.values.base === undefined ? {} : { base: parsed.values.base }) };
       break;
     }
     case "branch":
       if (scopeValue !== undefined) {
         throw new Error("Branch scope does not accept a positional reference. Use --base.");
       }
-      scope = { kind: "branch", base: parsed.values.base ?? "origin/main" };
+      scope = { kind: "branch", ...(parsed.values.base === undefined ? {} : { base: parsed.values.base }) };
       break;
     case "commit":
       scope = { kind: "commit", ref: scopeValue ?? "HEAD" };
@@ -112,18 +119,28 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
     throw new Error(`Unsupported provider: ${parsed.values.provider}. Supported providers: grok, codex, both.`);
   }
   const reasoningEffort = parsed.values.reasoning;
-  if (reasoningEffort !== undefined && !["medium", "high", "xhigh"].includes(reasoningEffort)) {
-    throw new Error(`Unsupported reasoning effort: ${reasoningEffort}. Supported: medium, high, xhigh.`);
+  if (reasoningEffort !== undefined && !["low", "medium", "high", "xhigh"].includes(reasoningEffort)) {
+    throw new Error(`Unsupported reasoning effort: ${reasoningEffort}. Supported: low, medium, high, xhigh.`);
   }
   if ((parsed.values.provider === "grok" || parsed.values.provider === "both") && reasoningEffort === "xhigh") {
     throw new Error("Grok does not support xhigh reasoning. Use medium or high when Grok is selected.");
+  }
+  const codexReasoningEffort = parsed.values["codex-reasoning"];
+  if (codexReasoningEffort !== undefined && !["low", "medium", "high", "xhigh"].includes(codexReasoningEffort)) {
+    throw new Error(`Unsupported Codex reasoning effort: ${codexReasoningEffort}. Supported: low, medium, high, xhigh.`);
+  }
+  const grokReasoningEffort = parsed.values["grok-reasoning"];
+  if (grokReasoningEffort !== undefined && !["low", "medium", "high"].includes(grokReasoningEffort)) {
+    throw new Error(`Unsupported Grok reasoning effort: ${grokReasoningEffort}. Supported: low, medium, high.`);
   }
 
   return {
     repositoryPath: parsed.values.repo ?? process.cwd(),
     scope,
     provider: parsed.values.provider,
-    ...(reasoningEffort !== undefined ? { reasoningEffort: reasoningEffort as "medium" | "high" | "xhigh" } : {}),
+    ...(reasoningEffort !== undefined ? { reasoningEffort: reasoningEffort as "low" | "medium" | "high" | "xhigh" } : {}),
+    ...(codexReasoningEffort !== undefined ? { codexReasoningEffort: codexReasoningEffort as "low" | "medium" | "high" | "xhigh" } : {}),
+    ...(grokReasoningEffort !== undefined ? { grokReasoningEffort: grokReasoningEffort as "low" | "medium" | "high" } : {}),
     dryRun: parsed.values["dry-run"] ?? false,
   };
 }

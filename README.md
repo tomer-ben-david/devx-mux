@@ -16,7 +16,7 @@ AI code review is only useful when it is scoped, skeptical, and low-noise. DevX 
 
 ## Install from source
 
-Requires Node.js 22 or newer and at least one supported provider CLI: Grok or Codex.
+Requires Node.js 22 or newer and at least one supported provider CLI: Grok or Codex. Setup installs a repository-local Bun runtime for the OpenTUI dashboard; no global Bun installation is required.
 
 ```bash
 git clone https://github.com/tomer-ben-david/devx-crew.git
@@ -47,6 +47,8 @@ When working directly from the cloned DevX Crew repository, use `./devx.sh` inst
 ./devx.sh review local --provider grok
 ./devx.sh review codebase --provider grok
 ./devx.sh review codebase --provider codex
+./devx.sh multireview codebase --reasoning low
+./devx.sh multireview codebase --codex-reasoning xhigh --grok-reasoning high
 ```
 
 To install the shorter global `devx` command, run `./run.sh link` once.
@@ -64,6 +66,12 @@ devx review codebase --provider grok --reasoning high
 
 # Both reviewers concurrently, with independent reports
 devx review codebase --provider both --reasoning high
+
+# Recommended parallel-review command
+devx multireview codebase --reasoning low
+
+# Both concurrently, with maximum Codex reasoning and high Grok reasoning
+devx multireview codebase --codex-reasoning xhigh --grok-reasoning high
 ```
 
 Replace `codebase` with `pr 123 --base origin/main`, `local`, `branch`, or `commit HEAD` to review a narrower scope. A PR review first reads the PR title and description, then reviews its diff against the stated intent. DevX Crew does not pin either provider's model. It asks the selected CLI to use its configured default model and reports the exact model when the provider exposes it.
@@ -85,7 +93,7 @@ devx review codebase --provider codex --reasoning high
 devx review codebase --provider codex --reasoning xhigh
 ```
 
-Grok supports `medium` and `high`. Without `--reasoning`, each provider keeps its configured default.
+Grok supports `low`, `medium`, and `high`. Codex supports `low`, `medium`, `high`, and `xhigh`. For parallel review, use `--codex-reasoning` and `--grok-reasoning` when the reviewers should use different efforts. Without an override, parallel review defaults both providers to high reasoning while each CLI keeps its default model.
 
 Preview the exact reviewer prompt without invoking a model:
 
@@ -104,7 +112,7 @@ devx review branch --provider grok --base origin/main --repo /path/to/repository
 | Scope | Reviewed changes |
 | --- | --- |
 | `pr [number]` | PR metadata and stated intent first, then the branch diff from its base to `HEAD` |
-| `branch` | Merge-base diff from the base branch to `HEAD` |
+| `branch` | Merge-base diff determined from Git; no default branch name is assumed. Use `--base` to override explicitly. |
 | `commit [ref]` | The selected commit, defaulting to `HEAD` |
 | `local` | Staged, unstaged, and untracked working-tree changes |
 | `codebase` | Repository-wide architecture and implementation audit of the current checkout |
@@ -113,19 +121,19 @@ Review execution is read-only. The reviewer is instructed not to edit files, and
 
 ### Review output
 
-Every provider returns the same review structure:
+Every provider receives the same scope and quality bar, then owns its response format. DevX preserves that output verbatim. Reviews are asked to cover:
 
-- A standards checklist table with PASS, FAIL, or N/A for every applicable item
+- Every DevX coding standard individually, with PASS, FAIL, or N/A and brief evidence
 - P1, P2, and P3 findings with evidence and durable corrections
 - Decisions that went well
 - Verification gaps
 - A Markdown-friendly summary with finding counts and the final verdict
 
-In a terminal, DevX Crew shows a colored, fixed-height live viewport for provider messages, reasoning, and tool activity. The completed review becomes a compact dashboard with verdict, findings, every standards result, verification gaps, and usage. Raw prompts and protocol noise remain hidden.
+In a terminal, DevX Crew uses a responsive OpenTUI dashboard for provider messages, reasoning, tool activity, elapsed time, and independent reviewer state. Parallel reviews give Codex and Grok equal color-coded panels and run them directly in the same DevX process. The completed review becomes a compact dashboard with verdict, findings, every standards result, verification gaps, and usage. Raw prompts and protocol noise remain hidden.
 
 When output is piped or captured by an AI agent, DevX Crew emits clean Markdown without cursor animation. Every successful run saves both a concise handoff summary and the complete PASS/FAIL/N/A report in a private per-user temporary directory, then prints both paths. Unix-like systems use `/tmp/devx-crew-<uid>/`; Windows uses the native temporary directory.
 
-The artifact-first review handoff and strict read-only reviewer separation are inspired by the strongest workflow ideas in Grok's `/review`. DevX Crew implements its own provider-neutral persona, validated report model, exhaustive DevX standards checklist, severity system, terminal dashboard, and multi-provider adapters.
+The artifact-first review handoff and strict read-only reviewer separation are inspired by the strongest workflow ideas in Grok's `/review`. The retained terminal UI learns from the MIT-licensed [superagent-ai/grok-cli](https://github.com/superagent-ai/grok-cli), while semantic event handling and provider-state clarity also learn from the Apache-2.0 [OpenAI Codex CLI](https://github.com/openai/codex). DevX Crew implements its own provider-neutral persona, review guidance, dashboard, and multi-provider orchestration without parsing or rewriting provider responses.
 
 The console reports the provider CLI version, configured model, and reasoning effort when they can be verified. Token usage is shown in compact form when the provider emits it, while the report artifact preserves exact counts. Remaining account quota is reported as unavailable rather than estimated.
 

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { commandVersion, recordValue, runJsonLinesProvider } from "./json-lines-provider.js";
 import type { ReviewExecutionResult, ReviewProgress, ReviewProvider, ReviewProviderConfiguration, ReviewUsage } from "./types.js";
 
-export function codexReviewArguments(prompt: string, repositoryPath: string, reasoningEffort?: "medium" | "high" | "xhigh"): string[] {
+export function codexReviewArguments(prompt: string, repositoryPath: string, reasoningEffort?: "low" | "medium" | "high" | "xhigh"): string[] {
   return [
     "exec",
     "--json",
@@ -23,7 +23,7 @@ export function codexReviewArguments(prompt: string, repositoryPath: string, rea
 export class CodexReviewProvider implements ReviewProvider {
   readonly name = "codex";
 
-  constructor(private readonly reasoningEffort?: "medium" | "high" | "xhigh") {}
+  constructor(private readonly reasoningEffort?: "low" | "medium" | "high" | "xhigh") {}
 
   version(): Promise<string> {
     return commandVersion("codex");
@@ -51,6 +51,7 @@ export class CodexReviewProvider implements ReviewProvider {
     prompt: string,
     repositoryPath: string,
     onProgress?: (update: ReviewProgress) => void,
+    signal?: AbortSignal,
   ): Promise<ReviewExecutionResult> {
     let finalText = "";
     let commandCount = 0;
@@ -92,6 +93,7 @@ export class CodexReviewProvider implements ReviewProvider {
           onProgress?.({ status: "Finalizing the assessment" });
         }
       },
+      signal,
     );
     return {
       exitCode: execution.exitCode,

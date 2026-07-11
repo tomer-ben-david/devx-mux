@@ -1,6 +1,6 @@
 export type ReviewScope =
-  | { readonly kind: "pr"; readonly number?: number; readonly base: string }
-  | { readonly kind: "branch"; readonly base: string }
+  | { readonly kind: "pr"; readonly number?: number; readonly base?: string }
+  | { readonly kind: "branch"; readonly base?: string }
   | { readonly kind: "commit"; readonly ref: string }
   | { readonly kind: "local" }
   | { readonly kind: "codebase" };
@@ -18,6 +18,7 @@ export interface ReviewProvider {
     prompt: string,
     repositoryPath: string,
     onProgress?: (update: ReviewProgress) => void,
+    signal?: AbortSignal,
   ): Promise<ReviewExecutionResult>;
 }
 

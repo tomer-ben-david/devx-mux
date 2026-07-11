@@ -5,7 +5,5 @@ export { exactingEngineerPersona } from "./personas/exacting-engineer.js";
 export { deepCodeReviewProtocol } from "./protocols/deep-code-review.js";
 export { fullCodebaseAuditProtocol } from "./protocols/full-codebase-audit.js";
 export { buildReviewPrompt } from "./prompt.js";
-export { parseReviewReport } from "./review-report.js";
-export type { ReviewFinding, ReviewReport, ReviewStandardResult, ReviewStandardStatus } from "./review-report.js";
 export { reviewerRole } from "./roles/reviewer.js";
-export type { ReviewExecutionResult, ReviewProvider, ReviewRequest, ReviewScope, ReviewUsage } from "./types.js";
+export type { ReviewExecutionResult, ReviewProgress, ReviewProvider, ReviewRequest, ReviewScope, ReviewUsage } from "./types.js";

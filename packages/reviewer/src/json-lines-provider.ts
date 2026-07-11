@@ -23,12 +23,26 @@ export function runJsonLinesProvider(
   arguments_: readonly string[],
   providerName: string,
   onJsonLine: (line: JsonLine) => void,
+  signal?: AbortSignal,
 ): Promise<JsonLinesExecution> {
   return new Promise((resolve, reject) => {
-    const childProcess = spawn(command, arguments_, { stdio: ["ignore", "pipe", "pipe"] });
+    const detached = process.platform !== "win32";
+    const childProcess = spawn(command, arguments_, { stdio: ["ignore", "pipe", "pipe"], detached });
     let stdoutBuffer = "";
     let stderrText = "";
     let structuredOutputError: Error | undefined;
+    const terminate = (): void => {
+      if (childProcess.pid === undefined) return;
+      try {
+        if (detached) process.kill(-childProcess.pid, "SIGTERM");
+        else childProcess.kill("SIGTERM");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+      }
+    };
+    const abort = (): void => terminate();
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted === true) terminate();
 
     const consumeLine = (line: string) => {
       if (line.trim().length === 0) return;
@@ -46,20 +60,21 @@ export function runJsonLinesProvider(
         for (const line of lines) consumeLine(line);
       } catch (error) {
         structuredOutputError = error instanceof Error ? error : new Error(String(error));
-        childProcess.kill();
+        terminate();
       }
     };
 
     childProcess.stdout.on("data", consumeStdout);
     childProcess.stderr.on("data", (chunk: Buffer) => { stderrText += chunk.toString("utf8"); });
     childProcess.on("error", reject);
-    childProcess.on("close", (code, signal) => {
+    childProcess.on("close", (code, terminationSignal) => {
+      signal?.removeEventListener("abort", abort);
       if (structuredOutputError !== undefined) {
         reject(structuredOutputError);
         return;
       }
-      if (signal !== null) {
-        reject(new Error(`${providerName} review terminated by signal ${signal}`));
+      if (terminationSignal !== null) {
+        reject(new Error(`${providerName} review terminated by signal ${terminationSignal}`));
         return;
       }
       try {
