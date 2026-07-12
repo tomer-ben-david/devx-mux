@@ -15,10 +15,6 @@ if (!existsSync("node_modules")) {
 run("npm", ["run", "build"]);
 
 const arguments_ = process.argv.slice(2);
-const command = arguments_[0];
-const hasExplicitRepository = arguments_.some((argument) => argument === "--repo" || argument.startsWith("--repo="));
-const reviewArguments = (command === "review" || command === "multireview") && !hasExplicitRepository
-  ? [...arguments_, "--repo", callerDirectory]
-  : arguments_;
+process.chdir(callerDirectory);
 
-run(process.execPath, ["apps/cli/dist/main.js", ...reviewArguments]);
+run(process.execPath, [path.join(repositoryRoot, "apps", "cli", "dist", "main.js"), ...arguments_]);
