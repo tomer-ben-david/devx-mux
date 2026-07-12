@@ -35,6 +35,7 @@ async function runBothProviders(
   scopeLabel: string,
   codexReasoning: "low" | "medium" | "high" | "xhigh",
   grokReasoning: "low" | "medium" | "high",
+  interactive: boolean,
 ): Promise<number> {
   const providers = {
     codex: new CodexReviewProvider(codexReasoning),
@@ -49,7 +50,7 @@ async function runBothProviders(
     if (!controller.signal.aborted) controller.abort();
   };
   process.on("SIGINT", cancel);
-  const dashboard = process.stdout.isTTY === true
+  const dashboard = interactive
     ? await createParallelReviewDashboard(path.basename(repositoryPath), scopeLabel, cancel)
     : undefined;
   const lastHeadlessStatus: Partial<Record<ReviewPanelId, string>> = {};
@@ -93,8 +94,12 @@ async function runBothProviders(
   const codex = settled[0].status === "fulfilled" ? settled[0].value : undefined;
   const grok = settled[1].status === "fulfilled" ? settled[1].value : undefined;
   if (codex === undefined || grok === undefined) return 1;
-  const combinedPath = await persistCombinedReview(repositoryPath, scopeKind, codex.reportPath, grok.reportPath, codex.markdown, grok.markdown);
-  process.stdout.write(`\n✓ Both reviewers completed\nCodex report ${codex.reportPath}\nGrok report ${grok.reportPath}\nFull report ${combinedPath}\n`);
+  const combined = await persistCombinedReview(repositoryPath, scopeKind, codex.reportPath, grok.reportPath, codex.markdown, grok.markdown);
+  if (interactive) {
+    process.stdout.write(`\n✓ Both reviewers completed\nCodex report ${codex.reportPath}\nGrok report ${grok.reportPath}\nFull report ${combined.path}\n`);
+  } else {
+    process.stdout.write(`${combined.markdown}\n`);
+  }
   return 0;
 }
 
@@ -119,7 +124,14 @@ async function run(argv: readonly string[]): Promise<number> {
     : rawCommandArguments;
 
   const options = parseReviewArguments(commandArguments);
-  const reporter = new TerminalReporter();
+  const interactive = options.outputFormat === "tui"
+    || (options.outputFormat === "auto" && process.stdout.isTTY === true);
+  if (options.outputFormat === "tui" && process.stdout.isTTY !== true) {
+    throw new Error("--format tui requires an interactive terminal.");
+  }
+  const reporter = interactive
+    ? new TerminalReporter()
+    : new TerminalReporter({ output: process.stderr, color: false, animated: false });
   const repositoryPath = await resolveRepositoryPath(options.repositoryPath);
   const scopeLabel = options.scope.kind === "local"
     ? "Local changes"
@@ -153,6 +165,7 @@ async function run(argv: readonly string[]): Promise<number> {
       scopeLabel,
       options.codexReasoningEffort ?? sharedReasoning,
       options.grokReasoningEffort ?? sharedReasoning,
+      interactive,
     );
   }
 
@@ -200,9 +213,14 @@ async function run(argv: readonly string[]): Promise<number> {
       return 1;
     }
     const reportPath = await persistRawReview(repositoryPath, options.scope.kind, providerLabel, execution.finalText);
-    reporter.providerChunk(`${execution.finalText}\n`);
-    reporter.flushProvider();
-    reporter.artifact(reportPath);
+    if (interactive) {
+      reporter.providerChunk(`${execution.finalText}\n`);
+      reporter.flushProvider();
+      reporter.artifact(reportPath);
+    } else {
+      process.stdout.write(`${execution.finalText}\n`);
+      process.stderr.write(`Full report ${reportPath}\n`);
+    }
     if (execution.usage !== undefined) {
       reporter.usage([
         ...(execution.usage.inputTokens !== undefined ? [`${compactNumber(execution.usage.inputTokens)} in`] : []),
@@ -212,7 +230,7 @@ async function run(argv: readonly string[]): Promise<number> {
         "quota remaining: unavailable",
       ]);
     }
-    reporter.result("provider output saved");
+    if (interactive) reporter.result("provider output saved");
     return 0;
   } catch (error) {
     reporter.failure(error instanceof Error ? error.message : String(error));
@@ -223,7 +241,11 @@ async function run(argv: readonly string[]): Promise<number> {
 function runWithManagedBun(argv: readonly string[]): number | undefined {
   const providerIndex = argv.indexOf("--provider");
   const parallel = argv[0] === "multireview" || argv[providerIndex + 1] === "both";
-  if (process.stdout.isTTY !== true || !parallel || "Bun" in globalThis) return undefined;
+  const formatArgument = argv.find((argument) => argument.startsWith("--format="));
+  const formatIndex = argv.indexOf("--format");
+  const format = formatArgument?.slice("--format=".length) ?? (formatIndex >= 0 ? argv[formatIndex + 1] : undefined);
+  const wantsDashboard = format === "tui" || (format !== "markdown" && process.stdout.isTTY === true);
+  if (!wantsDashboard || !parallel || "Bun" in globalThis) return undefined;
   const directory = path.dirname(fileURLToPath(import.meta.url));
   const binary = process.platform === "win32" ? "bun.exe" : "bun";
   const bun = [

@@ -25,10 +25,11 @@ export async function persistCombinedReview(
   grokReportPath: string,
   codexMarkdown: string,
   grokMarkdown: string,
-): Promise<string> {
+): Promise<{ readonly path: string; readonly markdown: string }> {
   const directory = reviewArtifactDirectory();
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const combinedPath = path.join(directory, `${path.basename(repositoryPath)}-${scopeKind}-both-${timestamp}.md`);
-  await writeFile(combinedPath, `# DevX Crew multireview\n\nCodex and Grok reviewed the same scope independently and concurrently. Their output is preserved verbatim.\n\n- Codex report: ${codexReportPath}\n- Grok report: ${grokReportPath}\n\n## Codex\n\n${codexMarkdown}\n\n## Grok\n\n${grokMarkdown}\n`, { encoding: "utf8", mode: 0o600 });
-  return combinedPath;
+  const markdown = `# DevX Crew multireview\n\nCodex and Grok reviewed the same scope independently and concurrently. Their output is preserved verbatim.\n\n## Codex\n\n${codexMarkdown}\n\n## Grok\n\n${grokMarkdown}\n\n## Artifacts\n\n- Codex: ${codexReportPath}\n- Grok: ${grokReportPath}\n- Combined: ${combinedPath}\n`;
+  await writeFile(combinedPath, markdown, { encoding: "utf8", mode: 0o600 });
+  return { path: combinedPath, markdown };
 }

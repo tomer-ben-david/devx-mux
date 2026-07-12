@@ -87,12 +87,16 @@ export async function createParallelReviewDashboard(repository: string, scope: s
       const statusColor = value.status === "complete" ? "#22c55e" : value.status === "failed" ? "#ef4444" : value.color;
       const eventColor = (kind: ReviewPanelEvent["kind"]): string => kind === "tool" ? "#e5c07b" : kind === "reasoning" ? "#b98cff" : "#66d9c2";
       const eventLabel = (kind: ReviewPanelEvent["kind"]): string => kind === "tool" ? "TOOL" : kind === "reasoning" ? "THINK" : "NOTE";
+      const toolCount = value.events.filter((event) => event.kind === "tool").length;
+      const thoughtCount = value.events.filter((event) => event.kind === "reasoning").length;
+      const noteCount = value.events.filter((event) => event.kind === "message").length;
       return React.createElement(
         "box",
         { flexGrow: 1, minWidth: 0, flexDirection: "column", border: true, borderStyle: "rounded", borderColor: value.color, paddingLeft: 2, paddingRight: 2, paddingTop: 1, paddingBottom: 1 },
         React.createElement("text", { fg: statusColor }, React.createElement("b", null, `${icon} ${value.label}`)),
         React.createElement("text", { fg: "#e0e0e0" }, value.activity),
         React.createElement("text", { fg: "#777777" }, value.detail),
+        React.createElement("text", { fg: "#555555" }, `${toolCount} tools  ·  ${thoughtCount} thoughts  ·  ${noteCount} notes`),
         React.createElement("box", { height: 1 }),
         React.createElement(
           "scrollbox",

@@ -72,6 +72,9 @@ devx multireview codebase --reasoning low
 
 # Both concurrently, with maximum Codex reasoning and high Grok reasoning
 devx multireview codebase --codex-reasoning xhigh --grok-reasoning high
+
+# Force clean Markdown even when launched from an interactive shell
+devx multireview codebase --format markdown
 ```
 
 Replace `codebase` with `pr 123 --base origin/main`, `local`, `branch`, or `commit HEAD` to review a narrower scope. A PR review first reads the PR title and description, then reviews its diff against the stated intent. DevX Crew does not pin either provider's model. It asks the selected CLI to use its configured default model and reports the exact model when the provider exposes it.
@@ -129,9 +132,11 @@ Every provider receives the same scope and quality bar, then owns its response f
 - Verification gaps
 - A Markdown-friendly summary with finding counts and the final verdict
 
-In a terminal, DevX Crew uses a responsive OpenTUI dashboard for provider messages, reasoning, tool activity, elapsed time, and independent reviewer state. Parallel reviews give Codex and Grok equal color-coded panels and run them directly in the same DevX process. The completed review becomes a compact dashboard with verdict, findings, every standards result, verification gaps, and usage. Raw prompts and protocol noise remain hidden.
+In an interactive terminal, DevX Crew uses a responsive OpenTUI dashboard for concise investigation notes, tool activity, elapsed time, activity counts, and independent reviewer state. Parallel reviews give Codex and Grok equal color-coded panels and run them directly in the same DevX process. Final review Markdown does not flood the activity panes. It is preserved verbatim in the provider and combined report artifacts.
 
-When output is piped or captured by an AI agent, DevX Crew emits clean Markdown without cursor animation. Every successful run saves both a concise handoff summary and the complete PASS/FAIL/N/A report in a private per-user temporary directory, then prints both paths. Unix-like systems use `/tmp/devx-crew-<uid>/`; Windows uses the native temporary directory.
+When output is piped or captured by an AI agent, DevX Crew emits the complete provider-owned Markdown to stdout without cursor animation. Status and artifact paths go to stderr, so stdout is safe to render, capture, or relay. Every successful run also saves the complete reports in a private per-user temporary directory. Unix-like systems use `/tmp/devx-crew-<uid>/`; Windows uses the native temporary directory.
+
+Output defaults to `auto`: TUI for an interactive terminal and Markdown otherwise. Override detection with `--format tui` or `--format markdown`. This supports direct shell use as well as calls from Codex, Claude, scripts, and other agents without maintaining separate commands.
 
 The artifact-first review handoff and strict read-only reviewer separation are inspired by the strongest workflow ideas in Grok's `/review`. The retained terminal UI learns from the MIT-licensed [superagent-ai/grok-cli](https://github.com/superagent-ai/grok-cli), while semantic event handling and provider-state clarity also learn from the Apache-2.0 [OpenAI Codex CLI](https://github.com/openai/codex). DevX Crew implements its own provider-neutral persona, review guidance, dashboard, and multi-provider orchestration without parsing or rewriting provider responses.
 
@@ -163,7 +168,7 @@ devx review codebase --provider grok
 
 Agents must not substitute one scope for another: `local` includes working-tree changes, `commit` reviews one commit, and `branch` reviews the cumulative branch diff. Use `--dry-run` when the task is to inspect the generated review instructions without invoking a provider.
 
-Because agent-captured stdout is non-interactive, the final response is already Markdown suitable for parsing or relaying. The same report is persisted to the temporary artifact path printed after the review.
+Because agent-captured stdout is non-interactive, the final response is already Markdown suitable for rendering or relaying. DevX does not parse or rewrite it. The same report is persisted to the temporary artifact path printed on stderr. Agents can pass `--format markdown` explicitly when their terminal wrapper allocates a pseudo-TTY.
 
 ## Architecture
 

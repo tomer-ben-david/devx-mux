@@ -6,6 +6,7 @@ test("defaults to branch review without assuming a base branch", () => {
   const result = parseReviewArguments(["--provider", "grok"]);
 
   assert.deepEqual(result.scope, { kind: "branch" });
+  assert.equal(result.outputFormat, "auto");
   assert.equal(result.provider, "grok");
   assert.equal(result.dryRun, false);
 });
@@ -68,4 +69,9 @@ test("parses parallel Codex and Grok review", () => {
 test("supports low reasoning for inexpensive parallel smoke tests", () => {
   const result = parseReviewArguments(["codebase", "--provider", "both", "--reasoning", "low"]);
   assert.equal(result.reasoningEffort, "low");
+});
+
+test("supports clean Markdown output for agent callers", () => {
+  const result = parseReviewArguments(["codebase", "--provider", "both", "--format", "markdown"]);
+  assert.equal(result.outputFormat, "markdown");
 });

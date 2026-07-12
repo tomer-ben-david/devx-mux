@@ -47,7 +47,7 @@ export class GrokReviewProvider implements ReviewProvider {
         const event = recordValue(value);
         if (event?.type === "text" && typeof event.data === "string") {
           finalText += event.data;
-          onProgress?.({ status: "Writing the review", kind: "message", text: event.data });
+          onProgress?.({ status: "Writing the final review" });
         }
         if (event?.type === "thought") {
           thoughtCount += 1;
