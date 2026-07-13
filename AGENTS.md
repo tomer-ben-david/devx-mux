@@ -1,4 +1,4 @@
-# DevX Crew agent instructions
+# DevX Mux agent instructions
 
 - Read `README.md` before making changes.
 - Follow https://github.com/tomer-ben-david/devx-coding-standards.

@@ -1,11 +1,11 @@
 {
-  "name": "@devx-crew/cli",
+  "name": "@devx-mux/cli",
   "version": "0.1.0",
-  "description": "DevX Crew command-line interface",
+  "description": "DevX Mux command-line interface",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "devx": "dist/main.js"
+    "mux": "dist/main.js"
   },
   "files": [
     "dist"
@@ -16,8 +16,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@devx-crew/reviewer": "0.1.0",
-    "@devx-crew/terminal-ui": "0.1.0",
+    "@devx-mux/reviewer": "0.1.0",
+    "@devx-mux/terminal-ui": "0.1.0",
     "bun": "^1.3.14"
   },
   "devDependencies": {

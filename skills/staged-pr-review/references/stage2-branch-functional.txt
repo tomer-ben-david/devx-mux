@@ -1,0 +1,14 @@
+REQUEST_ID={{REQUEST_ID}}
+
+Read-only. Reply in chat only.
+
+PR: {{PR_URL}}
+Compare: {{COMPARE_URL}}
+Branch: {{BRANCH}} @ {{HEAD}}
+Base: {{BASE}}
+
+Use the pushed GitHub source. Review the complete branch-introduced diff from its merge base for functional correctness and regressions. Do not review pre-existing base-branch issues.
+
+Return:
+1. Findings with P1/P2/P3, file, and line, or none
+2. Merge confidence: yes / medium / no

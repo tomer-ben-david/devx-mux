@@ -1,0 +1,14 @@
+REQUEST_ID={{REQUEST_ID}}
+
+Read-only. No repository mutations. Reply in chat only.
+
+PR: {{PR_URL}}
+Compare: {{COMPARE_URL}}
+Branch: {{BRANCH}} @ {{HEAD}}
+Base: {{BASE}}
+
+Review only the branch-introduced diff for clarity, readability, structural quality, and the public DevX coding standards at https://github.com/tomer-ben-david/devx-coding-standards.
+
+{{DEVX_STANDARDS_READ_CLAUSE}}
+
+Do not perform the functional bug review owned by stages 1 and 2. Report actionable standards findings with severity, file, and line. If none, say "No actionable findings." Include merge confidence: yes / no.

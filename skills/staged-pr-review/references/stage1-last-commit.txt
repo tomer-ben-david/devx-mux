@@ -1,0 +1,12 @@
+REQUEST_ID={{REQUEST_ID}}
+
+Read-only. Reply in chat only.
+
+PR: {{PR_URL}}
+Commit: {{HEAD}} - {{COMMIT_SUBJECT}}
+
+Use the pushed GitHub source. Review only the latest commit for functional correctness, regressions, and whether the change structurally serves the PR's Goals and Non-goals.
+
+Return:
+1. Findings with P1/P2/P3, file, and line, or none
+2. Merge confidence: yes / medium / no

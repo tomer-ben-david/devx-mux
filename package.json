@@ -1,8 +1,8 @@
 {
-  "name": "devx-crew",
+  "name": "devx-mux",
   "private": true,
   "version": "0.1.0",
-  "description": "Your engineering crew for AI-written code.",
+  "description": "Multiplex independent AI implementation and review workflows.",
   "license": "MIT",
   "type": "module",
   "workspaces": [
@@ -11,9 +11,10 @@
   ],
   "scripts": {
     "build": "tsc -b packages/terminal-ui packages/reviewer apps/cli",
-    "crew": "node scripts/run.ts",
-    "devx": "node scripts/devx.ts",
-    "test": "npm run test --workspaces --if-present",
+    "mux": "node scripts/mux.ts",
+    "cli": "node scripts/cli.ts",
+    "test": "npm run test --workspaces --if-present && npm run test:skills",
+    "test:skills": "node --test --import=tsx 'skills/**/*.test.ts'",
     "typecheck": "tsc -b packages/terminal-ui packages/reviewer apps/cli && tsc -p tsconfig.scripts.json --noEmit"
   },
   "devDependencies": {

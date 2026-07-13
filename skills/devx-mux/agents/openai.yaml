@@ -1,0 +1,4 @@
+interface:
+  display_name: "DevX Mux"
+  short_description: "Orchestrate implementation and review across muxes"
+  default_prompt: "Use $devx-mux to coordinate an implementor and independent reviewers across cmux or RexIDE."

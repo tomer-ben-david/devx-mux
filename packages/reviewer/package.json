@@ -1,7 +1,7 @@
 {
-  "name": "@devx-crew/reviewer",
+  "name": "@devx-mux/reviewer",
   "version": "0.1.0",
-  "description": "Review engine for DevX Crew",
+  "description": "Review engine for DevX Mux",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",

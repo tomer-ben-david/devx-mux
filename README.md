@@ -1,12 +1,12 @@
-# DevX Crew
+# DevX Mux
 
-Your engineering crew for AI-written code.
+Multiplex independent AI implementation and review workflows.
 
-DevX Crew is an open-source toolkit for reviewing, validating, and shipping software with AI coding agents. Its first tool is `devx review`, an opinionated, evidence-driven code reviewer built around the [DevX coding standards](https://github.com/tomer-ben-david/devx-coding-standards).
+DevX Mux is an open-source toolkit for reviewing, validating, and shipping software with AI coding agents. Its first tool is `mux review`, an opinionated, evidence-driven code reviewer built around the [DevX coding standards](https://github.com/tomer-ben-david/devx-coding-standards).
 
 ## Why
 
-AI code review is only useful when it is scoped, skeptical, and low-noise. DevX Crew gives the reviewer a stable contract independent of the underlying model:
+AI code review is only useful when it is scoped, skeptical, and low-noise. DevX Mux gives the reviewer a stable contract independent of the underlying model:
 
 - Review only changes introduced by the selected diff.
 - Prefer structural, root-cause findings over patches and defensive clutter.
@@ -19,9 +19,10 @@ AI code review is only useful when it is scoped, skeptical, and low-noise. DevX 
 Requires Node.js 22 or newer and at least one supported provider CLI: Grok or Codex. Setup installs a repository-local Bun runtime for the OpenTUI dashboard; no global Bun installation is required.
 
 ```bash
-git clone https://github.com/tomer-ben-david/devx-crew.git
-cd devx-crew
-./run.sh setup
+git clone https://github.com/tomer-ben-david/devx-mux.git
+cd devx-mux
+./mux.sh setup
+./mux.sh link-agent-files
 ```
 
 ## Usage
@@ -29,29 +30,53 @@ cd devx-crew
 Run inside any Git repository:
 
 ```bash
-devx review branch --provider grok
-devx review pr 123 --provider grok --base origin/main
-devx review commit HEAD --provider grok
-devx review local --provider grok
-devx review codebase --provider grok
-devx review codebase --provider codex
-devx review codebase --provider codex --reasoning xhigh
+mux review branch --provider grok
+mux review pr 123 --provider grok --base origin/main
+mux review commit HEAD --provider grok
+mux review local --provider grok
+mux review codebase --provider grok
+mux review codebase --provider codex
+mux review codebase --provider codex --reasoning xhigh
 ```
 
-When working directly from the cloned DevX Crew repository, use `./devx.sh` instead:
+When working directly from the cloned DevX Mux repository, use `./mux.sh` instead:
 
 ```bash
-./devx.sh review branch --provider grok
-./devx.sh review pr 123 --provider grok --base origin/main
-./devx.sh review commit HEAD --provider grok
-./devx.sh review local --provider grok
-./devx.sh review codebase --provider grok
-./devx.sh review codebase --provider codex
-./devx.sh multireview codebase --reasoning low
-./devx.sh multireview codebase --codex-reasoning xhigh --grok-reasoning high
+./mux.sh review branch --provider grok
+./mux.sh review pr 123 --provider grok --base origin/main
+./mux.sh review commit HEAD --provider grok
+./mux.sh review local --provider grok
+./mux.sh review codebase --provider grok
+./mux.sh review codebase --provider codex
+./mux.sh multireview codebase --reasoning low
+./mux.sh multireview codebase --codex-reasoning xhigh --grok-reasoning high
 ```
 
-To install the shorter global `devx` command, run `./run.sh link` once.
+To install the global `mux` command, run `./mux.sh link` once.
+
+### Public agent skills
+
+DevX Mux is also the canonical public home for reusable agent workflows:
+
+| Skill | Responsibility |
+| --- | --- |
+| `devx-mux` | Discover implementor and reviewer panels, then coordinate independent Codex, Grok, and optional ChatGPT review loops across cmux or RexIDE |
+| `pr-title-description` | Draft reviewer-neutral PR titles and descriptions with explicit Goals and Non-goals |
+| `staged-pr-review` | Run commit, branch, standards, and final full-PR review gates sequentially |
+
+Install links for Codex, Claude, and shared agent discovery:
+
+```bash
+./mux.sh link-agent-files
+```
+
+The installer refreshes symlinks it owns after the checkout moves, but never overwrites a real file or directory. Legacy names such as `codex-orchestrate`, `cmux-review-loop`, and `rex-review-loop` should be compatibility pointers to `devx-mux`; the workflow and shared browser transport live here.
+
+The repository's root `AGENTS.md` remains local to each clone and is not installed globally. Reusable workflows belong in public skills; repository-specific policy stays in `AGENTS.md`.
+
+### Portability
+
+DevX Mux keeps portable orchestration and provider logic in TypeScript wherever possible so the same code can evolve across macOS, Linux, and Windows. Shell files are limited to thin compatibility entrypoints and adapters for inherently Unix-specific cmux or RexIDE socket behavior. New shared logic should not be implemented twice in separate mux scripts.
 
 ### Run the same review with Codex and Grok
 
@@ -59,27 +84,27 @@ Run each command from the repository you want to review:
 
 ```bash
 # Codex, using the Codex CLI's configured model
-devx review codebase --provider codex --reasoning high
+mux review codebase --provider codex --reasoning high
 
 # Grok, using the Grok CLI's latest default model
-devx review codebase --provider grok --reasoning high
+mux review codebase --provider grok --reasoning high
 
 # Both reviewers concurrently, with independent reports
-devx review codebase --provider both --reasoning high
+mux review codebase --provider both --reasoning high
 
 # Recommended parallel-review command
-devx multireview codebase --reasoning low
+mux multireview codebase --reasoning low
 
 # Both concurrently, with maximum Codex reasoning and high Grok reasoning
-devx multireview codebase --codex-reasoning xhigh --grok-reasoning high
+mux multireview codebase --codex-reasoning xhigh --grok-reasoning high
 
 # Force clean Markdown even when launched from an interactive shell
-devx multireview codebase --format markdown
+mux multireview codebase --format markdown
 ```
 
-Replace `codebase` with `pr 123 --base origin/main`, `local`, `branch`, or `commit HEAD` to review a narrower scope. A PR review first reads the PR title and description, then reviews its diff against the stated intent. DevX Crew does not pin either provider's model. It asks the selected CLI to use its configured default model and reports the exact model when the provider exposes it.
+Replace `codebase` with `pr 123 --base origin/main`, `local`, `branch`, or `commit HEAD` to review a narrower scope. A PR review first reads the PR title and description, then reviews its diff against the stated intent. DevX Mux does not pin either provider's model. It asks the selected CLI to use its configured default model and reports the exact model when the provider exposes it.
 
-Provider selection is always explicit. DevX Crew never guesses based on installed executables or silently falls back to another model.
+Provider selection is always explicit. DevX Mux never guesses based on installed executables or silently falls back to another model.
 
 Supported providers:
 
@@ -91,9 +116,9 @@ Supported providers:
 Override reasoning effort when needed:
 
 ```bash
-devx review codebase --provider codex --reasoning medium
-devx review codebase --provider codex --reasoning high
-devx review codebase --provider codex --reasoning xhigh
+mux review codebase --provider codex --reasoning medium
+mux review codebase --provider codex --reasoning high
+mux review codebase --provider codex --reasoning xhigh
 ```
 
 Grok supports `low`, `medium`, and `high`. Codex supports `low`, `medium`, `high`, and `xhigh`. For parallel review, use `--codex-reasoning` and `--grok-reasoning` when the reviewers should use different efforts. Without an override, parallel review defaults both providers to high reasoning while each CLI keeps its default model.
@@ -101,13 +126,13 @@ Grok supports `low`, `medium`, and `high`. Codex supports `low`, `medium`, `high
 Preview the exact reviewer prompt without invoking a model:
 
 ```bash
-devx review branch --provider grok --dry-run
+mux review branch --provider grok --dry-run
 ```
 
 Select a base branch or repository explicitly:
 
 ```bash
-devx review branch --provider grok --base origin/main --repo /path/to/repository
+mux review branch --provider grok --base origin/main --repo /path/to/repository
 ```
 
 ### Review scopes
@@ -120,7 +145,7 @@ devx review branch --provider grok --base origin/main --repo /path/to/repository
 | `local` | Staged, unstaged, and untracked working-tree changes |
 | `codebase` | Repository-wide architecture and implementation audit of the current checkout |
 
-Review execution is read-only. The reviewer is instructed not to edit files, and DevX Crew does not expose a mutation workflow.
+Review execution is read-only. The reviewer is instructed not to edit files, and DevX Mux does not expose a mutation workflow.
 
 ### Review output
 
@@ -132,38 +157,38 @@ Every provider receives the same scope and quality bar, then owns its response f
 - Verification gaps
 - A Markdown-friendly summary with finding counts and the final verdict
 
-In an interactive terminal, DevX Crew uses a responsive OpenTUI dashboard for concise investigation notes, tool activity, elapsed time, activity counts, and independent reviewer state. Parallel reviews give Codex and Grok equal color-coded panels and run them directly in the same DevX process. Final review Markdown does not flood the activity panes. It is preserved verbatim in the provider and combined report artifacts.
+In an interactive terminal, DevX Mux uses a responsive OpenTUI dashboard for concise investigation notes, tool activity, elapsed time, activity counts, and independent reviewer state. Parallel reviews give Codex and Grok equal color-coded panels and run them directly in the same DevX process. Final review Markdown does not flood the activity panes. It is preserved verbatim in the provider and combined report artifacts.
 
-When output is piped or captured by an AI agent, DevX Crew emits the complete provider-owned Markdown to stdout without cursor animation. Status and artifact paths go to stderr, so stdout is safe to render, capture, or relay. Every successful run also saves the complete reports in a private per-user temporary directory. Unix-like systems use `/tmp/devx-crew-<uid>/`; Windows uses the native temporary directory.
+When output is piped or captured by an AI agent, DevX Mux emits the complete provider-owned Markdown to stdout without cursor animation. Status and artifact paths go to stderr, so stdout is safe to render, capture, or relay. Every successful run also saves the complete reports in a private per-user temporary directory. Unix-like systems use `/tmp/devx-mux-<uid>/`; Windows uses the native temporary directory.
 
 Output defaults to `auto`: TUI for an interactive terminal and Markdown otherwise. Override detection with `--format tui` or `--format markdown`. This supports direct shell use as well as calls from Codex, Claude, scripts, and other agents without maintaining separate commands.
 
-The artifact-first review handoff and strict read-only reviewer separation are inspired by the strongest workflow ideas in Grok's `/review`. The retained terminal UI learns from the MIT-licensed [superagent-ai/grok-cli](https://github.com/superagent-ai/grok-cli), while semantic event handling and provider-state clarity also learn from the Apache-2.0 [OpenAI Codex CLI](https://github.com/openai/codex). DevX Crew implements its own provider-neutral persona, review guidance, dashboard, and multi-provider orchestration without parsing or rewriting provider responses.
+The artifact-first review handoff and strict read-only reviewer separation are inspired by the strongest workflow ideas in Grok's `/review`. The retained terminal UI learns from the MIT-licensed [superagent-ai/grok-cli](https://github.com/superagent-ai/grok-cli), while semantic event handling and provider-state clarity also learn from the Apache-2.0 [OpenAI Codex CLI](https://github.com/openai/codex). DevX Mux implements its own provider-neutral persona, review guidance, dashboard, and multi-provider orchestration without parsing or rewriting provider responses.
 
 The console reports the provider CLI version, configured model, and reasoning effort when they can be verified. Token usage is shown in compact form when the provider emits it, while the report artifact preserves exact counts. Remaining account quota is reported as unavailable rather than estimated.
 
-### Using DevX Crew from an AI agent
+### Using DevX Mux from an AI agent
 
 An agent should first inspect the command contract:
 
 ```bash
-devx review --help
+mux review --help
 ```
 
 Then select the scope from repository state and invoke an explicit provider:
 
 ```bash
 # Uncommitted work
-devx review local --provider grok
+mux review local --provider grok
 
 # Current branch against its base
-devx review branch --provider grok --base origin/main
+mux review branch --provider grok --base origin/main
 
 # One completed commit
-devx review commit HEAD --provider grok
+mux review commit HEAD --provider grok
 
 # Entire repository
-devx review codebase --provider grok
+mux review codebase --provider grok
 ```
 
 Agents must not substitute one scope for another: `local` includes working-tree changes, `commit` reviews one commit, and `branch` reviews the cumulative branch diff. Use `--dry-run` when the task is to inspect the generated review instructions without invoking a provider.
@@ -181,7 +206,7 @@ Grok and Codex are currently supported. The provider interface is intentionally 
 
 ### Agent model
 
-DevX Crew composes review behavior from independent building blocks:
+DevX Mux composes review behavior from independent building blocks:
 
 | Component | Responsibility |
 | --- | --- |
@@ -198,18 +223,18 @@ This keeps the reviewer's identity stable across model providers and allows futu
 Use the local runner for the complete development workflow:
 
 ```bash
-./run.sh setup
-./run.sh check
-./devx.sh review branch --provider grok --dry-run
+./mux.sh setup
+./mux.sh check
+./mux.sh review branch --provider grok --dry-run
 ```
 
-Run `./run.sh help` for individual test, type-check, build, link, review, and cleanup commands. The project intentionally uses local verification instead of consuming hosted CI minutes.
+Run `./mux.sh help` for individual test, type-check, build, link, review, and cleanup commands. The project intentionally uses local verification instead of consuming hosted CI minutes.
 
 The shell files are minimal launchers only. Workflow behavior lives in TypeScript under `scripts/`. On systems without a POSIX shell, use the equivalent npm entry point:
 
 ```bash
-npm run crew -- check
-npm run devx -- review local --provider grok
+npm run mux -- check
+npm run cli -- review local --provider grok
 ```
 
 ## License

@@ -1,0 +1,1 @@
+Read `general-conventions.md` line by line, including every `##` section. If Swift changed, also read `swift-conventions.md`. Check the branch-introduced diff item by item and include a Standards checklist with every applicable top-level section marked pass, finding, or N/A.

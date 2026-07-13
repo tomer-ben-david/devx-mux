@@ -1,7 +1,7 @@
 {
-  "name": "@devx-crew/terminal-ui",
+  "name": "@devx-mux/terminal-ui",
   "version": "0.1.0",
-  "description": "Shared terminal presentation for DevX Crew tools",
+  "description": "Shared terminal presentation for DevX Mux tools",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
@@ -10,7 +10,7 @@
     "dist"
   ],
   "dependencies": {
-    "@devx-crew/reviewer": "0.1.0",
+    "@devx-mux/reviewer": "0.1.0",
     "@opentui/core": "^0.4.3",
     "@opentui/react": "^0.4.3",
     "react": "^19.2.7"
