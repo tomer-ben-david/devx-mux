@@ -111,7 +111,7 @@ mux multireview codebase --format markdown
 mux multireview branch --instructions "Treat backfill and repair scripts as non-goals. Review shipped runtime code only and require concrete reproduction."
 ```
 
-Replace `codebase` with `pr 123 --base origin/main`, `local`, `branch`, or `commit HEAD` to review a narrower scope. A PR review first reads the PR title and description, then reviews its diff against the stated intent. DevX Mux does not pin either provider's model. It asks the selected CLI to use its configured default model and reports the exact model when the provider exposes it.
+Replace `codebase` with `pr 123 --base origin/main`, `local`, `branch`, or `commit HEAD` to review a narrower scope. A PR review first reads the PR title, description, issue comments, submitted reviews, and inline review threads, then reviews its diff against that context. DevX Mux does not pin either provider's model. It asks the selected CLI to use its configured default model and reports the exact model when the provider exposes it.
 
 Use `--instructions "..."` to give every selected reviewer the same additional focus, verification requirements, or non-goals. Instructions may narrow review within the selected Git scope, but they cannot broaden that scope, authorize mutations, override repository guidance, or lower the evidence bar.
 

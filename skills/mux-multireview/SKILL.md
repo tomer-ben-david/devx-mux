@@ -49,4 +49,6 @@ If `mux` is unavailable, fail loudly and tell the user to install or link DevX M
 
 Preserve each provider's report verbatim. State the exact scope and HEAD, then present the Codex and Grok verdicts independently. Do not silently filter findings or claim convergence when either review is incomplete.
 
-Keep this skill read-only. If the user wants an implementor to fix findings and repeat reviews until clean, use `$mux-orchestrate` as a separate workflow.
+For PR scope, follow the shared protocol's GitHub publication rules. Post the complete Codex and Grok reports as separate PR comments after both reviews finish successfully. Include the provider and reviewed head above each verbatim report. Do not post the combined wrapper instead of the two provider reports. Use body files with `gh pr comment`; never interpolate a full report into a shell command.
+
+Keep provider execution read-only. If the user wants an implementor to fix findings and repeat reviews until clean, use `$mux-orchestrate` as a separate workflow.

@@ -7,7 +7,7 @@ description: Run a strict four-stage pull request review pipeline across the lat
 
 Run one stage at a time. Do not advance until the current stage has no unresolved actionable findings at the current head.
 
-Read [references/orchestrator-gates.md](references/orchestrator-gates.md) before starting. Use the public `$devx-mux` skill for cmux and RexIDE transport behavior.
+Read [references/orchestrator-gates.md](references/orchestrator-gates.md) and [`../devx-mux/references/review-protocol.md`](../devx-mux/references/review-protocol.md) before starting. Use the public `$devx-mux` skill for cmux and RexIDE transport behavior.
 
 ## Stages
 

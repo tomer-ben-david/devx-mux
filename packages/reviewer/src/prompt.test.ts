@@ -37,13 +37,15 @@ test("commit review identifies the selected commit", () => {
   assert.match(prompt, /Review commit HEAD~1 only/);
 });
 
-test("pull request review reads stated intent before the diff", () => {
+test("pull request review reads stated intent and existing discussion before the diff", () => {
   const prompt = buildReviewPrompt({
     scope: { kind: "pr", number: 42, base: "origin/main" },
     standardsReference: "https://example.com/standards",
   });
-  assert.match(prompt, /read its title and description/);
-  assert.match(prompt, /description may be stale/);
+  assert.match(prompt, /read its title, description/);
+  assert.match(prompt, /issue comments, submitted reviews, and inline review comments or threads/);
+  assert.match(prompt, /discussion as context that may be stale or disputed/);
+  assert.match(prompt, /do not merely repeat earlier findings/);
 });
 
 test("local review covers staged, unstaged, and untracked changes", () => {

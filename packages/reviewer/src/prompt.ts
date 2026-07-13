@@ -22,7 +22,7 @@ If there are no actionable issues, make that conclusion unambiguous.`;
 function scopeInstructions(scope: ReviewScope): string {
   switch (scope.kind) {
     case "pr":
-      return `Review pull request ${scope.number ?? "for the current branch"}${scope.base === undefined ? " relative to its actual merge base, determined with Git and PR metadata" : ` relative to the merge base with ${scope.base}`}. Before inspecting the diff, use the repository's read-only PR tooling to read its title and description for context. The description may be stale; independently review the actual change. If PR metadata is unavailable, continue without it.`;
+      return `Review pull request ${scope.number ?? "for the current branch"}${scope.base === undefined ? " relative to its actual merge base, determined with Git and PR metadata" : ` relative to the merge base with ${scope.base}`}. Before inspecting the diff, use the repository's read-only PR tooling to read its title, description, issue comments, submitted reviews, and inline review comments or threads. Treat that discussion as context that may be stale or disputed; independently review the actual change and do not merely repeat earlier findings. If PR metadata or discussion is unavailable, continue without it.`;
     case "branch":
       return scope.base === undefined
         ? "Review the current branch changes relative to their merge base. Use Git to determine the appropriate comparison base and actual merge base; do not assume a branch name."
