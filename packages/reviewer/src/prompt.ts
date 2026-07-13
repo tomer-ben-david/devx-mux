@@ -62,7 +62,7 @@ ${request.scope.kind === "codebase" ? "Existing issues are in scope. State impor
 
 Honor the repository's own guidance and review against the DevX coding standards at ${request.standardsReference}.
 
-Choose your own read-only repository tools and investigation strategy. DevX Crew defines the target and quality bar, not the commands you should run.
+Choose your own read-only repository tools and investigation strategy. DevX Mux defines the target and quality bar, not the commands you should run.
 
 Review every named rule and check defined by the DevX coding standards individually. A top-level section summary is not a substitute for its individual rules. For each item, explicitly state PASS, FAIL, or N/A and give brief evidence or an N/A reason. Do not silently skip sections or collapse multiple standards into a generic category. Present this checklist and the rest of the review in whatever format you judge best.
 

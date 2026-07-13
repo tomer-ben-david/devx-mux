@@ -29,7 +29,7 @@ test("overrides Codex reasoning effort explicitly", () => {
 });
 
 test("reports the configured Codex model and reasoning effort", async () => {
-  const root = await mkdtemp(join(tmpdir(), "devx-crew-codex-"));
+  const root = await mkdtemp(join(tmpdir(), "devx-mux-codex-"));
   const repository = join(root, "repository");
   const projectConfiguration = join(repository, ".codex");
   const previousCodexHome = process.env.CODEX_HOME;

@@ -4,8 +4,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt, type ReviewProgress, type ReviewProvider } from "@devx-crew/reviewer";
-import { createParallelReviewDashboard, TerminalReporter, type ReviewPanelId } from "@devx-crew/terminal-ui";
+import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt, type ReviewProgress, type ReviewProvider } from "@devx-mux/reviewer";
+import { createParallelReviewDashboard, TerminalReporter, type ReviewPanelId } from "@devx-mux/terminal-ui";
 import { helpText, parseReviewArguments, reviewHelpText } from "./arguments.js";
 import { resolveRepositoryPath } from "./git.js";
 import { persistCombinedReview, persistRawReview, type ProviderIdentity } from "./review-artifacts.js";
@@ -88,7 +88,7 @@ async function runBothProviders(
   const failure = settled.find((result) => result.status === "rejected");
   if (failure?.status === "rejected") {
     const completed = settled.flatMap((result, index) => result.status === "fulfilled" ? [`${identities[ids[index] ?? "codex"].label} report ${result.value.reportPath}`] : []);
-    process.stderr.write(`DevX Crew: parallel review incomplete. ${failure.reason instanceof Error ? failure.reason.message : String(failure.reason)}\n${completed.length === 0 ? "" : `${completed.join("\n")}\n`}`);
+    process.stderr.write(`DevX Mux: parallel review incomplete. ${failure.reason instanceof Error ? failure.reason.message : String(failure.reason)}\n${completed.length === 0 ? "" : `${completed.join("\n")}\n`}`);
     return 1;
   }
   const codex = settled[0].status === "fulfilled" ? settled[0].value : undefined;
@@ -253,7 +253,7 @@ function runWithManagedBun(argv: readonly string[]): number | undefined {
     path.resolve(directory, "..", "..", "node_modules", ".bin", binary),
     path.resolve(directory, "..", "..", "..", "node_modules", ".bin", binary),
   ].find(existsSync);
-  if (bun === undefined) throw new Error("The managed Bun runtime is missing. Run ./run.sh setup.");
+  if (bun === undefined) throw new Error("The managed Bun runtime is missing. Run ./mux.sh setup.");
   const result = spawnSync(bun, [fileURLToPath(import.meta.url), ...argv], { stdio: "inherit" });
   if (result.error !== undefined) throw result.error;
   return result.status ?? (result.signal === null ? 1 : 130);
@@ -268,6 +268,6 @@ const managedBunExit = runWithManagedBun(argv);
   })
   .catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`devx: ${message}\n`);
+    process.stderr.write(`mux: ${message}\n`);
     process.exitCode = 1;
   });

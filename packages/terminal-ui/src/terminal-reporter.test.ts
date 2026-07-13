@@ -15,7 +15,7 @@ test("renders stable review progress without color", () => {
   reporter.providerChunk("Inspecting diff\nFound one issue");
   reporter.flushProvider();
 
-  assert.match(rendered, /^╭─ DEVX CREW \/\/ REVIEW/m);
+  assert.match(rendered, /^╭─ DEVX MUX \/\/ REVIEW/m);
   assert.match(rendered, /✓ Repository\s+example/);
   assert.match(rendered, /◆ Reviewer\s+Grok · high reasoning/);
   assert.match(rendered, /│ Inspecting diff/);

@@ -1,0 +1,15 @@
+REQUEST_ID={{REQUEST_ID}}
+
+Read-only. Reply in chat only.
+
+PR: {{PR_URL}}
+Compare: {{COMPARE_URL}}
+Branch: {{BRANCH}} @ {{HEAD}}
+Base: {{BASE}}
+
+Review the complete pushed PR from scratch as the final deep production-risk gate. Read the PR's Goals and Non-goals, but treat the current diff as authoritative. Form your own conclusions. Cover correctness, integration boundaries, failure behavior, operational risk, and missing verification. Do not report style-only findings or pre-existing base-branch issues.
+
+Return:
+1. Findings with P1/P2/P3, file, and line, or none
+2. Remaining verification gaps
+3. Final merge confidence: yes / medium / no

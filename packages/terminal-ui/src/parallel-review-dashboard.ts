@@ -1,4 +1,4 @@
-import type { ReviewProgress } from "@devx-crew/reviewer";
+import type { ReviewProgress } from "@devx-mux/reviewer";
 
 export type ReviewPanelId = "codex" | "grok";
 
@@ -114,7 +114,7 @@ export async function createParallelReviewDashboard(repository: string, scope: s
     return React.createElement(
       "box",
       { width: dimensions.width, height: dimensions.height, backgroundColor: "#000000", flexDirection: "column", paddingLeft: 2, paddingRight: 2, paddingTop: 1, paddingBottom: 1 },
-      React.createElement("text", { fg: "#66d9c2" }, React.createElement("b", null, "DEVX CREW  //  MULTIREVIEW"), "  ", React.createElement("span", { style: { fg: executionColor } }, executionState)),
+      React.createElement("text", { fg: "#66d9c2" }, React.createElement("b", null, "DEVX MUX  //  MULTIREVIEW"), "  ", React.createElement("span", { style: { fg: executionColor } }, executionState)),
       React.createElement("text", { fg: "#777777" }, `${state.repository}  ·  ${state.scope}  ·  2 independent reviewers  ·  read-only  ·  ${completedCount}/2 complete  ·  ${state.elapsedSeconds}s`),
       React.createElement("box", { height: 1 }),
       React.createElement("box", { flexGrow: 1, flexDirection: dimensions.width >= 100 ? "row" : "column", gap: 1 }, panel("codex"), panel("grok")),

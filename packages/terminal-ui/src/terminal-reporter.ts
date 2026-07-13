@@ -31,7 +31,7 @@ export class TerminalReporter {
   }
 
   heading(tool: string, detail: string): void {
-    this.write(this.paint("36", "╭─") + ` ${this.paint("1;36", "DEVX CREW")} ${this.paint("35", "//")} ${this.paint("1", tool.toUpperCase())}\n`);
+    this.write(this.paint("36", "╭─") + ` ${this.paint("1;36", "DEVX MUX")} ${this.paint("35", "//")} ${this.paint("1", tool.toUpperCase())}\n`);
     this.write(this.paint("36", "│") + `  ${detail}\n`);
     this.write(this.paint("36", "╰─") + "\n\n");
   }

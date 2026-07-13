@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import type { ReviewScope } from "@devx-crew/reviewer";
+import type { ReviewScope } from "@devx-mux/reviewer";
 
 export interface ReviewArguments {
   readonly repositoryPath: string;
@@ -12,16 +12,16 @@ export interface ReviewArguments {
   readonly dryRun: boolean;
 }
 
-const ROOT_HELP = `DevX Crew
+const ROOT_HELP = `DevX Mux
 
 Usage:
-  devx review --help
-  devx multireview codebase [options]
-  devx review branch --provider PROVIDER [options]
-  devx review pr [NUMBER] --provider PROVIDER [options]
-  devx review commit [REF] --provider PROVIDER [options]
-  devx review local --provider PROVIDER [options]
-  devx review codebase --provider PROVIDER [options]
+  mux review --help
+  mux multireview codebase [options]
+  mux review branch --provider PROVIDER [options]
+  mux review pr [NUMBER] --provider PROVIDER [options]
+  mux review commit [REF] --provider PROVIDER [options]
+  mux review local --provider PROVIDER [options]
+  mux review codebase --provider PROVIDER [options]
 `;
 
 export function helpText(): string {
@@ -29,14 +29,14 @@ export function helpText(): string {
 }
 
 export function reviewHelpText(): string {
-  return `DevX Crew review
+  return `DevX Mux review
 
 Usage:
-  devx review branch --provider <grok|codex|both> [--base REF] [--repo PATH] [--dry-run]
-  devx review pr [NUMBER] --provider <grok|codex|both> [--base REF] [--repo PATH] [--dry-run]
-  devx review commit [REF] --provider <grok|codex|both> [--repo PATH] [--dry-run]
-  devx review local --provider <grok|codex|both> [--repo PATH] [--dry-run]
-  devx review codebase --provider <grok|codex|both> [--reasoning LEVEL] [--repo PATH] [--dry-run]
+  mux review branch --provider <grok|codex|both> [--base REF] [--repo PATH] [--dry-run]
+  mux review pr [NUMBER] --provider <grok|codex|both> [--base REF] [--repo PATH] [--dry-run]
+  mux review commit [REF] --provider <grok|codex|both> [--repo PATH] [--dry-run]
+  mux review local --provider <grok|codex|both> [--repo PATH] [--dry-run]
+  mux review codebase --provider <grok|codex|both> [--reasoning LEVEL] [--repo PATH] [--dry-run]
 
 Scopes:
   pr      Read PR metadata first, then review its branch diff against --base.

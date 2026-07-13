@@ -3,3 +3,17 @@ dist/
 coverage/
 *.log
 *.tsbuildinfo
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local editor and operating-system state
+.idea/
+.DS_Store
