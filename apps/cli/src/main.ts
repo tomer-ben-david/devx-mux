@@ -113,7 +113,7 @@ async function run(argv: readonly string[]): Promise<number> {
     throw new Error(`Unknown command: ${command}\n\n${helpText()}`);
   }
   if (rawCommandArguments.includes("--help") || rawCommandArguments.includes("-h")) {
-    process.stdout.write(reviewHelpText());
+    process.stdout.write(reviewHelpText(command));
     return 0;
   }
   if (command === "multireview" && rawCommandArguments.includes("--provider")) {
@@ -148,6 +148,7 @@ async function run(argv: readonly string[]): Promise<number> {
   const request = {
     scope: options.scope,
     standardsReference: process.env.DEVX_STANDARDS_PATH ?? STANDARDS_URL,
+    ...(options.instructions === undefined ? {} : { instructions: options.instructions }),
   };
   const prompt = buildReviewPrompt(request);
 

@@ -8,6 +8,7 @@ export type ReviewScope =
 export interface ReviewRequest {
   readonly scope: ReviewScope;
   readonly standardsReference: string;
+  readonly instructions?: string;
 }
 
 export interface ReviewProvider {

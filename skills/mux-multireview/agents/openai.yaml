@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mux Multireview"
+  short_description: "Run independent Codex and Grok reviews"
+  default_prompt: "Use $mux-multireview to review the current branch with independent Codex and Grok reviewers."

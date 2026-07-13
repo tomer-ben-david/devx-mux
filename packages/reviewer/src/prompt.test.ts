@@ -67,3 +67,22 @@ test("codebase review uses the repository-wide audit protocol", () => {
   assert.match(prompt, /Existing issues are in scope/);
   assert.doesNotMatch(prompt, /Do not report pre-existing issues outside that scope/);
 });
+
+test("adds user instructions as constrained focus and non-goals", () => {
+  const prompt = buildReviewPrompt({
+    ...baseRequest,
+    scope: { kind: "branch" },
+    instructions: "Treat backfill scripts as a non-goal. Review shipped runtime code only.",
+  });
+
+  assert.match(prompt, /# User-provided review instructions/);
+  assert.match(prompt, /focus and non-goals within the selected Git scope/);
+  assert.match(prompt, /do not broaden the Git scope/);
+  assert.match(prompt, /Treat backfill scripts as a non-goal/);
+});
+
+test("omits the user instructions section when none were supplied", () => {
+  const prompt = buildReviewPrompt({ ...baseRequest, scope: { kind: "branch" } });
+
+  assert.doesNotMatch(prompt, /# User-provided review instructions/);
+});

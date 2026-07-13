@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseReviewArguments } from "./arguments.js";
+import { parseReviewArguments, reviewHelpText } from "./arguments.js";
 
 test("defaults to branch review without assuming a base branch", () => {
   const result = parseReviewArguments(["--provider", "grok"]);
@@ -74,4 +74,31 @@ test("supports low reasoning for inexpensive parallel smoke tests", () => {
 test("supports clean Markdown output for agent callers", () => {
   const result = parseReviewArguments(["codebase", "--provider", "both", "--format", "markdown"]);
   assert.equal(result.outputFormat, "markdown");
+});
+
+test("parses review instructions and trims surrounding whitespace", () => {
+  const result = parseReviewArguments([
+    "branch",
+    "--provider",
+    "both",
+    "--instructions",
+    "  Review shipped runtime code only.  ",
+  ]);
+
+  assert.equal(result.instructions, "Review shipped runtime code only.");
+});
+
+test("rejects empty review instructions", () => {
+  assert.throws(
+    () => parseReviewArguments(["branch", "--provider", "both", "--instructions", "   "]),
+    /--instructions must not be empty/,
+  );
+});
+
+test("documents instructions in multireview help without requiring a provider", () => {
+  const help = reviewHelpText("multireview");
+
+  assert.match(help, /mux multireview branch/);
+  assert.match(help, /--instructions TEXT/);
+  assert.doesNotMatch(help, /Required review provider/);
 });
