@@ -94,7 +94,7 @@ switch (command) {
       path.join(process.env.CLAUDE_HOME ?? path.join(homedir(), ".claude"), "skills"),
       path.join(process.env.AGENTS_HOME ?? path.join(homedir(), ".agents"), "skills"),
     ];
-    const skillNames = ["devx-mux", "pr-title-description", "staged-pr-review"];
+    const skillNames = ["devx-mux", "mux-orchestrate", "pr-title-description", "staged-pr-review"];
     const links = skillRoots.flatMap((root) => skillNames.map((name) => inspectSkillLink(root, name)));
     links.forEach(installSkillLink);
     break;

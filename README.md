@@ -61,6 +61,7 @@ DevX Mux is also the canonical public home for reusable agent workflows:
 | Skill | Responsibility |
 | --- | --- |
 | `devx-mux` | Discover implementor and reviewer panels, then coordinate independent Codex, Grok, and optional ChatGPT review loops across cmux or RexIDE |
+| `mux-orchestrate` | Provider-neutral invocation for the `devx-mux` implementation and independent review loop |
 | `pr-title-description` | Draft reviewer-neutral PR titles and descriptions with explicit Goals and Non-goals |
 | `staged-pr-review` | Run commit, branch, standards, and final full-PR review gates sequentially |
 
@@ -70,7 +71,9 @@ Install links for Codex, Claude, and shared agent discovery:
 ./mux.sh link-agent-files
 ```
 
-The installer refreshes symlinks it owns after the checkout moves, but never overwrites a real file or directory. Legacy names such as `codex-orchestrate`, `cmux-review-loop`, and `rex-review-loop` should be compatibility pointers to `devx-mux`; the workflow and shared browser transport live here.
+Each person runs the installer once from their own DevX Mux clone. It links the public skills into their Codex, Claude, and shared-agent skill directories, so `$mux-orchestrate` can be invoked while working in any repository. Every installed link points back to that person's clone, which remains the source of truth.
+
+The installer refreshes symlinks it owns after the checkout moves, but never overwrites a real file or directory. Legacy names such as `codex-orchestrate`, `cmux-review-loop`, and `rex-review-loop` may remain compatibility pointers to `devx-mux`; new orchestration prompts should use `mux-orchestrate`. The canonical workflow and shared browser transport live in `devx-mux`.
 
 The repository's root `AGENTS.md` remains local to each clone and is not installed globally. Reusable workflows belong in public skills; repository-specific policy stays in `AGENTS.md`.
 
