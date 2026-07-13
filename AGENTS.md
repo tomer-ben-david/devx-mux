@@ -7,4 +7,4 @@
 - Prefer clear provider boundaries over provider-specific branching in the CLI.
 - Never add silent fallbacks when a provider or Git command fails.
 - Do not manually edit generated files under `dist/`.
-
+- Run `./mux.sh check` before committing so tests, type checking, and the globally linked CLI build are current.

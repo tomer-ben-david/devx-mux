@@ -54,7 +54,7 @@ When working directly from the cloned DevX Mux repository, use `./mux.sh` instea
 ./mux.sh multireview branch --instructions "Treat backfill and repair scripts as non-goals. Review shipped runtime code only."
 ```
 
-To install the global `mux` command, run `./mux.sh link` once.
+To install the global `mux` command, run `./mux.sh link` once. It builds the CLI and creates a global npm link back to this checkout. Do not reinstall after each local commit: run `./mux.sh check` before committing, and its build step refreshes the `dist` files used by the linked `mux` command. Use `./mux.sh build` when only a rebuild is needed. Package versions change for releases, not for every commit.
 
 ### Public agent skills
 

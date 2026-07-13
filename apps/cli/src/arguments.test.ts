@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseReviewArguments, reviewHelpText } from "./arguments.js";
+import { helpText, parseReviewArguments, reviewHelpText, versionText } from "./arguments.js";
+
+test("documents and renders the version command", () => {
+  const help = helpText();
+  assert.match(help, /mux --version/);
+  assert.match(help, /mux multireview branch/);
+  assert.match(help, /mux multireview pr \[NUMBER\]/);
+  assert.match(help, /mux multireview commit \[REF\]/);
+  assert.match(help, /mux multireview local/);
+  assert.match(help, /mux multireview codebase/);
+  assert.equal(versionText("1.2.3"), "DevX Mux 1.2.3\n");
+});
 
 test("defaults to branch review without assuming a base branch", () => {
   const result = parseReviewArguments(["--provider", "grok"]);

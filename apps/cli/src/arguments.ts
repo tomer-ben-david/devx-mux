@@ -16,7 +16,12 @@ export interface ReviewArguments {
 const ROOT_HELP = `DevX Mux
 
 Usage:
+  mux --version
   mux review --help
+  mux multireview branch [options]
+  mux multireview pr [NUMBER] [options]
+  mux multireview commit [REF] [options]
+  mux multireview local [options]
   mux multireview codebase [options]
   mux review branch --provider PROVIDER [options]
   mux review pr [NUMBER] --provider PROVIDER [options]
@@ -27,6 +32,10 @@ Usage:
 
 export function helpText(): string {
   return ROOT_HELP;
+}
+
+export function versionText(version: string): string {
+  return `DevX Mux ${version}\n`;
 }
 
 export function reviewHelpText(command: "review" | "multireview" = "review"): string {
