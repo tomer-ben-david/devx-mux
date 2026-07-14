@@ -33,10 +33,12 @@ test("the packed npm release installs the CLI and public skills into an isolated
   const temporaryRoot = mkdtempSync(path.join(tmpdir(), "devx-mux-npm-install-"));
   try {
     const pack = run(npmExecutable, ["pack", "--workspace", "devx-mux", "--pack-destination", temporaryRoot, "--json"]);
-    const [packageResult] = JSON.parse(pack.stdout) as Array<{
+    type PackageResult = {
       readonly filename: string;
       readonly files: ReadonlyArray<{ readonly path: string }>;
-    }>;
+    };
+    const parsedPack = JSON.parse(pack.stdout) as PackageResult[] | Record<string, PackageResult>;
+    const [packageResult] = Array.isArray(parsedPack) ? parsedPack : Object.values(parsedPack);
     assert(packageResult !== undefined);
     const packageFiles = packageResult.files.map((file) => file.path);
     assert(packageFiles.includes("dist/main.js"));

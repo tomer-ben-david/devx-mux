@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -53,4 +53,37 @@ test("preserves template-like text inside replacement values", () => {
   });
 
   assert.match(readFileSync(promptFile, "utf8"), /document \{\{HEAD\}\} literally/);
+});
+
+test("routes both Rex product names through the Rex transport", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "devx-mux-staged-rex-target-"));
+  try {
+    const fakeMuxSkill = path.join(root, "devx-mux");
+    const scripts = path.join(fakeMuxSkill, "scripts");
+    mkdirSync(scripts, { recursive: true });
+    writeFileSync(path.join(fakeMuxSkill, "SKILL.md"), "# test skill\n");
+    writeFileSync(path.join(scripts, "rex-review-send.sh"), "#!/bin/sh\nexit 0\n");
+    writeFileSync(path.join(scripts, "cmux-review-send.sh"), "#!/bin/sh\nexit 9\n");
+    chmodSync(path.join(scripts, "rex-review-send.sh"), 0o755);
+    chmodSync(path.join(scripts, "cmux-review-send.sh"), 0o755);
+
+    const environment = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith("APP_NAME_")),
+    );
+    for (const appName of ["Rex", "RexIDE"]) {
+      execFileSync(process.execPath, [script, "send", "1", path.join(root, `${appName}.txt`)], {
+        env: {
+          ...environment,
+          APP_NAME_TEST: appName,
+          DEVX_MUX_SKILL_DIR: fakeMuxSkill,
+          STAGED_PR_URL: "https://github.com/example/project/pull/42",
+          STAGED_COMPARE_URL: "https://github.com/example/project/compare/base...feature",
+          STAGED_REQUEST_ID: `stage-${appName.toLowerCase()}`,
+        },
+        stdio: "ignore",
+      });
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
