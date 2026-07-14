@@ -8,6 +8,7 @@ export interface ReviewArguments {
   readonly reasoningEffort?: "low" | "medium" | "high" | "xhigh";
   readonly codexReasoningEffort?: "low" | "medium" | "high" | "xhigh";
   readonly grokReasoningEffort?: "low" | "medium" | "high";
+  readonly instructions?: string;
   readonly outputFormat: "auto" | "tui" | "markdown";
   readonly dryRun: boolean;
 }
@@ -15,7 +16,12 @@ export interface ReviewArguments {
 const ROOT_HELP = `DevX Mux
 
 Usage:
+  mux --version
   mux review --help
+  mux multireview branch [options]
+  mux multireview pr [NUMBER] [options]
+  mux multireview commit [REF] [options]
+  mux multireview local [options]
   mux multireview codebase [options]
   mux review branch --provider PROVIDER [options]
   mux review pr [NUMBER] --provider PROVIDER [options]
@@ -28,15 +34,39 @@ export function helpText(): string {
   return ROOT_HELP;
 }
 
-export function reviewHelpText(): string {
-  return `DevX Mux review
+export function versionText(version: string): string {
+  return `DevX Mux ${version}\n`;
+}
+
+export function resolveParallelReasoning(
+  options: Pick<ReviewArguments, "reasoningEffort" | "codexReasoningEffort" | "grokReasoningEffort">,
+  command: "review" | "multireview",
+): { readonly codex: "low" | "medium" | "high" | "xhigh"; readonly grok: "low" | "medium" | "high" } {
+  if (options.reasoningEffort === "xhigh") {
+    throw new Error("Grok does not support xhigh reasoning. Use --codex-reasoning xhigh instead.");
+  }
+  return {
+    codex: options.codexReasoningEffort ?? options.reasoningEffort ?? (command === "multireview" ? "xhigh" : "high"),
+    grok: options.grokReasoningEffort ?? options.reasoningEffort ?? "high",
+  };
+}
+
+export function reviewHelpText(command: "review" | "multireview" = "review"): string {
+  const providerOption = command === "review" ? " --provider <grok|codex|both>" : "";
+  const providerDescription = command === "review"
+    ? "  --provider NAME  Required review provider. Supported: grok, codex, both.\n"
+    : "";
+  const reasoningDefaults = command === "multireview"
+    ? "  Defaults: Codex xhigh, Grok high.\n"
+    : "";
+  return `DevX Mux ${command}
 
 Usage:
-  mux review branch --provider <grok|codex|both> [--base REF] [--repo PATH] [--dry-run]
-  mux review pr [NUMBER] --provider <grok|codex|both> [--base REF] [--repo PATH] [--dry-run]
-  mux review commit [REF] --provider <grok|codex|both> [--repo PATH] [--dry-run]
-  mux review local --provider <grok|codex|both> [--repo PATH] [--dry-run]
-  mux review codebase --provider <grok|codex|both> [--reasoning LEVEL] [--repo PATH] [--dry-run]
+  mux ${command} branch${providerOption} [--base REF] [--repo PATH] [--instructions TEXT] [--dry-run]
+  mux ${command} pr [NUMBER]${providerOption} [--base REF] [--repo PATH] [--instructions TEXT] [--dry-run]
+  mux ${command} commit [REF]${providerOption} [--repo PATH] [--instructions TEXT] [--dry-run]
+  mux ${command} local${providerOption} [--repo PATH] [--instructions TEXT] [--dry-run]
+  mux ${command} codebase${providerOption} [--reasoning LEVEL] [--repo PATH] [--instructions TEXT] [--dry-run]
 
 Scopes:
   pr      Read PR metadata first, then review its branch diff against --base.
@@ -46,7 +76,7 @@ Scopes:
   codebase Audit the entire repository at HEAD.
 
 Options:
-  --provider NAME  Required review provider. Supported: grok, codex, both.
+${providerDescription}  --instructions TEXT Add review focus or non-goals within the selected Git scope.
   --reasoning LEVEL Override reasoning effort. Codex: low, medium, high, xhigh. Grok: low, medium, high.
   --codex-reasoning LEVEL Override Codex only. Supported: low, medium, high, xhigh.
   --grok-reasoning LEVEL  Override Grok only. Supported: low, medium, high.
@@ -55,6 +85,7 @@ Options:
   --repo PATH      Repository to review. Default: current directory.
   --dry-run        Print the composed prompt without invoking the provider.
   -h, --help       Show this help.
+${reasoningDefaults}
 `;
 }
 
@@ -70,6 +101,7 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
       reasoning: { type: "string" },
       "codex-reasoning": { type: "string" },
       "grok-reasoning": { type: "string" },
+      instructions: { type: "string" },
       format: { type: "string", default: "auto" },
       "dry-run": { type: "boolean", default: false },
     },
@@ -140,6 +172,10 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
   if (outputFormat !== "auto" && outputFormat !== "tui" && outputFormat !== "markdown") {
     throw new Error(`Unsupported output format: ${outputFormat}. Supported: auto, tui, markdown.`);
   }
+  const instructions = parsed.values.instructions?.trim();
+  if (parsed.values.instructions !== undefined && instructions?.length === 0) {
+    throw new Error("--instructions must not be empty.");
+  }
 
   return {
     repositoryPath: parsed.values.repo ?? process.cwd(),
@@ -148,6 +184,7 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
     ...(reasoningEffort !== undefined ? { reasoningEffort: reasoningEffort as "low" | "medium" | "high" | "xhigh" } : {}),
     ...(codexReasoningEffort !== undefined ? { codexReasoningEffort: codexReasoningEffort as "low" | "medium" | "high" | "xhigh" } : {}),
     ...(grokReasoningEffort !== undefined ? { grokReasoningEffort: grokReasoningEffort as "low" | "medium" | "high" } : {}),
+    ...(instructions === undefined ? {} : { instructions }),
     outputFormat,
     dryRun: parsed.values["dry-run"] ?? false,
   };

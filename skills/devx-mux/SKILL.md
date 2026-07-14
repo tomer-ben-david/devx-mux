@@ -1,6 +1,6 @@
 ---
 name: devx-mux
-description: Orchestrate an implementor and independent Codex, Grok, or ChatGPT reviewers across cmux, RexIDE, or another terminal multiplexer. Use when the user asks for a multi-review loop, a Codex implementor plus reviewer panels, mux-aware panel discovery, codex-review or grok-review coordination, or the older codex-orchestrate, cmux-review-loop, rex-review-loop, or staged-pr-review workflows.
+description: Orchestrate an implementor and independent Codex, Grok, or ChatGPT reviewers across cmux, RexIDE, or another terminal multiplexer. Use when the user asks for mux-orchestrate, a multi-review loop with an implementor, a Codex implementor plus reviewer panels, mux-aware panel discovery, codex-review or grok-review coordination, or the older codex-orchestrate, cmux-review-loop, rex-review-loop, or staged-pr-review workflows. Use mux-multireview instead for read-only concurrent Codex and Grok review without implementation.
 ---
 
 # DevX Mux

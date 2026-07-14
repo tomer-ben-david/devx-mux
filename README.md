@@ -37,6 +37,7 @@ mux review local --provider grok
 mux review codebase --provider grok
 mux review codebase --provider codex
 mux review codebase --provider codex --reasoning xhigh
+mux review branch --provider codex --instructions "Review shipped runtime code only."
 ```
 
 When working directly from the cloned DevX Mux repository, use `./mux.sh` instead:
@@ -48,11 +49,12 @@ When working directly from the cloned DevX Mux repository, use `./mux.sh` instea
 ./mux.sh review local --provider grok
 ./mux.sh review codebase --provider grok
 ./mux.sh review codebase --provider codex
-./mux.sh multireview codebase --reasoning low
+./mux.sh multireview codebase
 ./mux.sh multireview codebase --codex-reasoning xhigh --grok-reasoning high
+./mux.sh multireview branch --instructions "Treat backfill and repair scripts as non-goals. Review shipped runtime code only."
 ```
 
-To install the global `mux` command, run `./mux.sh link` once.
+To install the global `mux` command, run `./mux.sh link` once. It builds the CLI and creates a global npm link back to this checkout. Do not reinstall after each local commit: run `./mux.sh check` before committing, and its build step refreshes the `dist` files used by the linked `mux` command. Use `./mux.sh build` when only a rebuild is needed. Package versions change for releases, not for every commit.
 
 ### Public agent skills
 
@@ -61,6 +63,8 @@ DevX Mux is also the canonical public home for reusable agent workflows:
 | Skill | Responsibility |
 | --- | --- |
 | `devx-mux` | Discover implementor and reviewer panels, then coordinate independent Codex, Grok, and optional ChatGPT review loops across cmux or RexIDE |
+| `mux-multireview` | Run the same read-only scope concurrently through independent Codex and Grok reviewers |
+| `mux-orchestrate` | Provider-neutral invocation for the `devx-mux` implementation and independent review loop |
 | `pr-title-description` | Draft reviewer-neutral PR titles and descriptions with explicit Goals and Non-goals |
 | `staged-pr-review` | Run commit, branch, standards, and final full-PR review gates sequentially |
 
@@ -70,7 +74,9 @@ Install links for Codex, Claude, and shared agent discovery:
 ./mux.sh link-agent-files
 ```
 
-The installer refreshes symlinks it owns after the checkout moves, but never overwrites a real file or directory. Legacy names such as `codex-orchestrate`, `cmux-review-loop`, and `rex-review-loop` should be compatibility pointers to `devx-mux`; the workflow and shared browser transport live here.
+Each person runs the installer once from their own DevX Mux clone. It links the public skills into their Codex, Claude, and shared-agent skill directories, so `$mux-multireview` and `$mux-orchestrate` can be invoked while working in any repository. Every installed link points back to that person's clone, which remains the source of truth.
+
+The installer refreshes symlinks it owns after the checkout moves, but never overwrites a real file or directory. Legacy names such as `codex-orchestrate`, `cmux-review-loop`, and `rex-review-loop` may remain compatibility pointers to `devx-mux`; new orchestration prompts should use `mux-orchestrate`. The canonical workflow and shared browser transport live in `devx-mux`.
 
 The repository's root `AGENTS.md` remains local to each clone and is not installed globally. Reusable workflows belong in public skills; repository-specific policy stays in `AGENTS.md`.
 
@@ -92,17 +98,22 @@ mux review codebase --provider grok --reasoning high
 # Both reviewers concurrently, with independent reports
 mux review codebase --provider both --reasoning high
 
-# Recommended parallel-review command
-mux multireview codebase --reasoning low
+# Recommended parallel-review command: Codex xhigh and Grok high
+mux multireview codebase
 
 # Both concurrently, with maximum Codex reasoning and high Grok reasoning
 mux multireview codebase --codex-reasoning xhigh --grok-reasoning high
 
 # Force clean Markdown even when launched from an interactive shell
 mux multireview codebase --format markdown
+
+# Give both reviewers the same focus and non-goals
+mux multireview branch --instructions "Treat backfill and repair scripts as non-goals. Review shipped runtime code only and require concrete reproduction."
 ```
 
-Replace `codebase` with `pr 123 --base origin/main`, `local`, `branch`, or `commit HEAD` to review a narrower scope. A PR review first reads the PR title and description, then reviews its diff against the stated intent. DevX Mux does not pin either provider's model. It asks the selected CLI to use its configured default model and reports the exact model when the provider exposes it.
+Replace `codebase` with `pr 123 --base origin/main`, `local`, `branch`, or `commit HEAD` to review a narrower scope. A PR review first reads the PR title, description, issue comments, submitted reviews, and inline review threads, then reviews its diff against that context. DevX Mux does not pin either provider's model. It asks the selected CLI to use its configured default model and reports the exact model when the provider exposes it.
+
+Use `--instructions "..."` to give every selected reviewer the same additional focus, verification requirements, or non-goals. Instructions may narrow review within the selected Git scope, but they cannot broaden that scope, authorize mutations, override repository guidance, or lower the evidence bar.
 
 Provider selection is always explicit. DevX Mux never guesses based on installed executables or silently falls back to another model.
 
@@ -121,7 +132,7 @@ mux review codebase --provider codex --reasoning high
 mux review codebase --provider codex --reasoning xhigh
 ```
 
-Grok supports `low`, `medium`, and `high`. Codex supports `low`, `medium`, `high`, and `xhigh`. For parallel review, use `--codex-reasoning` and `--grok-reasoning` when the reviewers should use different efforts. Without an override, parallel review defaults both providers to high reasoning while each CLI keeps its default model.
+Grok supports `low`, `medium`, and `high`. Codex supports `low`, `medium`, `high`, and `xhigh`. For parallel review, use `--codex-reasoning` and `--grok-reasoning` when the reviewers should use different efforts. Without an override, `mux multireview` defaults Codex to `xhigh` and Grok to `high`, while `mux review --provider both` defaults both to `high`. Each CLI keeps its default model.
 
 Preview the exact reviewer prompt without invoking a model:
 

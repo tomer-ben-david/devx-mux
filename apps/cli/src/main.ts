@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt, type ReviewProgress, type ReviewProvider } from "@devx-mux/reviewer";
 import { createParallelReviewDashboard, TerminalReporter, type ReviewPanelId } from "@devx-mux/terminal-ui";
-import { helpText, parseReviewArguments, reviewHelpText } from "./arguments.js";
+import { helpText, parseReviewArguments, resolveParallelReasoning, reviewHelpText, versionText } from "./arguments.js";
 import { resolveRepositoryPath } from "./git.js";
 import { persistCombinedReview, persistRawReview, type ProviderIdentity } from "./review-artifacts.js";
 
 const STANDARDS_URL = "https://github.com/tomer-ben-david/devx-coding-standards";
+const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version?: unknown };
+if (typeof packageMetadata.version !== "string") throw new Error("DevX Mux package version is missing.");
+const CLI_VERSION = packageMetadata.version;
 
 function compactNumber(value: number): string {
   if (value < 1_000) return value.toLocaleString();
@@ -105,6 +108,10 @@ async function runBothProviders(
 
 async function run(argv: readonly string[]): Promise<number> {
   const [command, ...rawCommandArguments] = argv;
+  if (command === "--version" || command === "-v" || command === "version") {
+    process.stdout.write(versionText(CLI_VERSION));
+    return 0;
+  }
   if (command === undefined || command === "--help" || command === "-h") {
     process.stdout.write(helpText());
     return 0;
@@ -113,7 +120,7 @@ async function run(argv: readonly string[]): Promise<number> {
     throw new Error(`Unknown command: ${command}\n\n${helpText()}`);
   }
   if (rawCommandArguments.includes("--help") || rawCommandArguments.includes("-h")) {
-    process.stdout.write(reviewHelpText());
+    process.stdout.write(reviewHelpText(command));
     return 0;
   }
   if (command === "multireview" && rawCommandArguments.includes("--provider")) {
@@ -148,6 +155,7 @@ async function run(argv: readonly string[]): Promise<number> {
   const request = {
     scope: options.scope,
     standardsReference: process.env.DEVX_STANDARDS_PATH ?? STANDARDS_URL,
+    ...(options.instructions === undefined ? {} : { instructions: options.instructions }),
   };
   const prompt = buildReviewPrompt(request);
 
@@ -157,14 +165,14 @@ async function run(argv: readonly string[]): Promise<number> {
   }
 
   if (options.provider === "both") {
-    const sharedReasoning = options.reasoningEffort === "low" ? "low" : options.reasoningEffort === "medium" ? "medium" : "high";
+    const reasoning = resolveParallelReasoning(options, command);
     return runBothProviders(
       prompt,
       repositoryPath,
       options.scope.kind,
       scopeLabel,
-      options.codexReasoningEffort ?? sharedReasoning,
-      options.grokReasoningEffort ?? sharedReasoning,
+      reasoning.codex,
+      reasoning.grok,
       interactive,
     );
   }

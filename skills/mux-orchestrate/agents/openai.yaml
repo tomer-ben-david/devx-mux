@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mux Orchestrate"
+  short_description: "Coordinate implementation and independent reviews"
+  default_prompt: "Use $mux-orchestrate to coordinate an implementor with independent Codex and Grok reviewers."

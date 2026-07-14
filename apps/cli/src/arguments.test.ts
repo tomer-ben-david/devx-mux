@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseReviewArguments } from "./arguments.js";
+import { helpText, parseReviewArguments, resolveParallelReasoning, reviewHelpText, versionText } from "./arguments.js";
+
+test("documents and renders the version command", () => {
+  const help = helpText();
+  assert.match(help, /mux --version/);
+  assert.match(help, /mux multireview branch/);
+  assert.match(help, /mux multireview pr \[NUMBER\]/);
+  assert.match(help, /mux multireview commit \[REF\]/);
+  assert.match(help, /mux multireview local/);
+  assert.match(help, /mux multireview codebase/);
+  assert.equal(versionText("1.2.3"), "DevX Mux 1.2.3\n");
+});
 
 test("defaults to branch review without assuming a base branch", () => {
   const result = parseReviewArguments(["--provider", "grok"]);
@@ -66,6 +77,21 @@ test("parses parallel Codex and Grok review", () => {
   assert.equal(result.grokReasoningEffort, "high");
 });
 
+test("defaults multireview to Codex xhigh and Grok high", () => {
+  const options = parseReviewArguments(["branch", "--provider", "both"]);
+
+  assert.deepEqual(resolveParallelReasoning(options, "multireview"), { codex: "xhigh", grok: "high" });
+  assert.deepEqual(resolveParallelReasoning(options, "review"), { codex: "high", grok: "high" });
+});
+
+test("shared and provider-specific reasoning override multireview defaults", () => {
+  const shared = parseReviewArguments(["branch", "--provider", "both", "--reasoning", "medium"]);
+  const split = parseReviewArguments(["branch", "--provider", "both", "--codex-reasoning", "high", "--grok-reasoning", "low"]);
+
+  assert.deepEqual(resolveParallelReasoning(shared, "multireview"), { codex: "medium", grok: "medium" });
+  assert.deepEqual(resolveParallelReasoning(split, "multireview"), { codex: "high", grok: "low" });
+});
+
 test("supports low reasoning for inexpensive parallel smoke tests", () => {
   const result = parseReviewArguments(["codebase", "--provider", "both", "--reasoning", "low"]);
   assert.equal(result.reasoningEffort, "low");
@@ -74,4 +100,32 @@ test("supports low reasoning for inexpensive parallel smoke tests", () => {
 test("supports clean Markdown output for agent callers", () => {
   const result = parseReviewArguments(["codebase", "--provider", "both", "--format", "markdown"]);
   assert.equal(result.outputFormat, "markdown");
+});
+
+test("parses review instructions and trims surrounding whitespace", () => {
+  const result = parseReviewArguments([
+    "branch",
+    "--provider",
+    "both",
+    "--instructions",
+    "  Review shipped runtime code only.  ",
+  ]);
+
+  assert.equal(result.instructions, "Review shipped runtime code only.");
+});
+
+test("rejects empty review instructions", () => {
+  assert.throws(
+    () => parseReviewArguments(["branch", "--provider", "both", "--instructions", "   "]),
+    /--instructions must not be empty/,
+  );
+});
+
+test("documents instructions in multireview help without requiring a provider", () => {
+  const help = reviewHelpText("multireview");
+
+  assert.match(help, /mux multireview branch/);
+  assert.match(help, /--instructions TEXT/);
+  assert.match(help, /Defaults: Codex xhigh, Grok high/);
+  assert.doesNotMatch(help, /Required review provider/);
 });

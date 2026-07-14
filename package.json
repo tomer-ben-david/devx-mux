@@ -15,7 +15,7 @@
     "cli": "node scripts/cli.ts",
     "test": "npm run test --workspaces --if-present && npm run test:skills",
     "test:skills": "node --test --import=tsx 'skills/**/*.test.ts'",
-    "typecheck": "tsc -b packages/terminal-ui packages/reviewer apps/cli && tsc -p tsconfig.scripts.json --noEmit"
+    "typecheck": "tsc -b packages/terminal-ui packages/reviewer apps/cli && tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
