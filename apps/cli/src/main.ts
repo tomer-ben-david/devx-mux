@@ -9,6 +9,7 @@ import { createParallelReviewDashboard, TerminalReporter, type ReviewPanelId } f
 import { helpText, parseReviewArguments, resolveParallelReasoning, reviewHelpText, versionText } from "./arguments.js";
 import { resolveRepositoryPath } from "./git.js";
 import { persistCombinedReview, persistRawReview, type ProviderIdentity } from "./review-artifacts.js";
+import { withReviewCancellation, type ReviewCancellation } from "./review-cancellation.js";
 
 const STANDARDS_URL = "https://github.com/tomer-ben-david/devx-coding-standards";
 const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version?: unknown };
@@ -39,6 +40,7 @@ async function runBothProviders(
   codexReasoning: "low" | "medium" | "high" | "xhigh",
   grokReasoning: "low" | "medium" | "high",
   interactive: boolean,
+  cancellation: ReviewCancellation,
 ): Promise<number> {
   const providers = {
     codex: new CodexReviewProvider(codexReasoning),
@@ -48,13 +50,8 @@ async function runBothProviders(
     codex: await providerIdentity("codex", providers.codex, repositoryPath),
     grok: await providerIdentity("grok", providers.grok, repositoryPath),
   };
-  const controller = new AbortController();
-  const cancel = (): void => {
-    if (!controller.signal.aborted) controller.abort();
-  };
-  process.on("SIGINT", cancel);
   const dashboard = interactive
-    ? await createParallelReviewDashboard(path.basename(repositoryPath), scopeLabel, cancel)
+    ? await createParallelReviewDashboard(path.basename(repositoryPath), scopeLabel, cancellation.cancel)
     : undefined;
   const lastHeadlessStatus: Partial<Record<ReviewPanelId, string>> = {};
   for (const id of ["codex", "grok"] as const) {
@@ -69,7 +66,7 @@ async function runBothProviders(
         process.stderr.write(`[${identities[id].label}] ${update.status}\n`);
       }
     };
-    const execution = await providers[id].review(prompt, repositoryPath, progress, controller.signal);
+    const execution = await providers[id].review(prompt, repositoryPath, progress, cancellation.signal);
     if (execution.exitCode !== 0) throw new Error(`${identities[id].label}: ${execution.error ?? `exited with status ${execution.exitCode}`}`);
     if (execution.finalText.trim().length === 0) throw new Error(`${identities[id].label}: returned no final review`);
     const rawPath = await persistRawReview(repositoryPath, scopeKind, identities[id].label, execution.finalText);
@@ -78,13 +75,12 @@ async function runBothProviders(
   };
 
   const settled = await Promise.allSettled([runProvider("codex"), runProvider("grok")]);
-  process.off("SIGINT", cancel);
   const ids = ["codex", "grok"] as const;
   settled.forEach((result, index) => {
     if (result.status === "rejected") dashboard?.complete(ids[index] ?? "codex", result.reason instanceof Error ? result.reason.message : String(result.reason));
   });
   dashboard?.close();
-  if (controller.signal.aborted) {
+  if (cancellation.signal.aborted) {
     process.stderr.write("\nReview cancelled. Codex and Grok were stopped.\n");
     return 130;
   }
@@ -104,6 +100,90 @@ async function runBothProviders(
     process.stdout.write(`${combined.markdown}\n`);
   }
   return 0;
+}
+
+async function runSingleProvider(
+  provider: ReviewProvider,
+  providerLabel: string,
+  prompt: string,
+  repositoryPath: string,
+  scopeKind: string,
+  interactive: boolean,
+  reporter: TerminalReporter,
+  cancellation: ReviewCancellation,
+): Promise<number> {
+  try {
+    const configuration = await provider.configuration?.(repositoryPath);
+    const providerVersion = await provider.version();
+    const providerModel = configuration?.model ?? "provider default";
+    const providerReasoning = configuration?.reasoningEffort;
+    const reasoning = providerReasoning === undefined ? "" : ` · ${providerReasoning} reasoning`;
+    reporter.success("Provider", `${providerVersion} · ${providerModel}${reasoning}`);
+    if (cancellation.signal.aborted) {
+      reporter.cancelled(`${providerLabel} was stopped.`);
+      return 130;
+    }
+
+    const providerDetail = provider.name === "grok"
+      ? `Grok · ${providerReasoning ?? "default"} reasoning · verification enabled`
+      : "Codex · read-only · ephemeral";
+    reporter.active("Reviewer", providerDetail);
+    const execution = await provider.review(
+      prompt,
+      repositoryPath,
+      (update) => {
+        reporter.updateActivity("Reviewer", update.status);
+        if (update.kind !== undefined && update.text !== undefined) {
+          reporter.live(update.kind, update.text);
+        }
+      },
+      cancellation.signal,
+    );
+    if (cancellation.signal.aborted) {
+      reporter.cancelled(`${providerLabel} was stopped.`);
+      return 130;
+    }
+    if (execution.exitCode !== 0) {
+      reporter.failure(execution.error ?? `${providerLabel} exited with status ${execution.exitCode}`);
+      return execution.exitCode;
+    }
+    if (execution.finalText.trim().length === 0) {
+      reporter.failure(`${providerLabel} returned no final review`);
+      return 1;
+    }
+
+    const reportPath = await persistRawReview(repositoryPath, scopeKind, providerLabel, execution.finalText);
+    if (cancellation.signal.aborted) {
+      reporter.cancelled(`${providerLabel} was stopped.`);
+      return 130;
+    }
+    if (interactive) {
+      reporter.providerChunk(`${execution.finalText}\n`);
+      reporter.flushProvider();
+      reporter.artifact(reportPath);
+    } else {
+      process.stdout.write(`${execution.finalText}\n`);
+      process.stderr.write(`Full report ${reportPath}\n`);
+    }
+    if (execution.usage !== undefined) {
+      reporter.usage([
+        ...(execution.usage.inputTokens !== undefined ? [`${compactNumber(execution.usage.inputTokens)} in`] : []),
+        ...(execution.usage.cachedInputTokens !== undefined ? [`${compactNumber(execution.usage.cachedInputTokens)} cached`] : []),
+        ...(execution.usage.outputTokens !== undefined ? [`${compactNumber(execution.usage.outputTokens)} out`] : []),
+        ...(execution.usage.reasoningTokens !== undefined ? [`${compactNumber(execution.usage.reasoningTokens)} reasoning`] : []),
+        "quota remaining: unavailable",
+      ]);
+    }
+    if (interactive) reporter.result("provider output saved");
+    return 0;
+  } catch (error) {
+    if (cancellation.signal.aborted) {
+      reporter.cancelled(`${providerLabel} was stopped.`);
+      return 130;
+    }
+    reporter.failure(error instanceof Error ? error.message : String(error));
+    return 1;
+  }
 }
 
 async function run(argv: readonly string[]): Promise<number> {
@@ -164,86 +244,41 @@ async function run(argv: readonly string[]): Promise<number> {
     return 0;
   }
 
-  if (options.provider === "both") {
-    const reasoning = resolveParallelReasoning(options, command);
-    return runBothProviders(
-      prompt,
-      repositoryPath,
-      options.scope.kind,
-      scopeLabel,
-      reasoning.codex,
-      reasoning.grok,
-      interactive,
-    );
-  }
+  return withReviewCancellation(async (cancellation) => {
+    try {
+      if (options.provider === "both") {
+        const reasoning = resolveParallelReasoning(options, command);
+        return await runBothProviders(
+          prompt,
+          repositoryPath,
+          options.scope.kind,
+          scopeLabel,
+          reasoning.codex,
+          reasoning.grok,
+          interactive,
+          cancellation,
+        );
+      }
 
-  const provider = options.provider === "grok"
-    ? new GrokReviewProvider(options.reasoningEffort === "low" ? "low" : options.reasoningEffort === "medium" ? "medium" : "high")
-    : new CodexReviewProvider(options.reasoningEffort);
-  let providerVersion = provider.name;
-  let providerModel = "provider default";
-  let providerReasoning: string | undefined;
-  try {
-    const configuration = await provider.configuration?.(repositoryPath);
-    providerVersion = await provider.version();
-    providerModel = configuration?.model ?? "provider default";
-    providerReasoning = configuration?.reasoningEffort;
-    const reasoning = providerReasoning !== undefined
-      ? ` · ${providerReasoning} reasoning`
-      : "";
-    reporter.success("Provider", `${providerVersion} · ${providerModel}${reasoning}`);
-  } catch (error) {
-    reporter.failure(error instanceof Error ? error.message : String(error));
-    return 1;
-  }
-  const providerDetail = options.provider === "grok"
-    ? `Grok · ${providerReasoning ?? "default"} reasoning · verification enabled`
-    : "Codex · read-only · ephemeral";
-  reporter.active("Reviewer", providerDetail);
-
-  try {
-    const execution = await provider.review(
-      prompt,
-      repositoryPath,
-      (update) => {
-        reporter.updateActivity("Reviewer", update.status);
-        if (update.kind !== undefined && update.text !== undefined) {
-          reporter.live(update.kind, update.text);
-        }
-      },
-    );
-    if (execution.exitCode !== 0) {
-      reporter.failure(execution.error ?? `${providerLabel} exited with status ${execution.exitCode}`);
-      return execution.exitCode;
+      const provider = options.provider === "grok"
+        ? new GrokReviewProvider(options.reasoningEffort === "low" ? "low" : options.reasoningEffort === "medium" ? "medium" : "high")
+        : new CodexReviewProvider(options.reasoningEffort);
+      return await runSingleProvider(
+        provider,
+        providerLabel,
+        prompt,
+        repositoryPath,
+        options.scope.kind,
+        interactive,
+        reporter,
+        cancellation,
+      );
+    } catch (error) {
+      if (!cancellation.signal.aborted) throw error;
+      process.stderr.write(`\nReview cancelled. ${providerLabel} ${options.provider === "both" ? "were" : "was"} stopped.\n`);
+      return 130;
     }
-    if (execution.finalText.trim().length === 0) {
-      reporter.failure(`${providerLabel} returned no final review`);
-      return 1;
-    }
-    const reportPath = await persistRawReview(repositoryPath, options.scope.kind, providerLabel, execution.finalText);
-    if (interactive) {
-      reporter.providerChunk(`${execution.finalText}\n`);
-      reporter.flushProvider();
-      reporter.artifact(reportPath);
-    } else {
-      process.stdout.write(`${execution.finalText}\n`);
-      process.stderr.write(`Full report ${reportPath}\n`);
-    }
-    if (execution.usage !== undefined) {
-      reporter.usage([
-        ...(execution.usage.inputTokens !== undefined ? [`${compactNumber(execution.usage.inputTokens)} in`] : []),
-        ...(execution.usage.cachedInputTokens !== undefined ? [`${compactNumber(execution.usage.cachedInputTokens)} cached`] : []),
-        ...(execution.usage.outputTokens !== undefined ? [`${compactNumber(execution.usage.outputTokens)} out`] : []),
-        ...(execution.usage.reasoningTokens !== undefined ? [`${compactNumber(execution.usage.reasoningTokens)} reasoning`] : []),
-        "quota remaining: unavailable",
-      ]);
-    }
-    if (interactive) reporter.result("provider output saved");
-    return 0;
-  } catch (error) {
-    reporter.failure(error instanceof Error ? error.message : String(error));
-    return 1;
-  }
+  });
 }
 
 function runWithManagedBun(argv: readonly string[]): number | undefined {
