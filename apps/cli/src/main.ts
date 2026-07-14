@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt, type ReviewProgress, type ReviewProvider } from "@devx-mux/reviewer";
 import { createParallelReviewDashboard, TerminalReporter, type ReviewPanelId } from "@devx-mux/terminal-ui";
-import { helpText, parseReviewArguments, reviewHelpText, versionText } from "./arguments.js";
+import { helpText, parseReviewArguments, resolveParallelReasoning, reviewHelpText, versionText } from "./arguments.js";
 import { resolveRepositoryPath } from "./git.js";
 import { persistCombinedReview, persistRawReview, type ProviderIdentity } from "./review-artifacts.js";
 
@@ -165,14 +165,14 @@ async function run(argv: readonly string[]): Promise<number> {
   }
 
   if (options.provider === "both") {
-    const sharedReasoning = options.reasoningEffort === "low" ? "low" : options.reasoningEffort === "medium" ? "medium" : "high";
+    const reasoning = resolveParallelReasoning(options, command);
     return runBothProviders(
       prompt,
       repositoryPath,
       options.scope.kind,
       scopeLabel,
-      options.codexReasoningEffort ?? sharedReasoning,
-      options.grokReasoningEffort ?? sharedReasoning,
+      reasoning.codex,
+      reasoning.grok,
       interactive,
     );
   }

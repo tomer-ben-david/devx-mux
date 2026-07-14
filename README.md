@@ -49,7 +49,7 @@ When working directly from the cloned DevX Mux repository, use `./mux.sh` instea
 ./mux.sh review local --provider grok
 ./mux.sh review codebase --provider grok
 ./mux.sh review codebase --provider codex
-./mux.sh multireview codebase --reasoning low
+./mux.sh multireview codebase
 ./mux.sh multireview codebase --codex-reasoning xhigh --grok-reasoning high
 ./mux.sh multireview branch --instructions "Treat backfill and repair scripts as non-goals. Review shipped runtime code only."
 ```
@@ -98,8 +98,8 @@ mux review codebase --provider grok --reasoning high
 # Both reviewers concurrently, with independent reports
 mux review codebase --provider both --reasoning high
 
-# Recommended parallel-review command
-mux multireview codebase --reasoning low
+# Recommended parallel-review command: Codex xhigh and Grok high
+mux multireview codebase
 
 # Both concurrently, with maximum Codex reasoning and high Grok reasoning
 mux multireview codebase --codex-reasoning xhigh --grok-reasoning high
@@ -132,7 +132,7 @@ mux review codebase --provider codex --reasoning high
 mux review codebase --provider codex --reasoning xhigh
 ```
 
-Grok supports `low`, `medium`, and `high`. Codex supports `low`, `medium`, `high`, and `xhigh`. For parallel review, use `--codex-reasoning` and `--grok-reasoning` when the reviewers should use different efforts. Without an override, parallel review defaults both providers to high reasoning while each CLI keeps its default model.
+Grok supports `low`, `medium`, and `high`. Codex supports `low`, `medium`, `high`, and `xhigh`. For parallel review, use `--codex-reasoning` and `--grok-reasoning` when the reviewers should use different efforts. Without an override, `mux multireview` defaults Codex to `xhigh` and Grok to `high`, while `mux review --provider both` defaults both to `high`. Each CLI keeps its default model.
 
 Preview the exact reviewer prompt without invoking a model:
 

@@ -29,10 +29,10 @@ Do not substitute one scope for another. For branch reviews, let Git derive the 
 
 ## Run
 
-Use high reasoning by default:
+Use the CLI defaults: Codex `xhigh` and Grok `high`.
 
 ```bash
-mux multireview <scope> --codex-reasoning high --grok-reasoning high
+mux multireview <scope>
 ```
 
 Use `--repo <path>` when the target is not the current directory. Use `--format markdown` when output is being captured instead of rendered interactively.

@@ -38,10 +38,26 @@ export function versionText(version: string): string {
   return `DevX Mux ${version}\n`;
 }
 
+export function resolveParallelReasoning(
+  options: Pick<ReviewArguments, "reasoningEffort" | "codexReasoningEffort" | "grokReasoningEffort">,
+  command: "review" | "multireview",
+): { readonly codex: "low" | "medium" | "high" | "xhigh"; readonly grok: "low" | "medium" | "high" } {
+  if (options.reasoningEffort === "xhigh") {
+    throw new Error("Grok does not support xhigh reasoning. Use --codex-reasoning xhigh instead.");
+  }
+  return {
+    codex: options.codexReasoningEffort ?? options.reasoningEffort ?? (command === "multireview" ? "xhigh" : "high"),
+    grok: options.grokReasoningEffort ?? options.reasoningEffort ?? "high",
+  };
+}
+
 export function reviewHelpText(command: "review" | "multireview" = "review"): string {
   const providerOption = command === "review" ? " --provider <grok|codex|both>" : "";
   const providerDescription = command === "review"
     ? "  --provider NAME  Required review provider. Supported: grok, codex, both.\n"
+    : "";
+  const reasoningDefaults = command === "multireview"
+    ? "  Defaults: Codex xhigh, Grok high.\n"
     : "";
   return `DevX Mux ${command}
 
@@ -69,6 +85,7 @@ ${providerDescription}  --instructions TEXT Add review focus or non-goals within
   --repo PATH      Repository to review. Default: current directory.
   --dry-run        Print the composed prompt without invoking the provider.
   -h, --help       Show this help.
+${reasoningDefaults}
 `;
 }
 
