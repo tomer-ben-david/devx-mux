@@ -28,6 +28,8 @@ For a PR review, post each reviewer's complete report as its own PR comment afte
 
 Posting is a remote mutation. Obtain explicit user authorization before the first comment unless the user already requested that the reviews be posted. Do not post partial or interrupted output. Later review rounds must read the earlier posted reports with the rest of the PR discussion.
 
+Authorization to publish completed reports does not authorize a bot trigger or another review. Obtain separate explicit authorization before posting `@codex review` or any equivalent trigger. A triggered reviewer becomes an additional participating reviewer for that round, and convergence must wait for its final result on the same head.
+
 ## Triage
 
 Classify every finding:
