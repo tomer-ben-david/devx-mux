@@ -9,6 +9,7 @@ import { createParallelReviewDashboard, TerminalReporter, type ReviewPanelId } f
 import { helpText, parseReviewArguments, resolveParallelReasoning, reviewHelpText, versionText } from "./arguments.js";
 import { resolveRepositoryPath } from "./git.js";
 import { persistCombinedReview, persistRawReview, type ProviderIdentity } from "./review-artifacts.js";
+import { installPublicSkills } from "./skill-installer.js";
 
 const STANDARDS_URL = "https://github.com/tomer-ben-david/devx-coding-standards";
 const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version?: unknown };
@@ -114,6 +115,11 @@ async function run(argv: readonly string[]): Promise<number> {
   }
   if (command === undefined || command === "--help" || command === "-h") {
     process.stdout.write(helpText());
+    return 0;
+  }
+  if (command === "setup") {
+    if (rawCommandArguments.length > 0) throw new Error("mux setup does not accept arguments.");
+    installPublicSkills();
     return 0;
   }
   if (command !== "review" && command !== "multireview") {

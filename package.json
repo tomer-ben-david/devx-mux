@@ -1,5 +1,5 @@
 {
-  "name": "devx-mux",
+  "name": "devx-mux-monorepo",
   "private": true,
   "version": "0.1.0",
   "description": "Multiplex independent AI implementation and review workflows.",
@@ -13,16 +13,19 @@
     "build": "tsc -b packages/terminal-ui packages/reviewer apps/cli",
     "mux": "node scripts/mux.ts",
     "cli": "node scripts/cli.ts",
-    "test": "npm run test --workspaces --if-present && npm run test:skills",
+    "test": "npm run test --workspaces --if-present && npm run test:skills && npm run test:install",
+    "test:install": "node --test --import=tsx tests/npm-install.e2e.test.ts",
     "test:skills": "node --test --import=tsx 'skills/**/*.test.ts'",
-    "typecheck": "tsc -b packages/terminal-ui packages/reviewer apps/cli && tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -b packages/terminal-ui packages/reviewer apps/cli && tsc -p tsconfig.json --noEmit",
+    "verify:release": "node scripts/verify-release-version.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "esbuild": "^0.28.1",
     "typescript": "^5.9.0"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18.0"
   },
   "allowScripts": {
     "bun@1.3.14": true

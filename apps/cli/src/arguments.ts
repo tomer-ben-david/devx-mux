@@ -17,6 +17,7 @@ const ROOT_HELP = `DevX Mux
 
 Usage:
   mux --version
+  mux setup
   mux review --help
   mux multireview branch [options]
   mux multireview pr [NUMBER] [options]
