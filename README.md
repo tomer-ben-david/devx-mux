@@ -14,9 +14,18 @@ AI code review is only useful when it is scoped, skeptical, and low-noise. DevX 
 - Separate correctness findings from readability and standards findings.
 - Report no findings when there is no actionable issue.
 
-## Install from source
+## Install
 
-Requires Node.js 22 or newer and at least one supported provider CLI: Grok or Codex. Setup installs a repository-local Bun runtime for the OpenTUI dashboard; no global Bun installation is required.
+Requires Node.js 22 or newer and at least one supported provider CLI: Grok or Codex. The package installs its own Bun runtime for the OpenTUI dashboard; no global Bun installation is required.
+
+```bash
+npm install --global devx-mux
+mux setup
+```
+
+`mux setup` links the public DevX Mux skills into Codex, Claude, and shared agent discovery. It is safe to run again after reinstalling or moving the package.
+
+### Install from source
 
 ```bash
 git clone https://github.com/tomer-ben-david/devx-mux.git
@@ -54,7 +63,7 @@ When working directly from the cloned DevX Mux repository, use `./mux.sh` instea
 ./mux.sh multireview branch --instructions "Treat backfill and repair scripts as non-goals. Review shipped runtime code only."
 ```
 
-To install the global `mux` command, run `./mux.sh link` once. It builds the CLI and creates a global npm link back to this checkout. Do not reinstall after each local commit: run `./mux.sh check` before committing, and its build step refreshes the `dist` files used by the linked `mux` command. Use `./mux.sh build` when only a rebuild is needed. Package versions change for releases, not for every commit.
+For source development, run `./mux.sh link` once to replace the published command with a global npm link back to the checkout. Do not relink after each local commit: `./mux.sh check` refreshes the built files used by the linked command. Use `./mux.sh build` when only a rebuild is needed. Package versions change for releases, not for every commit.
 
 ### Public agent skills
 
@@ -71,12 +80,12 @@ DevX Mux is also the canonical public home for reusable agent workflows:
 Install links for Codex, Claude, and shared agent discovery:
 
 ```bash
-./mux.sh link-agent-files
+mux setup
 ```
 
-Each person runs the installer once from their own DevX Mux clone. It links the public skills into their Codex, Claude, and shared-agent skill directories, so `$mux-multireview` and `$mux-orchestrate` can be invoked while working in any repository. Every installed link points back to that person's clone, which remains the source of truth.
+Each person runs the installer once after installing the npm package. It links the packaged public skills into their Codex, Claude, and shared-agent skill directories, so `$mux-multireview` and `$mux-orchestrate` can be invoked while working in any repository. Source contributors can use `./mux.sh link-agent-files` to link the same skills directly to their checkout.
 
-The installer refreshes symlinks it owns after the checkout moves, but never overwrites a real file or directory. Legacy names such as `codex-orchestrate`, `cmux-review-loop`, and `rex-review-loop` may remain compatibility pointers to `devx-mux`; new orchestration prompts should use `mux-orchestrate`. The canonical workflow and shared browser transport live in `devx-mux`.
+The installer refreshes stale symlinks it owns, but never overwrites a real file or directory. Legacy names such as `codex-orchestrate`, `cmux-review-loop`, and `rex-review-loop` may remain compatibility pointers to `devx-mux`; new orchestration prompts should use `mux-orchestrate`. The canonical workflow and shared browser transport live in `devx-mux`.
 
 The repository's root `AGENTS.md` remains local to each clone and is not installed globally. Reusable workflows belong in public skills; repository-specific policy stays in `AGENTS.md`.
 
@@ -240,6 +249,16 @@ Use the local runner for the complete development workflow:
 ```
 
 Run `./mux.sh help` for individual test, type-check, build, link, review, and cleanup commands. The project intentionally uses local verification instead of consuming hosted CI minutes.
+
+The npm release is built from a clean CLI bundle and includes the five public skills. Verify the exact consumer installation path locally with:
+
+```bash
+npm run test:install
+```
+
+### Publishing
+
+The package version in `apps/cli/package.json` is the release source of truth. The first release reserves the package name through an explicitly authorized local `npm publish --workspace devx-mux`. After that, configure npm trusted publishing for `tomer-ben-david/devx-mux` and `.github/workflows/publish-npm.yml`. Publishing a GitHub release whose tag exactly matches `v<package-version>` then runs the full local check and publishes with npm provenance. A mismatched tag fails before publication.
 
 The shell files are minimal launchers only. Workflow behavior lives in TypeScript under `scripts/`. On systems without a POSIX shell, use the equivalent npm entry point:
 

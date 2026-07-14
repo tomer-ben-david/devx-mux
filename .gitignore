@@ -3,6 +3,9 @@ dist/
 coverage/
 *.log
 *.tsbuildinfo
+apps/cli/skills/
+apps/cli/README.md
+apps/cli/LICENSE
 
 # Local environment and credentials
 .env
