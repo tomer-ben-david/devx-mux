@@ -170,6 +170,8 @@ Every provider receives the same scope and quality bar, then owns its response f
 
 In an interactive terminal, DevX Mux uses a responsive OpenTUI dashboard for concise investigation notes, tool activity, elapsed time, activity counts, and independent reviewer state. Parallel reviews give Codex and Grok equal color-coded panels and run them directly in the same DevX process. Final review Markdown does not flood the activity panes. It is preserved verbatim in the provider and combined report artifacts.
 
+Pressing Ctrl+C cancels the active review, stops the detached provider process group in both single-provider and parallel modes, and exits with status `130`.
+
 When output is piped or captured by an AI agent, DevX Mux emits the complete provider-owned Markdown to stdout without cursor animation. Status and artifact paths go to stderr, so stdout is safe to render, capture, or relay. Every successful run also saves the complete reports in a private per-user temporary directory. Unix-like systems use `/tmp/devx-mux-<uid>/`; Windows uses the native temporary directory.
 
 Output defaults to `auto`: TUI for an interactive terminal and Markdown otherwise. Override detection with `--format tui` or `--format markdown`. This supports direct shell use as well as calls from Codex, Claude, scripts, and other agents without maintaining separate commands.

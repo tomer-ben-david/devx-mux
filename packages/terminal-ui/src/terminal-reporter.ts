@@ -107,6 +107,11 @@ export class TerminalReporter {
     this.write(`\n${this.paint("1;31", "✗ Failed")} ${detail} ${this.paint("2", `· ${this.elapsed()}`)}\n`);
   }
 
+  cancelled(detail: string): void {
+    this.finishActivity();
+    this.write(`\n${this.paint("1;33", "Cancelled")} ${detail} ${this.paint("2", `· ${this.elapsed()}`)}\n`);
+  }
+
   providerChunk(chunk: string): void {
     this.finishActivity();
     this.providerBuffer += chunk;
