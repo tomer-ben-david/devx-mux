@@ -16,7 +16,7 @@ AI code review is only useful when it is scoped, skeptical, and low-noise. DevX 
 
 ## Install
 
-Requires Node.js 22 or newer and at least one supported provider CLI: Grok or Codex. The package installs its own Bun runtime for the OpenTUI dashboard; no global Bun installation is required.
+Requires Node.js 22.18 or newer and at least one supported provider CLI: Grok or Codex. Node 22.18 is the minimum because DevX Mux and its packaged skills execute TypeScript entrypoints directly. The package installs its own Bun runtime for the OpenTUI dashboard; no global Bun installation is required.
 
 ```bash
 npm install --global devx-mux
