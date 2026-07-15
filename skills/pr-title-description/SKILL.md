@@ -1,6 +1,6 @@
 ---
 name: pr-title-description
-description: "Write or rewrite a GitHub PR title and reviewer-neutral description. Use for PR titles, PR bodies, reviewer context, or a description refresh before review. Produce clear Context, Related work, Goals, Non-goals, Next steps, Design notes, Verification, and an optional changelog."
+description: "Write or rewrite a GitHub PR title and reviewer-neutral description. Use for PR titles, PR bodies, reviewer context, or a description refresh before review. Produce clear Context, Related work, Goals, Non-goals, Solution, Next steps, Design notes, Verification, and an optional changelog."
 ---
 
 # PR title and description
@@ -55,13 +55,19 @@ State what the PR accomplishes in one sentence or a tight list. This is the scop
 
 List only meaningful boundaries, normally no more than five. Do not pad the section with obvious exclusions.
 
+### Solution
+
+Describe how the current diff achieves the goals. Summarize the major code, configuration, or data-flow changes and how they work together so a fresh reviewer can understand the implemented approach without opening the diff.
+
+Keep this section concrete and reviewer-neutral. Name important files, functions, fields, commands, or boundaries when they clarify the mechanics. Do not turn it into a file-by-file changelog or argue that the approach is superior.
+
 ### Next steps
 
 When later work remains, give the short ordered sequence and say what requires a separate action or approval. If the change is self-contained, say: "No follow-up; this PR is the complete change."
 
 ### Design notes
 
-Use this optional section for facts needed to understand the implementation:
+Use this optional section for implementation facts beyond the Solution summary:
 
 - important invariants
 - order of operations
@@ -121,6 +127,7 @@ Do not encode the body as escaped `\n` sequences in a shell argument.
 
 - Context is understandable without recent chat history.
 - Goals and Non-goals are present and accurate.
+- Solution explains how the current diff achieves the goals.
 - Related work and Next steps are included when applicable.
 - Design notes state facts rather than review instructions.
 - Verification says what ran and what remains unproven.

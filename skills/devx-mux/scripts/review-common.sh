@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # review-common.sh - single source of the ChatGPT review-loop orchestration.
 #
-# DevX Mux supports both RexIDE and cmux. Both drive a ChatGPT browser pane through the
+# DevX Mux supports both Rex and cmux. Both drive a ChatGPT browser pane through the
 # same five-step flow:
 #
 #   resolve socket -> find ChatGPT pane -> verify it is ChatGPT
 #                  -> submit prompt / read body -> check REQUEST_ID
 #
-# Only the *transport* differs (cmux CLI vs RexIDE's nc -U text protocol). Every
+# Only the *transport* differs (cmux CLI vs Rex's nc -U text protocol). Every
 # transport appears exactly once here, branched on the `tool` argument (cmux|rex).
 # The per-tool send/poll wrappers source this file and call these functions, so
 # no orchestration logic is duplicated across the two loops.
@@ -230,7 +230,7 @@ _review_find_cmux_chatgpt_surface() {
     printf '%s\n' "$chosen"
 }
 
-# Predicate: does this raw RexIDE tree pane line match the review target?
+# Predicate: does this raw Rex tree pane line match the review target?
 #   chatgpt -> pane is showing ChatGPT
 #   browser -> any browser pane (content=Browser, with ChatGPT url as fallback)
 #   <name>  -> a browser/ChatGPT pane whose name equals the target
@@ -269,7 +269,7 @@ _review_find_rex_pane() {
     local sock
     sock="$(review_socket_path rex)"
     if [[ ! -S "$sock" ]]; then
-        echo "RexIDE socket not found: $sock" >&2
+        echo "Rex socket not found: $sock" >&2
         exit 1
     fi
     local tree
@@ -337,7 +337,7 @@ _review_find_rex_pane() {
     fi
 
     if [[ -z "$chosen" ]]; then
-        echo "No matching RexIDE browser pane for target '$target'." >&2
+        echo "No matching Rex browser pane for target '$target'." >&2
         echo "Available browser panes:" >&2
         printf '%s\n' "$tree" | awk '/content=Browser/ || /browserUrl=https:\/\/chatgpt.com/ { print "  " $0 }' >&2
         exit 1
@@ -380,16 +380,16 @@ review_get_url() {
         rex)
             local sock raw url
             sock="$(review_socket_path rex)"
-            # RexIDE returns a status line: "ok <pane> url=<val> title=... tab=...".
+            # Rex returns a status line: "ok <pane> url=<val> title=... tab=...".
             # Fail loud on a socket/read error or a malformed response so a dead
             # read is not silently mistaken for "not ChatGPT".
             if ! raw="$(printf 'browser-url %s\n' "$handle" | nc -U "$sock" 2>&1)"; then
-                echo "review_get_url: RexIDE browser-url read failed for $handle: ${raw:-<no response>}" >&2
+                echo "review_get_url: Rex browser-url read failed for $handle: ${raw:-<no response>}" >&2
                 return 1
             fi
             url="$(printf '%s\n' "$raw" | grep -oE 'url=https://[^ ]+' | sed 's/^url=//')"
             if [[ -z "$url" ]]; then
-                echo "review_get_url: no url= in RexIDE response for $handle: ${raw:-<empty>}" >&2
+                echo "review_get_url: no url= in Rex response for $handle: ${raw:-<empty>}" >&2
                 return 1
             fi
             printf '%s\n' "$url"
@@ -467,16 +467,16 @@ review_read_body() {
         rex)
             local sock raw header
             sock="$(review_socket_path rex)"
-            # RexIDE returns "ok <pane> chars=N mode=embedded\n<body>". Fail loud
+            # Rex returns "ok <pane> chars=N mode=embedded\n<body>". Fail loud
             # on a socket/read error or an unexpected header: the orchestrator must
             # distinguish "could not read the pane" from "answer not there yet".
             if ! raw="$(printf 'browser-text %s 30000\n' "$handle" | nc -U "$sock" 2>&1)"; then
-                echo "review_read_body: RexIDE browser-text read failed for $handle: ${raw:-<no response>}" >&2
+                echo "review_read_body: Rex browser-text read failed for $handle: ${raw:-<no response>}" >&2
                 return 1
             fi
             header="${raw%%$'\n'*}"
             if [[ "$header" != "ok "* ]]; then
-                echo "review_read_body: unexpected RexIDE response for $handle (expected 'ok ...'): ${raw:-<empty>}" >&2
+                echo "review_read_body: unexpected Rex response for $handle (expected 'ok ...'): ${raw:-<empty>}" >&2
                 return 1
             fi
             # Drop the status header line; print only the page text.
@@ -508,12 +508,12 @@ review_read_last_answer() {
             local sock raw header
             sock="$(review_socket_path rex)"
             if ! raw="$(printf 'browser-eval %s %s\n' "$handle" "$js" | nc -U "$sock" 2>&1)"; then
-                echo "review_read_last_answer: RexIDE browser-eval failed for $handle" >&2
+                echo "review_read_last_answer: Rex browser-eval failed for $handle" >&2
                 return 1
             fi
             header="${raw%%$'\n'*}"
             if [[ "$header" != "ok "* ]]; then
-                echo "review_read_last_answer: unexpected RexIDE response for $handle: ${raw:-<empty>}" >&2
+                echo "review_read_last_answer: unexpected Rex response for $handle: ${raw:-<empty>}" >&2
                 return 1
             fi
             printf '%s\n' "${raw#*$'\n'}"

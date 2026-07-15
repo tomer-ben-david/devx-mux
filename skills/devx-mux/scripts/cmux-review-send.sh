@@ -2,8 +2,8 @@
 # cmux-review-send.sh - cmux thin wrapper over review-common.sh.
 #
 # Browser review-send logic lives once in review-common.sh (shared with the
-# RexIDE review loop). Only the cmux-only *terminal* mode is handled here, since
-# it has no RexIDE equivalent and therefore nothing to share.
+# Rex review loop). Only the cmux-only *terminal* mode is handled here, since
+# it has no Rex equivalent and therefore nothing to share.
 #
 # Usage:
 #   cmux-review-send.sh terminal <surface> <prompt-file>
@@ -46,7 +46,7 @@ source "$script_dir/review-common.sh"
 
 case "$mode" in
     terminal)
-        # cmux-only: send to a terminal surface. No RexIDE equivalent, so not shared
+        # cmux-only: send to a terminal surface. No Rex equivalent, so not shared
         # through review_submit; the surface lookup itself still reuses the common
         # cmux tree-find helper (terminal kind).
         surface="$(_review_find_cmux_surface_by_kind terminal "$surface")"

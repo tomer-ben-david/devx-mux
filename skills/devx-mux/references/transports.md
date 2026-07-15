@@ -18,18 +18,20 @@ Resolve exact tab titles for terminal roles. A terminal titled `codex-review` is
 
 After every terminal send, submit with Enter and verify that the target started working. A successful `cmux send` only proves text delivery.
 
-## RexIDE
+## DevX Rex
 
 Resolve the socket, then inspect the active task and its panes:
 
 ```bash
-SOCK="$HOME/Library/Application Support/rexide/rexide.sock"
+SOCK="$HOME/Library/Application Support/rex/rex.sock"
 printf 'tree\n' | nc -U "$SOCK"
 printf 'tail pane:<id> 4000\n' | nc -U "$SOCK"
 printf 'submit pane:<id> <prompt>\n' | nc -U "$SOCK"
 ```
 
 Prefer targets inside the active/origin task. Use a pane name only after confirming its role and repository. A returned `ok` must confirm submission before polling.
+
+The resolver accepts `REX_SOCKET_PATH` as an explicit override. During the rename transition, it uses the legacy `rexide/rexide.sock` path only when the canonical Rex socket is absent.
 
 ## Unknown mux
 

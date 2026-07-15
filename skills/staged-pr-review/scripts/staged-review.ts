@@ -19,7 +19,7 @@ function git(repository: string, ...args: string[]): string {
 
 function defaultTarget(): string {
   const rex = Object.entries(process.env).some(
-    ([key, value]) => key.startsWith("APP_NAME_") && value?.toLowerCase() === "rexide",
+    ([key, value]) => key.startsWith("APP_NAME_") && ["rex", "rexide"].includes(value?.toLowerCase() ?? ""),
   );
   return rex ? "rex" : "chatgpt";
 }

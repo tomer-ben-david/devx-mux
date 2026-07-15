@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# rex-review-send.sh - RexIDE thin wrapper over review-common.sh.
+# rex-review-send.sh - Rex thin wrapper over review-common.sh.
 #
 # Usage:
 #   rex-review-send.sh <chatgpt|browser|pane:id|pane-name> <prompt-file>
