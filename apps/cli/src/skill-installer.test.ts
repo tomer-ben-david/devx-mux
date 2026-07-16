@@ -77,3 +77,57 @@ test("rejects a legacy deletion that contains the source checkout before any mut
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("rejects a skill root nested below another root's legacy deletion", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "devx-mux-nested-legacy-root-"));
+  try {
+    const skillsSourceRoot = path.join(root, "source", "skills");
+    createSkillSources(skillsSourceRoot);
+    const codexHome = path.join(root, "codex");
+    const claudeHome = path.join(codexHome, "skills", "devx-mux", "checkout");
+
+    assert.throws(
+      () => installPublicSkills({
+        environment: {
+          CODEX_HOME: codexHome,
+          CLAUDE_HOME: claudeHome,
+          AGENTS_HOME: path.join(root, "agents"),
+        },
+        skillsSourceRoot,
+      }),
+      /skill roots must not be nested/,
+    );
+
+    assertSkillSourcesRemain(skillsSourceRoot);
+    assert.equal(existsSync(path.join(codexHome, "skills", "mux-orchestrate")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("rejects a skill root nested below another planned canonical link", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "devx-mux-nested-canonical-root-"));
+  try {
+    const skillsSourceRoot = path.join(root, "source", "skills");
+    createSkillSources(skillsSourceRoot);
+    const codexHome = path.join(root, "codex");
+    const claudeHome = path.join(codexHome, "skills", "mux-orchestrate", "checkout");
+
+    assert.throws(
+      () => installPublicSkills({
+        environment: {
+          CODEX_HOME: codexHome,
+          CLAUDE_HOME: claudeHome,
+          AGENTS_HOME: path.join(root, "agents"),
+        },
+        skillsSourceRoot,
+      }),
+      /skill roots must not be nested/,
+    );
+
+    assertSkillSourcesRemain(skillsSourceRoot);
+    assert.equal(existsSync(path.join(codexHome, "skills", "mux-orchestrate")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

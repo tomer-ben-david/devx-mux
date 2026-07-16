@@ -62,6 +62,20 @@ Confirm submission by inspecting the newest visible user message and matching th
 
 After confirmed submission, use the agent runtime's background wait for about five minutes without reading or interacting with the browser. When that wait finishes, inspect the same UUID-backed surface directly through cmux or Rex visible browser commands. If ChatGPT still shows `Stop answering`, research/progress UI, an incomplete response, or no final verdict, run another five-minute background wait and inspect again. Keep this dynamic wait-and-inspect cycle indefinitely; do not impose a total elapsed-time timeout.
 
+Use the shared reminder script for the delay. It sleeps, prints the selected target back to the agent, and exits `0`:
+
+```bash
+"$SKILL/scripts/review-wait-reminder.sh" "$SURFACE" 300
+```
+
+After that command exits, the agent reads the selected surface itself, for example:
+
+```bash
+cmux browser "$SURFACE" get text body
+```
+
+The printed `ready for the agent to check` handoff means only that the delay ended. It is not a review-completion signal. The reminder script must not call cmux, Rex, browser APIs, HTML, or JavaScript, and must not read, parse, or classify the browser result.
+
 There is intentionally no Mux waiter, request token, turn token, response digest, or ChatGPT DOM parser. A sleep only delays the next inspection. It does not claim readiness, completion, or success. The agent owns the one browser read after each wait and interprets the current visible state. Do not poll every minute, scrape in a shell loop, run page JavaScript, or ask a script to decide which response is final.
 
 Elapsed time alone never makes a ChatGPT review stalled or incomplete. Do not click `Stop answering`, restart the review, or open a fresh chat because progress is unchanged or the review has taken many minutes. The 15-minute guidance refresh reloads instructions around the active run; it must not restart, replace, or otherwise disturb that run.

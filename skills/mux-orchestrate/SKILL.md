@@ -150,6 +150,8 @@ SKILL=${CODEX_HOME:-$HOME/.codex}/skills/mux-orchestrate
 
 Send one prompt per request and verify the newest visible user message matches it. Keep local routing metadata out of the reviewer-visible prompt and browser state. After submission, use the agent runtime's background wait for about five minutes, then inspect the same browser surface directly. If the review is still working or incomplete, wait another five minutes and inspect again. Do not impose a total timeout.
 
+Use `scripts/review-wait-reminder.sh <surface-or-pane> 300` for each delay. It only sleeps, prints the target ID back to the agent, and exits `0`; it never inspects or classifies the browser. The agent performs the browser read after the script exits.
+
 Mux deliberately does not provide a ChatGPT waiter, DOM parser, request token, response digest, or result extractor. cmux and Rex are generic browser transports, while the agent interprets the current visible UI at each control boundary. A background sleep is only a delay between inspections, never evidence that a result is ready. Do not build shell polling loops, run page JavaScript, or treat a missing progress control as a completed review. Never use `/new`, navigation, reload, or retry to recover an existing review; preserve the conversation and inspect it directly.
 
 ## Reporting

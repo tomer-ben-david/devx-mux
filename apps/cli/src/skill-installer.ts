@@ -65,6 +65,18 @@ function resolveThroughExistingAncestor(candidate: string): string {
   return path.join(realpathSync(existingAncestor), ...suffix);
 }
 
+function normalizeSkillRoots(skillRoots: readonly string[]): readonly string[] {
+  const uniqueRoots = [...new Set(skillRoots.map(resolveThroughExistingAncestor))];
+  for (const [index, root] of uniqueRoots.entries()) {
+    for (const otherRoot of uniqueRoots.slice(index + 1)) {
+      if (pathsOverlap(root, otherRoot) || pathsOverlap(otherRoot, root)) {
+        throw new Error(`Configured skill roots must not be nested: ${root} <-> ${otherRoot}`);
+      }
+    }
+  }
+  return uniqueRoots;
+}
+
 function canonicalMutationPath(destination: string): string {
   return path.join(
     resolveThroughExistingAncestor(path.dirname(destination)),
@@ -132,11 +144,11 @@ export function installPublicSkills(options: InstallPublicSkillsOptions = {}): v
   const environment = options.environment ?? process.env;
   const skillsSourceRoot = options.skillsSourceRoot ?? resolveSkillsSourceRoot();
   const output = options.output ?? process.stdout;
-  const skillRoots = [
+  const skillRoots = normalizeSkillRoots([
     path.join(environment.CODEX_HOME ?? path.join(homedir(), ".codex"), "skills"),
     path.join(environment.CLAUDE_HOME ?? path.join(homedir(), ".claude"), "skills"),
     path.join(environment.AGENTS_HOME ?? path.join(homedir(), ".agents"), "skills"),
-  ];
+  ]);
   const { canonicalLinks, legacyPaths } = createInstallPlan(skillRoots, skillsSourceRoot);
 
   canonicalLinks.forEach(installSkillLink);
