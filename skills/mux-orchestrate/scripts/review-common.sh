@@ -526,17 +526,19 @@ review_read_last_answer() {
     esac
 }
 
-# Print a three-part envelope for the current ChatGPT response state:
-# assistant message count, generation state, and latest assistant text. Callers
-# capture the count before submission, then reject nodes at or before that prompt
+# Print a JSON envelope for the current ChatGPT response state. Callers capture
+# the count before submission, then reject nodes at or before that prompt
 # boundary and reject the newest node while ChatGPT is still generating it.
 review_read_answer_state() {
     local tool="$1" handle="$2"
-    local js='(()=>{const t=document.querySelectorAll('"'"'[data-message-author-role="assistant"]'"'"');const text=t.length?t[t.length-1].innerText:"";const state=document.querySelector('"'"'button[data-testid="stop-button"]'"'"')?"generating":"complete";return `${t.length}\n${state}\n${text}`;})()'
+    local js='(()=>{const t=document.querySelectorAll('"'"'[data-message-author-role="assistant"]'"'"');const answer=t.length?t[t.length-1].innerText:"";const generation=document.querySelector('"'"'button[data-testid="stop-button"]'"'"')?"generating":"complete";return JSON.stringify({assistantCount:t.length,generation,answer});})()'
     case "$tool" in
         cmux)
             _review_setup_socket cmux
-            cmux browser "$handle" eval "$js" 2>/dev/null || true
+            if ! cmux browser "$handle" eval "$js"; then
+                echo "review_read_answer_state: cmux browser eval failed for $handle" >&2
+                return 1
+            fi
             ;;
         rex)
             local sock raw header
@@ -559,15 +561,46 @@ review_read_answer_state() {
     esac
 }
 
+# Validate the browser envelope and print count, generation, and base64-encoded
+# answer separated by pipes. Base64 preserves empty and multiline answers across
+# shell command substitution without relying on trailing newlines.
+review_parse_answer_state() {
+    local state="$1"
+    if [[ -z "$state" ]]; then
+        echo "review_parse_answer_state: empty browser response" >&2
+        return 1
+    fi
+    node -e '
+const raw = process.argv[1];
+let value;
+try { value = JSON.parse(raw); } catch { process.exitCode = 1; }
+if (
+  !value || !Number.isSafeInteger(value.assistantCount) || value.assistantCount < 0 ||
+  !["generating", "complete"].includes(value.generation) || typeof value.answer !== "string"
+) process.exitCode = 1;
+if (!process.exitCode) {
+  process.stdout.write(`${value.assistantCount}|${value.generation}|${Buffer.from(value.answer, "utf8").toString("base64")}`);
+}
+' "$state" || {
+        echo "review_parse_answer_state: malformed browser response" >&2
+        return 1
+    }
+}
+
 review_assistant_count() {
-    local tool="$1" target="$2" handle state
+    local tool="$1" target="$2" handle state parsed assistant_count remainder generation encoded_answer
     handle="$(review_find_chatgpt_pane "$tool" "$target")"
     if ! review_is_chatgpt "$tool" "$handle"; then
         echo "Refusing browser count: ${handle} is not a ChatGPT tab." >&2
         return 1
     fi
     state="$(review_read_answer_state "$tool" "$handle")" || return 1
-    printf '%s\n' "${state%%$'\n'*}"
+    parsed="$(review_parse_answer_state "$state")" || return 1
+    assistant_count="${parsed%%|*}"
+    remainder="${parsed#*|}"
+    generation="${remainder%%|*}"
+    encoded_answer="${remainder#*|}"
+    printf '%s\n' "$assistant_count"
 }
 
 # Pure helper: report whether REQUEST_ID is visible in the body.
@@ -614,7 +647,7 @@ review_poll_latest_answer() {
         return 2
     fi
 
-    local handle state assistant_count remainder generation answer
+    local handle state parsed assistant_count remainder generation encoded_answer answer
     handle="$(review_find_chatgpt_pane "$tool" "$target")"
     if ! review_is_chatgpt "$tool" "$handle"; then
         echo "Refusing browser poll: ${handle} is not a ChatGPT tab." >&2
@@ -622,10 +655,15 @@ review_poll_latest_answer() {
     fi
 
     state="$(review_read_answer_state "$tool" "$handle")" || return 1
-    assistant_count="${state%%$'\n'*}"
-    remainder="${state#*$'\n'}"
-    generation="${remainder%%$'\n'*}"
-    answer="${remainder#*$'\n'}"
+    parsed="$(review_parse_answer_state "$state")" || return 1
+    assistant_count="${parsed%%|*}"
+    remainder="${parsed#*|}"
+    generation="${remainder%%|*}"
+    encoded_answer="${remainder#*|}"
+    if ! answer="$(node -e 'process.stdout.write(Buffer.from(process.argv[1], "base64"))' "$encoded_answer")"; then
+        echo "review_poll_latest_answer: invalid encoded answer" >&2
+        return 1
+    fi
     if [[ -n "$after_count" && "$assistant_count" -le "$after_count" ]]; then
         echo "waiting assistant_count=$assistant_count after=$after_count"
         return 0

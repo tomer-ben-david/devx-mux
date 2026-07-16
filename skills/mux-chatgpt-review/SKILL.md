@@ -59,6 +59,10 @@ Confirm submission by reading the newest user message and matching the request I
 
 ChatGPT reviews commonly take several minutes. Wait at least two minutes before the first result poll and at least two minutes between later polls while the review remains active. Do not send reminders, duplicate the prompt, or interpret intermediate research notes as findings.
 
+Elapsed time alone never makes a ChatGPT review stalled or incomplete. There is no elapsed-time timeout or unchanged-progress limit. Do not click `Stop answering`, restart the review, or open a fresh chat because progress is unchanged or the review has taken many minutes. Continue the two-minute polling cadence as long as ChatGPT is generating or exposing research progress. The 15-minute guidance refresh reloads the skill around the active run; it must not restart, replace, or otherwise disturb that run.
+
+A run becomes incomplete only when ChatGPT reports an explicit failure or cancellation, the selected surface or conversation is lost and cannot be recovered, or the user cancels it. If a completed answer is visually present but browser text extraction fails, recover or reload the same conversation and preserve its context instead of starting over. A missing or temporarily inaccessible surface requires recovery attempts against the same UUID-backed surface and conversation before the run may be classified as lost.
+
 The poller must report `waiting` until a new assistant node exists after the captured baseline, ChatGPT is no longer generating, and the new node contains non-empty text. Accept that completed result only when it contains both:
 
 - the exact full head SHA it reviewed, matching both the retained submission head and a fresh GitHub head read
