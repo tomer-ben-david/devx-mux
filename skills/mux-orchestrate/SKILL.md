@@ -140,13 +140,13 @@ The scripts in `scripts/` provide one public, shared ChatGPT browser transport f
 SKILL=${CODEX_HOME:-$HOME/.codex}/skills/mux-orchestrate
 
 "$SKILL/scripts/cmux-review-send.sh" browser chatgpt /tmp/review-prompt.txt
-node "$SKILL/scripts/chatgpt-review-wait.ts" cmux chatgpt REQUEST_ID=<id>
+node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux chatgpt REQUEST_ID=<id>
 
 "$SKILL/scripts/rex-review-send.sh" chatgpt /tmp/review-prompt.txt
-node "$SKILL/scripts/chatgpt-review-wait.ts" rex chatgpt REQUEST_ID=<id>
+node "$SKILL/scripts/chatgpt-review-wait.mjs" rex chatgpt REQUEST_ID=<id>
 ```
 
-Send one prompt per request and require confirmed submission. Start the shared TypeScript waiter once and wait on that process; do not build an agent-owned sleep or polling loop. The waiter uses the request ID to select only an assistant node following its user message across cmux and Rex, polls internally once per minute, reports status every five minutes, and has no elapsed-time timeout. Do not use raw assistant-node counts as a boundary because browser re-rendering can change them. Do not treat stale or partially generated browser text as a new answer.
+Send one prompt per request and require confirmed submission. Start the shared TypeScript waiter once and wait on that process; do not build an agent-owned sleep or polling loop. The waiter uses the request ID to select only an assistant node following its user message across cmux and Rex, polls internally once per minute, requires the exact request head and a final review marker, then settles the same result across three polls. It reports status every five minutes and has no elapsed-time timeout. Do not use raw assistant-node counts as a boundary because browser re-rendering can change them. Do not treat stale or partially generated browser text as a new answer.
 
 ## Reporting
 

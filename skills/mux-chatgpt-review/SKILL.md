@@ -49,14 +49,14 @@ Use the shared browser transport from `mux-orchestrate`:
 ```bash
 SKILL=${CODEX_HOME:-$HOME/.codex}/skills/mux-orchestrate
 "$SKILL/scripts/cmux-review-send.sh" browser surface:N /tmp/review-prompt.txt
-node "$SKILL/scripts/chatgpt-review-wait.ts" cmux surface:N REQUEST_ID=<id>
+node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux surface:N REQUEST_ID=<id>
 ```
 
 Confirm submission by reading the newest user message and matching the request ID. A successful fill or click alone is not proof.
 
 ## Wait for the real result
 
-Run `chatgpt-review-wait.ts` once in a background terminal and wait on that same process until it exits. The shared waiter owns the polling cadence for both cmux and Rex: it checks request-bound structured state internally once per minute, emits at most one waiting status every five minutes, and has no elapsed-time timeout. The agent must not add its own sleep loop, browser polling, or body-text scraping around it. Do not send reminders, duplicate the prompt, or interpret intermediate research notes as findings.
+Run `chatgpt-review-wait.mjs` once in a background terminal and wait on that same process until it exits. The dependency-free Node runtime works through installed skill symlinks. The shared waiter owns the polling cadence for both cmux and Rex: it checks request-bound structured state internally once per minute, requires the exact full head plus a final review marker, then requires the same response on three consecutive polls before returning it. It emits at most one waiting status every five minutes and has no elapsed-time timeout. The semantic and settling gates cover temporary gaps in ChatGPT's generation controls and long-lived research placeholders between phases. The agent must not add its own sleep loop, browser polling, or body-text scraping around it. Do not send reminders, duplicate the prompt, or interpret intermediate research notes as findings.
 
 Elapsed time alone never makes a ChatGPT review stalled or incomplete. There is no elapsed-time timeout or unchanged-progress limit. Do not click `Stop answering`, restart the review, or open a fresh chat because progress is unchanged or the review has taken many minutes. Keep waiting on the shared waiter process as long as it remains active. The 15-minute guidance refresh reloads the skill around the active run; it must not restart, replace, or otherwise disturb that run.
 

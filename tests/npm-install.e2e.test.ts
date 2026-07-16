@@ -50,6 +50,9 @@ test("the packed npm release installs the CLI and public skills into an isolated
     const packageFiles = packageResult.files.map((file) => file.path);
     assert(packageFiles.includes("dist/main.js"));
     assert(packageFiles.includes("skills/mux-orchestrate/SKILL.md"));
+    assert(packageFiles.includes("skills/mux-orchestrate/scripts/chatgpt-review-wait.mjs"));
+    assert(packageFiles.includes("skills/mux-orchestrate/scripts/chatgpt-review-wait-lib.mjs"));
+    assert(packageFiles.includes("skills/mux-orchestrate/scripts/chatgpt-review-wait-lib.d.mts"));
     assert(packageFiles.includes("skills/mux-chatgpt-review/SKILL.md"));
     assert.equal(packageFiles.some((file) => file.startsWith("skills/devx-mux/")), false);
     assert.equal(packageFiles.some((file) => file.includes(".test.")), false);
@@ -105,6 +108,14 @@ test("the packed npm release installs the CLI and public skills into an isolated
         assert.match(readFileSync(path.join(skillLink, "SKILL.md"), "utf8"), new RegExp(`name: ${skillName}`));
       }
     }
+
+    const installedWaiter = path.join(codexHome, "skills", "mux-orchestrate", "scripts", "chatgpt-review-wait.mjs");
+    const waiterUsage = spawnSync(process.execPath, [installedWaiter], {
+      env: isolatedEnvironment,
+      encoding: "utf8",
+    });
+    assert.equal(waiterUsage.status, 2, `installed waiter did not execute through its skill symlink\n${waiterUsage.stderr}`);
+    assert.match(waiterUsage.stderr, /^Usage: chatgpt-review-wait\.mjs/m);
 
     const fixture = path.join(temporaryRoot, "fixture");
     mkdirSync(fixture);
