@@ -15,7 +15,7 @@ test("renders every stage without unresolved template values", () => {
   const root = mkdtempSync(path.join(tmpdir(), "mux-staged-review-"));
   for (const stage of ["1", "2", "3", "4"]) {
     const promptFile = path.join(root, `stage-${stage}.txt`);
-    execFileSync(process.execPath, [script, "send", stage, "chatgpt", promptFile], {
+    execFileSync(process.execPath, [script, "send", stage, promptFile], {
       env: {
         ...process.env,
         MUX_ORCHESTRATE_SKILL_DIR: muxSkill,
@@ -39,7 +39,7 @@ test("renders every stage without unresolved template values", () => {
 test("preserves template-like text inside replacement values", () => {
   const root = mkdtempSync(path.join(tmpdir(), "mux-staged-review-values-"));
   const promptFile = path.join(root, "stage-1.txt");
-  execFileSync(process.execPath, [script, "send", "1", "chatgpt", promptFile], {
+  execFileSync(process.execPath, [script, "send", "1", promptFile], {
     env: {
       ...process.env,
       MUX_ORCHESTRATE_SKILL_DIR: muxSkill,
@@ -60,7 +60,7 @@ test("keeps request labels local and renders dry runs without an installed trans
   const root = mkdtempSync(path.join(tmpdir(), "mux-staged-review-dry-run-"));
   try {
     const promptFile = path.join(root, "stage-1.txt");
-    const result = execFileSync(process.execPath, [script, "send", "1", "chatgpt", promptFile], {
+    const result = execFileSync(process.execPath, [script, "send", "1", promptFile], {
       env: {
         ...process.env,
         MUX_ORCHESTRATE_SKILL_DIR: path.join(root, "missing-mux-orchestrate"),
@@ -82,7 +82,7 @@ test("keeps request labels local and renders dry runs without an installed trans
   }
 });
 
-test("routes both Rex product names through the Rex transport", () => {
+test("routes a resolved Rex pane and reports its stable identity", () => {
   const root = mkdtempSync(path.join(tmpdir(), "mux-staged-rex-target-"));
   try {
     const fakeMuxSkill = path.join(root, "mux-orchestrate");
@@ -94,23 +94,46 @@ test("routes both Rex product names through the Rex transport", () => {
     chmodSync(path.join(scripts, "rex-review-send.sh"), 0o755);
     chmodSync(path.join(scripts, "cmux-review-send.sh"), 0o755);
 
-    const environment = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !key.startsWith("APP_NAME_")),
-    );
-    for (const appName of ["Rex", "RexIDE"]) {
-      execFileSync(process.execPath, [script, "send", "1", path.join(root, `${appName}.txt`)], {
+    const result = execFileSync(
+      process.execPath,
+      [script, "send", "1", "pane:42", path.join(root, "rex.txt")],
+      {
         env: {
-          ...environment,
-          APP_NAME_TEST: appName,
+          ...process.env,
           MUX_ORCHESTRATE_SKILL_DIR: fakeMuxSkill,
           STAGED_PR_URL: "https://github.com/example/project/pull/42",
           STAGED_COMPARE_URL: "https://github.com/example/project/compare/base...feature",
-          STAGED_REQUEST_ID: `stage-${appName.toLowerCase()}`,
+          STAGED_REQUEST_ID: "stage-rex",
+          STAGED_REVIEW_TARGET_ID: "229FE04F-3226-4276-A557-B408F817DB52",
         },
-        stdio: "ignore",
-      });
-    }
+        encoding: "utf8",
+      },
+    );
+    assert.match(result, /review_target=pane:42/);
+    assert.match(result, /review_target_id=229FE04F-3226-4276-A557-B408F817DB52/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("rejects unresolved aliases and missing stable identity for real sends", () => {
+  const environment = {
+    ...process.env,
+    STAGED_PR_URL: "https://github.com/example/project/pull/42",
+    STAGED_COMPARE_URL: "https://github.com/example/project/compare/base...feature",
+  };
+  assert.throws(
+    () => execFileSync(process.execPath, [script, "send", "1", "chatgpt"], { env: environment }),
+    /exact surface:ref or pane:ref target/,
+  );
+  assert.throws(
+    () => execFileSync(process.execPath, [script, "send", "1", "surface:42"], { env: environment }),
+    /STAGED_REVIEW_TARGET_ID/,
+  );
+  assert.throws(
+    () => execFileSync(process.execPath, [script, "send", "1", "surface:42"], {
+      env: { ...environment, STAGED_REVIEW_TARGET_ID: "surface:42" },
+    }),
+    /stable surface or pane UUID/,
+  );
 });

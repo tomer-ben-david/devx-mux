@@ -93,6 +93,8 @@ The repository's root `AGENTS.md` remains local to each clone and is not install
 
 DevX Mux keeps portable orchestration and provider logic in TypeScript wherever possible so the same code can evolve across macOS, Linux, and Windows. Shell files are limited to thin compatibility entrypoints and adapters for inherently Unix-specific cmux or Rex socket behavior. New shared logic should not be implemented twice in separate mux scripts.
 
+Iterative browser workflows retain both the exact surface or pane ref and its stable UUID. Their portable reminder only delays and prints that UUID; after each delay the agent re-resolves the current ref and reads the browser itself. The reminder never calls cmux, Rex, or a browser API and never classifies review completion.
+
 ### Run the same review with Codex and Grok
 
 Run each command from the repository you want to review:

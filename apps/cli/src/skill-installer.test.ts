@@ -1,5 +1,14 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -127,6 +136,38 @@ test("rejects a skill root nested below another planned canonical link", () => {
 
     assertSkillSourcesRemain(skillsSourceRoot);
     assert.equal(existsSync(path.join(codexHome, "skills", "mux-orchestrate")), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("links canonical sources before deleting an obsolete source alias", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "devx-mux-source-alias-"));
+  try {
+    const checkout = path.join(root, "checkout");
+    const skillsSourceRoot = path.join(checkout, "skills");
+    createSkillSources(skillsSourceRoot);
+
+    const codexHome = path.join(root, "codex");
+    const obsoleteAlias = path.join(codexHome, "skills", "devx-mux");
+    mkdirSync(path.dirname(obsoleteAlias), { recursive: true });
+    symlinkSync(checkout, obsoleteAlias, process.platform === "win32" ? "junction" : "dir");
+
+    installPublicSkills({
+      environment: {
+        CODEX_HOME: codexHome,
+        CLAUDE_HOME: path.join(root, "claude"),
+        AGENTS_HOME: path.join(root, "agents"),
+      },
+      skillsSourceRoot: path.join(obsoleteAlias, "skills"),
+    });
+
+    assert.equal(existsSync(obsoleteAlias), false);
+    for (const skillName of PUBLIC_SKILL_NAMES) {
+      const installedSkill = path.join(codexHome, "skills", skillName);
+      assert.equal(realpathSync(installedSkill), realpathSync(path.join(skillsSourceRoot, skillName)));
+      assert.match(readFileSync(path.join(installedSkill, "SKILL.md"), "utf8"), new RegExp(skillName));
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

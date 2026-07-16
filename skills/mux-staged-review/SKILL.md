@@ -24,7 +24,7 @@ Never assume the base is `main`. Use the PR base or Git-derived merge base and p
 
 1. Confirm the exact PR URL, compare URL, branch, base, and head.
 2. Confirm the feature branch is pushed. Ask before pushing or changing the PR.
-3. Resolve a ChatGPT browser target through `$mux-orchestrate`.
+3. Resolve a ChatGPT browser target through `$mux-orchestrate`. Retain both its exact `surface:` or `pane:` ref and stable UUID. Generic aliases are not valid for an iterative review.
 4. Keep one local request label per send, but do not expose it in the review prompt or browser state.
 
 ## Run
@@ -36,11 +36,12 @@ export STAGED_PR_URL="https://github.com/owner/repo/pull/123"
 export STAGED_COMPARE_URL="https://github.com/owner/repo/compare/base...branch"
 export STAGED_REPO="/path/to/repo"
 export STAGED_BASE="base-branch"
+export STAGED_REVIEW_TARGET_ID="stable-surface-or-pane-uuid"
 
-"$SKILL/scripts/staged-review-send.sh" 1
+"$SKILL/scripts/staged-review-send.sh" 1 surface:N
 ```
 
-After sending, wait about five minutes through the agent runtime, then inspect the selected browser target directly. If ChatGPT is still working or the latest response is incomplete, wait another five minutes and inspect again. After stage 1 is clean, repeat with stages 2, 3, and 4. Targets may be `chatgpt`, `chatgpt-rex`, `browser`, `surface:N`, or `rex`.
+After sending, use `$mux-orchestrate`'s portable reminder to wait about five minutes. Re-resolve `STAGED_REVIEW_TARGET_ID` to its current ref, reverify the workspace, pane, URL, and conversation, then inspect that browser target directly. If ChatGPT is still working or the latest response is incomplete, wait another five minutes and inspect again. After stage 1 is clean, repeat with stages 2, 3, and 4.
 
 Set `STAGED_REVIEW_DRY_RUN=1` to render and print a stage prompt without sending it.
 

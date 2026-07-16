@@ -31,7 +31,7 @@ Use the PR base or a Git-derived merge base. Never hardcode a default branch nam
 ## Repeat until clean
 
 1. Send one stage prompt.
-2. Wait about five minutes without browser interaction, then inspect the same browser target directly.
+2. Wait about five minutes without browser interaction, re-resolve the retained stable target UUID to its current ref, then inspect that browser target directly.
 3. If ChatGPT is still working or the response is incomplete, wait another five minutes and inspect again.
 4. Triage every finding.
 5. If code changes, validate and push with explicit approval.
@@ -45,3 +45,5 @@ Do not treat an interrupted or partial response as clean.
 The browser reviews pushed GitHub source. Provide a PR or compare URL, not a pasted patch. If the branch is not pushed or the page cannot read the source, stop and report the blocker.
 
 Sending a review request does not authorize a push, PR edit, thread resolution, bot trigger, merge, or deploy.
+
+Every real send requires both a resolved `surface:` or `pane:` ref and its stable UUID. Generic aliases are insufficient for an iterative workflow because refs can be reassigned while the UUID remains stable.

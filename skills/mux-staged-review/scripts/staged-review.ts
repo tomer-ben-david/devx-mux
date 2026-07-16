@@ -17,15 +17,13 @@ function git(repository: string, ...args: string[]): string {
   return execFileSync("git", ["-C", repository, ...args], { encoding: "utf8" }).trim();
 }
 
-function defaultTarget(): string {
-  const rex = Object.entries(process.env).some(
-    ([key, value]) => key.startsWith("APP_NAME_") && ["rex", "rexide"].includes(value?.toLowerCase() ?? ""),
-  );
-  return rex ? "rex" : "chatgpt";
+function isResolvedTarget(value: string | undefined): value is string {
+  return value !== undefined && /^(surface|pane):[^\s]+$/.test(value);
 }
 
-function isTarget(value: string | undefined): boolean {
-  return value === "chatgpt" || value === "chatgpt-rex" || value === "browser" || value === "rex" || Boolean(value?.startsWith("surface:"));
+function isUuid(value: string | undefined): value is string {
+  return value !== undefined
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
 function muxSkillDirectory(): string {
@@ -44,13 +42,21 @@ function runTransport(command: string, args: string[]): void {
 
 function send(args: string[]): void {
   if (args.length < 1 || args.length > 3) {
-    fail("Usage: staged-review-send.sh <1|2|3|4> [target] [prompt-file]", 2);
+    fail("Usage: staged-review-send.sh <1|2|3|4> [surface:ref|pane:ref] [prompt-file]", 2);
   }
 
   const stage = args[0]!;
   if (!new Set(["1", "2", "3", "4"]).has(stage)) fail("Stage must be 1, 2, 3, or 4", 2);
-  const target = isTarget(args[1]) ? args[1]! : defaultTarget();
-  const promptArgument = isTarget(args[1]) ? args[2] : args[1];
+  const dryRun = process.env.STAGED_REVIEW_DRY_RUN === "1";
+  const target = isResolvedTarget(args[1]) ? args[1] : undefined;
+  if (!dryRun && target === undefined) {
+    fail("A real staged review requires an exact surface:ref or pane:ref target", 2);
+  }
+  const targetId = process.env.STAGED_REVIEW_TARGET_ID;
+  if (!dryRun && !isUuid(targetId)) {
+    fail("STAGED_REVIEW_TARGET_ID must be the stable surface or pane UUID", 2);
+  }
+  const promptArgument = target === undefined ? args[1] : args[2];
 
   const prUrl = process.env.STAGED_PR_URL;
   const compareUrl = process.env.STAGED_COMPARE_URL;
@@ -95,21 +101,22 @@ function send(args: string[]): void {
   if (unresolved.length > 0) fail(`Unresolved stage template values: ${unresolved.join(", ")}`);
   const prompt = template.replace(/\{\{([^}]+)\}\}/g, (_token, key: string) => replacements[key]!);
   writeFileSync(promptFile, prompt);
-  process.stdout.write(`prompt=${promptFile}\nrequest_id=${requestId}\nreview_target=${target}\n`);
+  process.stdout.write(
+    `prompt=${promptFile}\nrequest_id=${requestId}\nreview_target=${target ?? "dry-run"}\n`
+    + `review_target_id=${targetId ?? "dry-run"}\n`,
+  );
 
-  if (process.env.STAGED_REVIEW_DRY_RUN === "1") {
+  if (dryRun) {
     process.stdout.write(prompt);
     return;
   }
+  if (target === undefined) fail("Resolved review target disappeared after validation");
 
   const muxSkill = muxSkillDirectory();
   if (!existsSync(path.join(muxSkill, "SKILL.md"))) fail(`Mux Orchestrate skill not found: ${muxSkill}`);
 
-  if (target === "rex") {
-    runTransport(path.join(muxSkill, "scripts", "rex-review-send.sh"), [
-      process.env.STAGED_REX_TARGET ?? "chatgpt",
-      promptFile,
-    ]);
+  if (target.startsWith("pane:")) {
+    runTransport(path.join(muxSkill, "scripts", "rex-review-send.sh"), [target, promptFile]);
   } else {
     runTransport(path.join(muxSkill, "scripts", "cmux-review-send.sh"), ["browser", target, promptFile]);
   }

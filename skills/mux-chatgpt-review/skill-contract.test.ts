@@ -7,8 +7,10 @@ const skill = readFileSync(new URL("./SKILL.md", import.meta.url), "utf8");
 test("ChatGPT review converges in one chat before a fresh independent confirmation", () => {
   assert.match(skill, /background wait for about five minutes without reading or interacting with the browser/);
   assert.match(skill, /run another five-minute background wait and inspect again/);
-  assert.match(skill, /review-wait-reminder\.sh" "\$SURFACE" 300/);
-  assert.match(skill, /cmux browser "\$SURFACE" get text body/);
+  assert.match(skill, /review-wait-reminder\.ts" "surface_id=\$SURFACE_ID" 300/);
+  assert.match(skill, /cmux browser "\$CURRENT_SURFACE_REF" get text body/);
+  assert.match(skill, /re-resolves the current ref from `\$SURFACE_ID`/);
+  assert.match(skill, /reverifies its workspace, pane, ChatGPT URL, and conversation URL/);
   assert.match(skill, /ready for the agent to check/);
   assert.match(skill, /must not call cmux, Rex, browser APIs, HTML, or JavaScript/);
   assert.match(skill, /no Mux waiter, request token, turn token, response digest, or ChatGPT DOM parser/);

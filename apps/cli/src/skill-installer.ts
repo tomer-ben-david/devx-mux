@@ -125,7 +125,7 @@ function createInstallPlan(skillRoots: readonly string[], skillsSourceRoot: stri
   }
   const canonicalSourceRoot = realpathSync(skillsSourceRoot);
   const canonicalLinks = skillRoots.flatMap((root) =>
-    PUBLIC_SKILL_NAMES.map((name) => inspectSkillLink(root, skillsSourceRoot, canonicalSourceRoot, name)),
+    PUBLIC_SKILL_NAMES.map((name) => inspectSkillLink(root, canonicalSourceRoot, canonicalSourceRoot, name)),
   );
   const legacyPaths = skillRoots.flatMap((root) =>
     LEGACY_PUBLIC_SKILL_NAMES.map((name) => inspectLegacySkillPath(root, canonicalSourceRoot, name)),

@@ -62,19 +62,20 @@ Confirm submission by inspecting the newest visible user message and matching th
 
 After confirmed submission, use the agent runtime's background wait for about five minutes without reading or interacting with the browser. When that wait finishes, inspect the same UUID-backed surface directly through cmux or Rex visible browser commands. If ChatGPT still shows `Stop answering`, research/progress UI, an incomplete response, or no final verdict, run another five-minute background wait and inspect again. Keep this dynamic wait-and-inspect cycle indefinitely; do not impose a total elapsed-time timeout.
 
-Use the shared reminder script for the delay. It sleeps, prints the selected target back to the agent, and exits `0`:
+Use the shared portable reminder for the delay. Pass the stable UUID, not the ephemeral ref. It sleeps, prints that identity back to the agent, and exits `0`:
 
 ```bash
-"$SKILL/scripts/review-wait-reminder.sh" "$SURFACE" 300
+node "$SKILL/scripts/review-wait-reminder.ts" "surface_id=$SURFACE_ID" 300
 ```
 
-After that command exits, the agent reads the selected surface itself, for example:
+After that command exits, the agent re-resolves the current ref from `$SURFACE_ID`, reverifies its workspace, pane, ChatGPT URL, and conversation URL, and then reads the selected surface itself, for example:
 
 ```bash
-cmux browser "$SURFACE" get text body
+cmux --json --id-format both tree --all
+cmux browser "$CURRENT_SURFACE_REF" get text body
 ```
 
-The printed `ready for the agent to check` handoff means only that the delay ended. It is not a review-completion signal. The reminder script must not call cmux, Rex, browser APIs, HTML, or JavaScript, and must not read, parse, or classify the browser result.
+The printed `ready for the agent to check` handoff means only that the delay ended. It is not a review-completion signal. The reminder must not call cmux, Rex, browser APIs, HTML, or JavaScript, and must not read, parse, or classify the browser result. Never inspect an old ref without first mapping the retained UUID to its current ref.
 
 There is intentionally no Mux waiter, request token, turn token, response digest, or ChatGPT DOM parser. A sleep only delays the next inspection. It does not claim readiness, completion, or success. The agent owns the one browser read after each wait and interprets the current visible state. Do not poll every minute, scrape in a shell loop, run page JavaScript, or ask a script to decide which response is final.
 
