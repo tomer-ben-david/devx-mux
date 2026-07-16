@@ -28,7 +28,7 @@ Verify that the selected surface belongs to the supplied pane and workspace and 
 
 ## Start the working chat
 
-Begin the first review in a fresh conversation under the same ChatGPT project or custom GPT shown by the selected surface. Use ChatGPT's `/new` menu and choose `New chat`, never `Branch chat` or `Retry response`. If browser automation cannot operate that menu reliably, navigate to the current GPT's root URL by removing only its `/c/<conversation>` suffix. Do not use the global sidebar action if it would leave the selected GPT or project.
+Begin the first review in a fresh conversation under the same ChatGPT project or custom GPT shown by the selected surface. A person may use ChatGPT's `/new` menu and choose `New chat`, never `Branch chat` or `Retry response`. For cmux browser automation, use ChatGPT's `Shift+Command+O` new-chat shortcut; it is more deterministic than automating the transient `/new` menu and preserves the current GPT or project. Do not use the global sidebar action if it would leave the selected GPT or project.
 
 Verify the conversation URL or identity changed and that no prior user or assistant messages remain before sending the review. Do not submit the literal `/new` text as a chat message.
 
