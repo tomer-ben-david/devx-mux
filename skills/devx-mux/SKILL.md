@@ -1,6 +1,6 @@
 ---
 name: devx-mux
-description: Orchestrate an implementor and independent Codex, Grok, or ChatGPT reviewers across cmux, DevX Rex, or another terminal multiplexer. Use when the user asks for mux-orchestrate, a multi-review loop with an implementor, a Codex implementor plus reviewer panels, mux-aware panel discovery, codex-review or grok-review coordination, or the older codex-orchestrate, cmux-review-loop, rex-review-loop, or staged-pr-review workflows. Use mux-multireview instead for read-only concurrent Codex and Grok review without implementation.
+description: Orchestrate an implementor and independent Codex, Grok, or ChatGPT reviewers across cmux, DevX Rex, or another terminal multiplexer. Use when the user asks for mux-orchestrate, a multi-review loop with an implementor, mux-aware panel discovery, repeated-patch or context-drift detection, codex-review or grok-review coordination, or the older codex-orchestrate, cmux-review-loop, rex-review-loop, or staged-pr-review workflows. Use mux-multireview instead for read-only concurrent Codex and Grok review without implementation.
 ---
 
 # DevX Mux
@@ -77,6 +77,36 @@ Use `$pr-title-description` when the PR title/body is missing, stale, or unclear
 
 Do not edit code locally when the user asked the orchestrator to manage a separate implementor. If the user asks this agent to implement directly, normal repository instructions apply.
 
+## Structural reset
+
+Track repair attempts per repair family, not across the whole goal. A repair family is the same symptom, finding class, broken invariant or state owner, or attempted structural direction. Group attempts only when evidence points to the same underlying problem; keep unrelated accepted findings in separate families. A repair attempt is an implementor edit-and-verification response after a failed reproduction, rejected approach, or accepted finding in that family.
+
+Do not close a repair family because its symptom moved to an adjacent layer or a narrow test passed. Close it when the scope contract's required outcome and acceptance evidence are proven, using user-visible verification when applicable, or when new evidence proves the work belongs to a different family.
+
+Pause implementation and run a structural reset when any of these occurs:
+
+- a third repair attempt starts for the same repair family
+- two consecutive attempts in one family add guards, fallbacks, retries, flags, mirrored state, or special cases around the same flow without removing the underlying ownership flaw
+- the same symptom or finding class returns after a claimed fix
+- each attempt expands into another adjacent layer without a stable root-cause explanation
+- the orchestrator or implementor contradicts, omits, or cannot restate the goal, non-goals, mutation authority, relevant guidance, or required evidence
+
+Do not wait for the attempt threshold when context drift or patch layering is already clear. When the reset triggers:
+
+1. Tell the user that implementation is paused for a structural reset.
+2. Reread this entire skill, repository instruction files, the current scope contract, relevant coding standards, the full current diff, and the evidence from every repair attempt in the family.
+3. Identify the framework, library, platform, and version from repository files. When one owns the behavior under repair, research its current official documentation, specifications, RFCs, or other primary sources. Prefer version-matched sources over generic articles or popular opinion. If online research is unavailable, state the limitation rather than inventing guidance.
+4. Write a compact reset brief with the observed patch loop, proven facts, unknowns, state or component that should own the invariant, structural direction, patches that direction replaces, and user-visible verification needed.
+5. Ask the implementor to reassess from that brief and propose the root-cause solution before editing again. Keep the approach open enough for the implementor to improve it.
+
+## Guidance refresh
+
+Record an absolute ISO 8601 timestamp with a time-zone offset whenever the orchestration guidance is read. Carry that timestamp in every live report. During active orchestration, compare it with the current system time at every control boundary: implementor or reviewer update, poll, repair attempt, scope change, transport re-resolution, and completion check. If the timestamp is missing or cannot be trusted, refresh immediately and establish a new timestamp.
+
+When 15 minutes have elapsed, reread this entire skill, the repository instruction files, the scope contract, and every reference currently active for the workflow before taking the next action. This is a backstop, not a sleep-based timer: the orchestrator cannot wake itself while idle, so refresh at the next control boundary. Refresh immediately, regardless of elapsed time, after context compaction or session reset, or whenever actions reveal forgotten or contradictory guidance.
+
+Before declaring completion, confirm that the current diff, verification, remote actions, and unresolved limitations still match the refreshed guidance and scope contract.
+
 ## Multi-review loop
 
 Read [references/review-protocol.md](references/review-protocol.md) before starting a review round.
@@ -123,6 +153,10 @@ Reviewers: <targets>
 Scope: <exact comparison>
 Head: <sha>
 State: implementing | reviewing | fixing | clean | blocked
+Repair family: <symptom, finding class, invariant, or none>
+Repair attempts: <count for active family>
+Guidance refreshed at: <ISO 8601 timestamp with offset>
+Guidance refresh boundary: <optional event>
 Unresolved: <findings or none>
 Next: <one action>
 ```
