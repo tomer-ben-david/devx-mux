@@ -71,7 +71,7 @@ DevX Mux is also the canonical public home for reusable agent workflows:
 
 | Skill | Responsibility |
 | --- | --- |
-| `devx-mux` | Discover implementor and reviewer panels, then coordinate independent Codex, Grok, and optional ChatGPT review loops across cmux or DevX Rex |
+| `devx-mux` | Coordinate implementors and reviewers, detect patch loops, and refresh guidance across cmux or DevX Rex |
 | `mux-multireview` | Run the same read-only scope concurrently through independent Codex and Grok reviewers |
 | `mux-orchestrate` | Provider-neutral invocation for the `devx-mux` implementation and independent review loop |
 | `pr-title-description` | Draft reviewer-neutral PR titles and descriptions with explicit Goals, Non-goals, and Solution |
