@@ -81,6 +81,8 @@ Do not edit code locally when the user asked the orchestrator to manage a separa
 
 Track repair attempts per repair family, not across the whole goal. A repair family is the same symptom, finding class, broken invariant or state owner, or attempted structural direction. Group attempts only when evidence points to the same underlying problem; keep unrelated accepted findings in separate families. A repair attempt is an implementor edit-and-verification response after a failed reproduction, rejected approach, or accepted finding in that family.
 
+Maintain one open repair-family ledger for the orchestration. Give each family a stable identity based on its symptom, finding class, invariant or state owner, or structural direction rather than transient review wording. Record its attempt count, invariant or state owner, evidence references, and last attempted structural direction. Update the ledger after every accepted finding, repair attempt, reclassification, and closure. Keep every unrelated open family in the ledger at the same time; never replace one family's state when attention moves to another.
+
 Do not close a repair family because its symptom moved to an adjacent layer or a narrow test passed. Close it when the scope contract's required outcome and acceptance evidence are proven, using user-visible verification when applicable, or when new evidence proves the work belongs to a different family.
 
 Pause implementation and run a structural reset when any of these occurs:
@@ -104,6 +106,8 @@ Do not wait for the attempt threshold when context drift or patch layering is al
 Record an absolute ISO 8601 timestamp with a time-zone offset whenever the orchestration guidance is read. Carry that timestamp in every live report. During active orchestration, compare it with the current system time at every control boundary: implementor or reviewer update, poll, repair attempt, scope change, transport re-resolution, and completion check. If the timestamp is missing or cannot be trusted, refresh immediately and establish a new timestamp.
 
 When 15 minutes have elapsed, reread this entire skill, the repository instruction files, the scope contract, and every reference currently active for the workflow before taking the next action. This is a backstop, not a sleep-based timer: the orchestrator cannot wake itself while idle, so refresh at the next control boundary. Refresh immediately, regardless of elapsed time, after context compaction or session reset, or whenever actions reveal forgotten or contradictory guidance.
+
+Guidance refresh restores instructions, not workflow state. After context compaction or session reset, reconstruct every open repair family and its attempt history from the last live report plus retained reviewer reports, implementor responses, Git heads and diffs, and verification artifacts. Reconcile those sources before another edit or review round. If a family's attempt count or evidence history cannot be recovered, mark it unknown, do not reset it to zero, and run a structural reset for that family before implementation resumes.
 
 Before declaring completion, confirm that the current diff, verification, remote actions, and unresolved limitations still match the refreshed guidance and scope contract.
 
@@ -144,7 +148,7 @@ Send one prompt per request, require confirmed submission, and poll until the cu
 
 ## Reporting
 
-Keep the live report small:
+Keep the live report small. Emit one entry per open repair family. When no family is open, write `Open repair families: none` instead of an empty list.
 
 ```text
 Transport: cmux | rex
@@ -153,8 +157,8 @@ Reviewers: <targets>
 Scope: <exact comparison>
 Head: <sha>
 State: implementing | reviewing | fixing | clean | blocked
-Repair family: <symptom, finding class, invariant, or none>
-Repair attempts: <count for active family>
+Open repair families:
+- id=<stable family identity>; attempts=<count or unknown>; invariant=<owner>; evidence=<finding, review, head, or artifact refs>; last direction=<structural approach or none>
 Guidance refreshed at: <ISO 8601 timestamp with offset>
 Guidance refresh boundary: <optional event>
 Unresolved: <findings or none>
