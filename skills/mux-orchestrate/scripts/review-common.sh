@@ -534,7 +534,7 @@ review_read_last_answer() {
 review_read_answer_state() {
     local tool="$1" handle="$2" request_id="${3:-}" request_id_json js
     request_id_json="$(node -e 'process.stdout.write(JSON.stringify(process.argv[1]))' "$request_id")" || return 1
-    js='(()=>{const requestId='"$request_id_json"';const messages=Array.from(document.querySelectorAll('"'"'[data-message-author-role]'"'"'));let requestIndex=-1;if(requestId){for(let i=messages.length-1;i>=0;i--){if(messages[i].getAttribute('"'"'data-message-author-role'"'"')==='"'"'user'"'"'&&messages[i].innerText.includes(requestId)){requestIndex=i;break;}}}const assistants=messages.slice(requestIndex+1).filter(message=>message.getAttribute('"'"'data-message-author-role'"'"')==='"'"'assistant'"'"');const responseObserved=assistants.length>0;const answer=responseObserved?assistants[assistants.length-1].innerText:"";const stopVisible=Array.from(document.querySelectorAll('"'"'button'"'"')).some(button=>button.matches('"'"'[data-testid="stop-button"]'"'"')||[button.innerText,button.getAttribute('"'"'aria-label'"'"')].some(label=>(label||"").trim()==="Stop answering"));const generation=stopVisible?"generating":"complete";return JSON.stringify({requestObserved:!requestId||requestIndex>=0,responseObserved,generation,answer});})()'
+    js='(()=>{const requestId='"$request_id_json"';const messages=Array.from(document.querySelectorAll('"'"'[data-message-author-role]'"'"'));let requestIndex=-1;if(requestId){for(let i=messages.length-1;i>=0;i--){if(messages[i].getAttribute('"'"'data-message-author-role'"'"')==='"'"'user'"'"'&&messages[i].innerText.includes(requestId)){requestIndex=i;break;}}}const assistants=messages.slice(requestIndex+1).filter(message=>message.getAttribute('"'"'data-message-author-role'"'"')==='"'"'assistant'"'"');const responseObserved=assistants.length>0;const response=responseObserved?assistants[assistants.length-1]:null;const answer=response?response.innerText:"";let responseRoot=response;while(responseRoot&&!Array.from(responseRoot.querySelectorAll('"'"'button,[role="button"]'"'"')).some(control=>[control.innerText,control.getAttribute('"'"'aria-label'"'"')].some(label=>(label||"").trim()==="Copy response"))){responseRoot=responseRoot.parentElement;}const responseComplete=Boolean(responseRoot);const stopVisible=Array.from(document.querySelectorAll('"'"'button,[role="button"]'"'"')).some(button=>button.matches('"'"'[data-testid="stop-button"]'"'"')||[button.innerText,button.getAttribute('"'"'aria-label'"'"')].some(label=>(label||"").trim()==="Stop answering"));const generation=stopVisible?"generating":"complete";return JSON.stringify({requestObserved:!requestId||requestIndex>=0,responseObserved,responseComplete,generation,answer});})()'
     case "$tool" in
         cmux)
             _review_setup_socket cmux
@@ -565,8 +565,7 @@ review_read_answer_state() {
 }
 
 # Validate the browser envelope and print request-observed, response-observed,
-# generation, and base64-encoded answer separated by pipes. Base64 preserves
-# empty and multiline answers across shell command substitution.
+# response-complete, generation, and base64-encoded answer separated by pipes.
 review_parse_answer_state() {
     local state="$1"
     if [[ -z "$state" ]]; then
@@ -579,10 +578,11 @@ let value;
 try { value = JSON.parse(raw); } catch { process.exitCode = 1; }
 if (
   !value || typeof value.requestObserved !== "boolean" || typeof value.responseObserved !== "boolean" ||
+  typeof value.responseComplete !== "boolean" ||
   !["generating", "complete"].includes(value.generation) || typeof value.answer !== "string"
 ) process.exitCode = 1;
 if (!process.exitCode) {
-  process.stdout.write(`${value.requestObserved}|${value.responseObserved}|${value.generation}|${Buffer.from(value.answer, "utf8").toString("base64")}`);
+  process.stdout.write(`${value.requestObserved}|${value.responseObserved}|${value.responseComplete}|${value.generation}|${Buffer.from(value.answer, "utf8").toString("base64")}`);
 }
 ' "$state" || {
         echo "review_parse_answer_state: malformed browser response" >&2
@@ -630,7 +630,7 @@ review_poll_latest_answer() {
         return 2
     fi
 
-    local handle state parsed request_observed response_observed remainder generation encoded_answer answer
+    local handle state parsed request_observed response_observed response_complete remainder generation encoded_answer answer
     handle="$(review_find_chatgpt_pane "$tool" "$target")"
     if ! review_is_chatgpt "$tool" "$handle"; then
         echo "Refusing browser poll: ${handle} is not a ChatGPT tab." >&2
@@ -643,6 +643,8 @@ review_poll_latest_answer() {
     remainder="${parsed#*|}"
     response_observed="${remainder%%|*}"
     encoded_answer="${remainder#*|}"
+    response_complete="${encoded_answer%%|*}"
+    encoded_answer="${encoded_answer#*|}"
     generation="${encoded_answer%%|*}"
     encoded_answer="${encoded_answer#*|}"
     if ! answer="$(node -e 'process.stdout.write(Buffer.from(process.argv[1], "base64"))' "$encoded_answer")"; then
@@ -655,6 +657,10 @@ review_poll_latest_answer() {
     fi
     if [[ "$response_observed" != true ]]; then
         echo "waiting response for $request_id"
+        return 0
+    fi
+    if [[ "$response_complete" != true ]]; then
+        echo "waiting response incomplete for $request_id"
         return 0
     fi
     if [[ "$generation" != "complete" ]]; then

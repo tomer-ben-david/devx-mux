@@ -2,10 +2,13 @@ import { chmodSync, cpSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { buildSkillScripts } from "./build-skill-scripts.ts";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const packageRoot = path.join(repositoryRoot, "apps", "cli");
 const outputFile = path.join(packageRoot, "dist", "main.js");
+
+await buildSkillScripts();
 
 rmSync(path.join(packageRoot, "dist"), { recursive: true, force: true });
 rmSync(path.join(packageRoot, "skills"), { recursive: true, force: true });

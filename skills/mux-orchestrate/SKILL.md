@@ -77,6 +77,8 @@ Use `$mux-pr-description` when the PR title/body is missing, stale, or unclear. 
 4. Read the full implementor result and verify material claims against repository state or runtime evidence.
 5. Ask before any push, PR edit, bot trigger, thread resolution, deploy, or other remote mutation.
 
+Keep implementation structurally ambitious and contractually scoped. Do not accept whack-a-mole convergence through accumulating guards, exceptions, retries, flags, or mirrored state. Allow a repair to cross adjacent layers when those changes establish the durable owner of the broken invariant and remove superseded patches; this is an in-scope long-term improvement when it directly serves the goal and acceptance evidence. Reject unrelated cleanup, speculative redesign, and opportunistic features as scope creep even when they are locally attractive.
+
 Do not edit code locally when the user asked the orchestrator to manage a separate implementor. If the user asks this agent to implement directly, normal repository instructions apply.
 
 ## Structural reset
@@ -146,7 +148,7 @@ node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux chatgpt REQUEST_ID=<id>
 node "$SKILL/scripts/chatgpt-review-wait.mjs" rex chatgpt REQUEST_ID=<id>
 ```
 
-Send one prompt per request and require confirmed submission. Start the shared TypeScript waiter once and wait on that process; do not build an agent-owned sleep or polling loop. The waiter uses the request ID to select only an assistant node following its user message across cmux and Rex, polls internally once per minute, requires the exact request head and a final review marker, then settles the same result across three polls. It reports status every five minutes and has no elapsed-time timeout. Do not use raw assistant-node counts as a boundary because browser re-rendering can change them. Do not treat stale or partially generated browser text as a new answer.
+Send one prompt per request and require confirmed submission. Start the shared waiter once and wait on that process; do not build an agent-owned sleep or polling loop. Checked TypeScript is bundled into the dependency-free `.mjs` runtime used through installed skill symlinks. The waiter owns transport state only: it uses the request ID to select an assistant node following its user message across cmux and Rex, polls internally once per minute, requires that response's local completed UI control, then settles the same result across three polls. It reports status every five minutes and has no elapsed-time timeout. The calling workflow owns scope-specific result validation such as exact GitHub heads or verdict wording. Do not use raw assistant-node counts as a boundary because browser re-rendering can change them. Do not treat stale or partially generated browser text as a new answer.
 
 ## Reporting
 

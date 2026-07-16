@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { hasReviewCompletionEvidence, waitForChatGptReview } from "./chatgpt-review-wait-lib.mjs";
+import { waitForChatGptReview } from "./chatgpt-review-wait-lib.ts";
 
-const requestId = "REQUEST_ID=github:owner/repo:pr:9:head:0123456789abcdef0123456789abcdef01234567:20260716T100000+0300";
-const cleanReview = "Reviewed exact head 0123456789abcdef0123456789abcdef01234567. Verdict: all clean.";
+const requestId = "REQUEST_ID=staged-s1-provider-neutral";
+const reviewResult = "completed provider-neutral review result";
 
 test("the shared waiter settles an identical result across three polls before returning it", async () => {
-  const outputs = ["waiting response", "REQUEST", "partial review", cleanReview, cleanReview, cleanReview];
+  const outputs = ["waiting response", "partial review", reviewResult, reviewResult, reviewResult];
   const statuses: string[] = [];
   let now = 0;
 
@@ -20,8 +20,8 @@ test("the shared waiter settles an identical result across three polls before re
     requestId,
   });
 
-  assert.equal(result, cleanReview);
-  assert.deepEqual(statuses, [`waiting ChatGPT review elapsed=5m polls=5 settling=2/3 ${requestId}`]);
+  assert.equal(result, reviewResult);
+  assert.deepEqual(statuses, []);
 });
 
 test("the shared waiter emits a five-minute heartbeat and has no elapsed-time timeout", async () => {
@@ -32,7 +32,7 @@ test("the shared waiter emits a five-minute heartbeat and has no elapsed-time ti
   const result = await waitForChatGptReview({
     poll: () => {
       polls += 1;
-      return polls >= 7 ? cleanReview : "waiting generating";
+      return polls >= 7 ? reviewResult : "waiting generating";
     },
     sleep: async milliseconds => { now += milliseconds; },
     now: () => now,
@@ -42,7 +42,7 @@ test("the shared waiter emits a five-minute heartbeat and has no elapsed-time ti
     requestId,
   });
 
-  assert.equal(result, cleanReview);
+  assert.equal(result, reviewResult);
   assert.deepEqual(statuses, [`waiting ChatGPT review elapsed=5m polls=5 ${requestId}`]);
 });
 
@@ -59,11 +59,4 @@ test("the shared waiter fails closed on an empty poll result", async () => {
     }),
     /empty response/,
   );
-});
-
-test("completion evidence requires the exact request head and a final verdict marker", () => {
-  assert.equal(hasReviewCompletionEvidence("REQUEST", requestId), false);
-  assert.equal(hasReviewCompletionEvidence("Reviewed exact head 0123456789abcdef0123456789abcdef01234567", requestId), false);
-  assert.equal(hasReviewCompletionEvidence("Verdict: all clean at another head", requestId), false);
-  assert.equal(hasReviewCompletionEvidence(cleanReview, requestId), true);
 });

@@ -26,46 +26,54 @@ function poll(state: string): string {
 
 test("polling waits until the submitted request is visible", () => {
   assert.equal(
-    poll('{"requestObserved":false,"responseObserved":false,"generation":"complete","answer":""}'),
+    poll('{"requestObserved":false,"responseObserved":false,"responseComplete":false,"generation":"complete","answer":""}'),
     `waiting missing ${requestId}\n`,
   );
 });
 
 test("polling ignores historical assistants until one follows the request", () => {
   assert.equal(
-    poll('{"requestObserved":true,"responseObserved":false,"generation":"complete","answer":""}'),
+    poll('{"requestObserved":true,"responseObserved":false,"responseComplete":false,"generation":"complete","answer":""}'),
     `waiting response for ${requestId}\n`,
   );
 });
 
 test("polling withholds the request-bound response while it is generating", () => {
   assert.equal(
-    poll('{"requestObserved":true,"responseObserved":true,"generation":"generating","answer":"partial finding"}'),
+    poll('{"requestObserved":true,"responseObserved":true,"responseComplete":true,"generation":"generating","answer":"partial finding"}'),
     `waiting generating ${requestId}\n`,
   );
 });
 
 test("polling returns only a completed response following the request", () => {
   assert.equal(
-    poll('{"requestObserved":true,"responseObserved":true,"generation":"complete","answer":"ALL CLEAN"}'),
+    poll('{"requestObserved":true,"responseObserved":true,"responseComplete":true,"generation":"complete","answer":"ALL CLEAN"}'),
     "ALL CLEAN\n",
   );
 });
 
 test("polling preserves and waits for an empty completed response", () => {
   assert.equal(
-    poll('{"requestObserved":true,"responseObserved":true,"generation":"complete","answer":""}'),
+    poll('{"requestObserved":true,"responseObserved":true,"responseComplete":true,"generation":"complete","answer":""}'),
     `waiting empty ${requestId}\n`,
   );
 });
 
 test("polling fails closed on empty or malformed structured state", () => {
   assert.throws(() => poll(""));
-  assert.throws(() => poll('{"requestObserved":"yes","responseObserved":true,"generation":"complete","answer":"x"}'));
-  assert.throws(() => poll('{"requestObserved":true,"responseObserved":true,"generation":"unknown","answer":"x"}'));
+  assert.throws(() => poll('{"requestObserved":"yes","responseObserved":true,"responseComplete":true,"generation":"complete","answer":"x"}'));
+  assert.throws(() => poll('{"requestObserved":true,"responseObserved":true,"responseComplete":true,"generation":"unknown","answer":"x"}'));
+});
+
+test("polling waits for the response-local completed UI control", () => {
+  assert.equal(
+    poll('{"requestObserved":true,"responseObserved":true,"responseComplete":false,"generation":"complete","answer":"stable placeholder"}'),
+    `waiting response incomplete for ${requestId}\n`,
+  );
 });
 
 test("generation detection supports both ChatGPT stop-button representations", () => {
   assert.match(commonSource, /data-testid=\\?"stop-button/);
   assert.match(commonSource, /Stop answering/);
+  assert.match(commonSource, /Copy response/);
 });

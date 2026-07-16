@@ -1,25 +1,14 @@
-/**
- * @typedef {object} ReviewWaitOptions
- * @property {() => string} poll
- * @property {(milliseconds: number) => Promise<void>} sleep
- * @property {() => number} now
- * @property {(message: string) => void} onStatus
- * @property {number} pollIntervalMs
- * @property {number} statusIntervalMs
- * @property {string} requestId
- */
-
-/** @param {string} output @param {string} requestId */
-export function hasReviewCompletionEvidence(output, requestId) {
-  const expectedHead = requestId.match(/:head:([0-9a-f]{40}):/i)?.[1];
-  if (!expectedHead || !output.toLowerCase().includes(expectedHead.toLowerCase())) {
-    return false;
-  }
-  return /\bverdict\b|\ball clean\b|\bno actionable findings?\b|\bnot clean\b/i.test(output);
+export interface ReviewWaitOptions {
+  poll: () => string;
+  sleep: (milliseconds: number) => Promise<void>;
+  now: () => number;
+  onStatus: (message: string) => void;
+  pollIntervalMs: number;
+  statusIntervalMs: number;
+  requestId: string;
 }
 
-/** @param {ReviewWaitOptions} options @returns {Promise<string>} */
-export async function waitForChatGptReview(options) {
+export async function waitForChatGptReview(options: ReviewWaitOptions): Promise<string> {
   const startedAt = options.now();
   let nextStatusAt = startedAt + options.statusIntervalMs;
   let polls = 0;
@@ -34,7 +23,7 @@ export async function waitForChatGptReview(options) {
     if (!output) {
       throw new Error("ChatGPT review poll returned an empty response");
     }
-    if (output.startsWith("waiting ") || !hasReviewCompletionEvidence(output, options.requestId)) {
+    if (output.startsWith("waiting ")) {
       candidate = "";
       candidatePolls = 0;
     } else if (output === candidate) {

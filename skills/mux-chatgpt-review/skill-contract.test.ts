@@ -8,7 +8,9 @@ test("ChatGPT review converges in one chat before a fresh independent confirmati
   assert.match(skill, /Run `chatgpt-review-wait\.mjs` once in a background terminal/);
   assert.match(skill, /checks request-bound structured state internally once per minute/);
   assert.match(skill, /same response on three consecutive polls/);
-  assert.match(skill, /requires the exact full head plus a final review marker/);
+  assert.match(skill, /shared waiter owns only transport completion/);
+  assert.match(skill, /response-local completed UI control/);
+  assert.match(skill, /focused workflow must accept it only when it contains both/);
   assert.match(skill, /emits at most one waiting status every five minutes/);
   assert.match(skill, /must not add its own sleep loop, browser polling, or body-text scraping/);
   assert.match(skill, /Elapsed time alone never makes a ChatGPT review stalled or incomplete/);
@@ -25,5 +27,8 @@ test("ChatGPT review converges in one chat before a fresh independent confirmati
   assert.match(skill, /Updated\. Re-review everything\./);
   assert.match(skill, /use ChatGPT's `Shift\+Command\+O` new-chat shortcut/);
   assert.match(skill, /do not start a fresh chat while that working chat still reports findings/);
+  assert.match(skill, /Do not converge through whack-a-mole patches/);
+  assert.match(skill, /in-scope long-term structural improvement/);
+  assert.match(skill, /those remain scope creep/);
   assert.match(skill, /two consecutive clean verdicts for the same unchanged GitHub head from two different chat conversations/);
 });

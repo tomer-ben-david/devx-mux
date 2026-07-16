@@ -10,12 +10,13 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b packages/terminal-ui packages/reviewer apps/cli",
+    "build": "tsc -b packages/terminal-ui packages/reviewer apps/cli && npm run build:skill-scripts",
+    "build:skill-scripts": "node scripts/build-skill-scripts.ts",
     "mux": "node scripts/mux.ts",
     "cli": "node scripts/cli.ts",
     "test": "npm run test --workspaces --if-present && npm run test:skills && npm run test:install",
-    "test:install": "node --test --import=tsx tests/npm-install.e2e.test.ts",
-    "test:skills": "node --test --import=tsx 'skills/**/*.test.ts'",
+    "test:install": "npm run build:skill-scripts && node --test --import=tsx tests/npm-install.e2e.test.ts",
+    "test:skills": "npm run build:skill-scripts && node --test --import=tsx 'skills/**/*.test.ts'",
     "typecheck": "tsc -b packages/terminal-ui packages/reviewer apps/cli && tsc -p tsconfig.json --noEmit",
     "verify:release": "node scripts/verify-release-version.ts"
   },
