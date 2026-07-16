@@ -84,7 +84,7 @@ review_socket_path() {
         cmux)
             if [[ ! -x "$_REVIEW_CMUX_SKILL_DIR/cmux-review-socket-path.sh" ]]; then
                 echo "review_socket_path: cmux skill not found at $_REVIEW_CMUX_SKILL_DIR" >&2
-                echo "  set CMUX_REVIEW_SKILL_DIR to the devx-mux scripts dir." >&2
+                echo "  set CMUX_REVIEW_SKILL_DIR to the mux-orchestrate scripts dir." >&2
                 exit 1
             fi
             "$_REVIEW_CMUX_SKILL_DIR/cmux-review-socket-path.sh"

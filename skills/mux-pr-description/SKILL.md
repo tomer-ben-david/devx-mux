@@ -1,5 +1,5 @@
 ---
-name: pr-title-description
+name: mux-pr-description
 description: "Write or rewrite a GitHub PR title and reviewer-neutral description. Use for PR titles, PR bodies, reviewer context, or a description refresh before review. Produce clear Context, Related work, Goals, Non-goals, Solution, Next steps, Design notes, Verification, and an optional changelog."
 ---
 

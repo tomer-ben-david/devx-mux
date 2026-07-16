@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { lstatSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { lstatSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
-const publicSkills = ["devx-mux", "mux-multireview", "mux-orchestrate", "pr-title-description", "staged-pr-review"];
+const publicSkills = ["mux-orchestrate", "mux-multireview", "mux-pr-description", "mux-staged-review"];
+const legacySkills = ["devx-mux", "pr-title-description", "staged-pr-review"];
 
 interface CommandResult {
   readonly stdout: string;
@@ -42,7 +43,8 @@ test("the packed npm release installs the CLI and public skills into an isolated
     assert(packageResult !== undefined);
     const packageFiles = packageResult.files.map((file) => file.path);
     assert(packageFiles.includes("dist/main.js"));
-    assert(packageFiles.includes("skills/devx-mux/SKILL.md"));
+    assert(packageFiles.includes("skills/mux-orchestrate/SKILL.md"));
+    assert.equal(packageFiles.some((file) => file.startsWith("skills/devx-mux/")), false);
     assert.equal(packageFiles.some((file) => file.includes(".test.")), false);
     assert.equal(packageFiles.some((file) => file.includes("pull-request-context")), false);
 
@@ -66,12 +68,32 @@ test("the packed npm release installs the CLI and public skills into an isolated
       CLAUDE_HOME: claudeHome,
       AGENTS_HOME: agentsHome,
     };
+    const canonicalPrefix = realpathSync(prefix);
+    const installedPackageRoot = process.platform === "win32"
+      ? path.join(canonicalPrefix, "node_modules", "devx-mux")
+      : path.join(canonicalPrefix, "lib", "node_modules", "devx-mux");
+    const installedSkillsRoot = path.join(installedPackageRoot, "skills");
+    for (const skillHome of [codexHome, claudeHome, agentsHome]) {
+      const skillRoot = path.join(skillHome, "skills");
+      mkdirSync(skillRoot, { recursive: true });
+      for (const skillName of legacySkills) {
+        symlinkSync(
+          path.join(installedSkillsRoot, skillName),
+          path.join(skillRoot, skillName),
+          process.platform === "win32" ? "junction" : "dir",
+        );
+      }
+    }
     const firstSetup = run(muxExecutable, ["setup"], { env: isolatedEnvironment });
+    assert.match(firstSetup.stdout, /Removed legacy skill link:/);
     assert.match(firstSetup.stdout, /Linked skill:/);
     const secondSetup = run(muxExecutable, ["setup"], { env: isolatedEnvironment });
     assert.match(secondSetup.stdout, /Skill already linked:/);
 
     for (const skillHome of [codexHome, claudeHome, agentsHome]) {
+      for (const skillName of legacySkills) {
+        assert.equal(lstatSync(path.join(skillHome, "skills", skillName), { throwIfNoEntry: false }), undefined);
+      }
       for (const skillName of publicSkills) {
         const skillLink = path.join(skillHome, "skills", skillName);
         assert.equal(lstatSync(skillLink).isSymbolicLink(), true);

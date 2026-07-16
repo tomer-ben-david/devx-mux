@@ -19,11 +19,11 @@ If more than one session still qualifies, report the ambiguity instead of guessi
 Use the shared resolver when the provider and repository are known:
 
 ```bash
-SKILL=${DEVX_MUX_SKILL_DIR:-${CODEX_HOME:-$HOME/.codex}/skills/devx-mux}
+SKILL=${MUX_ORCHESTRATE_SKILL_DIR:-${CODEX_HOME:-$HOME/.codex}/skills/mux-orchestrate}
 session="$($SKILL/scripts/session-jsonl-path.sh codex "$PWD" <session-id>)"
-$SKILL/scripts/session-jsonl-read.sh --seed "$session" /tmp/devx-mux-review.cursor
+$SKILL/scripts/session-jsonl-read.sh --seed "$session" /tmp/mux-review.cursor
 # Send the review prompt after seeding.
-$SKILL/scripts/session-jsonl-read.sh codex "$session" /tmp/devx-mux-review.cursor
+$SKILL/scripts/session-jsonl-read.sh codex "$session" /tmp/mux-review.cursor
 ```
 
 Omit `<session-id>` only when cwd identifies exactly one active or stored candidate. The resolver deliberately fails on ambiguity. For Grok, replace `codex` with `grok`; its resolver uses the active-session registry before locating `chat_history.jsonl`.

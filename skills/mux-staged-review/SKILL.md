@@ -1,5 +1,5 @@
 ---
-name: staged-pr-review
+name: mux-staged-review
 description: Run a strict four-stage pull request review pipeline across the latest commit, full branch functional diff, DevX standards and readability, and a final deep full-PR review. Use for staged review, multi-stage PR review, review gates, or requests to advance only after each reviewer is clean.
 ---
 
@@ -7,7 +7,7 @@ description: Run a strict four-stage pull request review pipeline across the lat
 
 Run one stage at a time. Do not advance until the current stage has no unresolved actionable findings at the current head.
 
-Read [references/orchestrator-gates.md](references/orchestrator-gates.md) and [`../devx-mux/references/review-protocol.md`](../devx-mux/references/review-protocol.md) before starting. Use the public `$devx-mux` skill for cmux and Rex transport behavior.
+Read [references/orchestrator-gates.md](references/orchestrator-gates.md) and [`../mux-orchestrate/references/review-protocol.md`](../mux-orchestrate/references/review-protocol.md) before starting. Use the public `$mux-orchestrate` skill for cmux and Rex transport behavior.
 
 ## Stages
 
@@ -24,13 +24,13 @@ Never assume the base is `main`. Use the PR base or Git-derived merge base and p
 
 1. Confirm the exact PR URL, compare URL, branch, base, and head.
 2. Confirm the feature branch is pushed. Ask before pushing or changing the PR.
-3. Resolve a ChatGPT browser target through `$devx-mux`.
+3. Resolve a ChatGPT browser target through `$mux-orchestrate`.
 4. Keep one `REQUEST_ID` per send and verify the response belongs to it.
 
 ## Run
 
 ```bash
-SKILL=${CODEX_HOME:-$HOME/.codex}/skills/staged-pr-review
+SKILL=${CODEX_HOME:-$HOME/.codex}/skills/mux-staged-review
 
 export STAGED_PR_URL="https://github.com/owner/repo/pull/123"
 export STAGED_COMPARE_URL="https://github.com/owner/repo/compare/base...branch"

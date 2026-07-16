@@ -1,4 +1,0 @@
-interface:
-  display_name: "DevX Mux"
-  short_description: "Orchestrate structural implementation and review"
-  default_prompt: "Use $devx-mux to coordinate structural implementation and independent reviewers across cmux or DevX Rex."

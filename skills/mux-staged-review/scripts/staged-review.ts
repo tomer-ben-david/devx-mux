@@ -30,8 +30,8 @@ function isTarget(value: string | undefined): boolean {
 
 function muxSkillDirectory(): string {
   return (
-    process.env.DEVX_MUX_SKILL_DIR ??
-    path.join(process.env.CODEX_HOME ?? path.join(homedir(), ".codex"), "skills", "devx-mux")
+    process.env.MUX_ORCHESTRATE_SKILL_DIR ??
+    path.join(process.env.CODEX_HOME ?? path.join(homedir(), ".codex"), "skills", "mux-orchestrate")
   );
 }
 
@@ -104,7 +104,7 @@ function send(args: string[]): void {
   }
 
   const muxSkill = muxSkillDirectory();
-  if (!existsSync(path.join(muxSkill, "SKILL.md"))) fail(`DevX Mux skill not found: ${muxSkill}`);
+  if (!existsSync(path.join(muxSkill, "SKILL.md"))) fail(`Mux Orchestrate skill not found: ${muxSkill}`);
   if (target === "rex") {
     runTransport(path.join(muxSkill, "scripts", "rex-review-send.sh"), [
       process.env.STAGED_REX_TARGET ?? "chatgpt",
@@ -125,7 +125,7 @@ function poll(args: string[]): void {
   if (!requestId?.startsWith("REQUEST_ID=")) fail(`Expected REQUEST_ID=<id>, got: ${requestId ?? ""}`, 2);
 
   const muxSkill = muxSkillDirectory();
-  if (!existsSync(path.join(muxSkill, "SKILL.md"))) fail(`DevX Mux skill not found: ${muxSkill}`);
+  if (!existsSync(path.join(muxSkill, "SKILL.md"))) fail(`Mux Orchestrate skill not found: ${muxSkill}`);
   if (target === "rex") {
     runTransport(path.join(muxSkill, "scripts", "rex-review-poll.sh"), [
       process.env.STAGED_REX_TARGET ?? "chatgpt",

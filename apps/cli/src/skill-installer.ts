@@ -4,12 +4,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PUBLIC_SKILL_NAMES = [
-  "devx-mux",
-  "mux-multireview",
   "mux-orchestrate",
-  "pr-title-description",
-  "staged-pr-review",
+  "mux-multireview",
+  "mux-pr-description",
+  "mux-staged-review",
 ] as const;
+
+const LEGACY_PUBLIC_SKILL_NAMES = ["devx-mux", "pr-title-description", "staged-pr-review"] as const;
 
 interface SkillLink {
   readonly destination: string;
@@ -29,11 +30,30 @@ function resolveSkillsSourceRoot(): string {
     path.resolve(moduleDirectory, "..", "skills"),
     path.resolve(moduleDirectory, "..", "..", "..", "skills"),
   ];
-  const sourceRoot = candidates.find((candidate) => existsSync(path.join(candidate, "devx-mux", "SKILL.md")));
+  const sourceRoot = candidates.find((candidate) => existsSync(path.join(candidate, "mux-orchestrate", "SKILL.md")));
   if (sourceRoot === undefined) {
     throw new Error("Packaged DevX Mux skills are missing. Reinstall devx-mux and run mux setup again.");
   }
   return sourceRoot;
+}
+
+function removeOwnedLegacySkillLinks(
+  skillRoot: string,
+  skillsSourceRoot: string,
+  output: Pick<NodeJS.WriteStream, "write">,
+): void {
+  for (const skillName of LEGACY_PUBLIC_SKILL_NAMES) {
+    const destination = path.join(skillRoot, skillName);
+    const stat = lstatSync(destination, { throwIfNoEntry: false });
+    if (!stat?.isSymbolicLink()) continue;
+
+    const linkedSource = path.resolve(skillRoot, readlinkSync(destination));
+    const ownedLegacySource = path.join(skillsSourceRoot, skillName);
+    if (linkedSource !== ownedLegacySource) continue;
+
+    unlinkSync(destination);
+    output.write(`Removed legacy skill link: ${destination}\n`);
+  }
 }
 
 function inspectSkillLink(skillRoot: string, skillsSourceRoot: string, skillName: string): SkillLink {
@@ -75,6 +95,7 @@ export function installPublicSkills(options: InstallPublicSkillsOptions = {}): v
     path.join(environment.CLAUDE_HOME ?? path.join(homedir(), ".claude"), "skills"),
     path.join(environment.AGENTS_HOME ?? path.join(homedir(), ".agents"), "skills"),
   ];
+  skillRoots.forEach((root) => removeOwnedLegacySkillLinks(root, skillsSourceRoot, output));
   const links = skillRoots.flatMap((root) =>
     PUBLIC_SKILL_NAMES.map((name) => inspectSkillLink(root, skillsSourceRoot, name)),
   );

@@ -16,7 +16,7 @@ function run(args: string[], environment: NodeJS.ProcessEnv = {}): string {
 }
 
 test("resolves a Codex transcript by arbitrary checkout path and session ID", () => {
-  const root = mkdtempSync(path.join(tmpdir(), "devx-mux-session-path-"));
+  const root = mkdtempSync(path.join(tmpdir(), "mux-session-path-"));
   const repository = path.join(root, "someone", "renamed-checkout");
   const codexHome = path.join(root, "state", "codex");
   const transcript = path.join(codexHome, "sessions", "2026", "07", "13", "review.jsonl");
@@ -31,7 +31,7 @@ test("resolves a Codex transcript by arbitrary checkout path and session ID", ()
 });
 
 test("seeded byte cursor emits only appended assistant messages", () => {
-  const root = mkdtempSync(path.join(tmpdir(), "devx-mux-session-cursor-"));
+  const root = mkdtempSync(path.join(tmpdir(), "mux-session-cursor-"));
   const transcript = path.join(root, "review.jsonl");
   const cursor = path.join(root, "state", "review.cursor");
   const assistant = (text: string) =>

@@ -8,16 +8,16 @@ import { fileURLToPath } from "node:url";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const script = path.join(scriptDirectory, "staged-review.ts");
-const muxSkill = path.resolve(scriptDirectory, "..", "..", "devx-mux");
+const muxSkill = path.resolve(scriptDirectory, "..", "..", "mux-orchestrate");
 
 test("renders every stage without unresolved template values", () => {
-  const root = mkdtempSync(path.join(tmpdir(), "devx-mux-staged-review-"));
+  const root = mkdtempSync(path.join(tmpdir(), "mux-staged-review-"));
   for (const stage of ["1", "2", "3", "4"]) {
     const promptFile = path.join(root, `stage-${stage}.txt`);
     execFileSync(process.execPath, [script, "send", stage, "chatgpt", promptFile], {
       env: {
         ...process.env,
-        DEVX_MUX_SKILL_DIR: muxSkill,
+        MUX_ORCHESTRATE_SKILL_DIR: muxSkill,
         STAGED_REVIEW_DRY_RUN: "1",
         STAGED_PR_URL: "https://github.com/example/project/pull/42",
         STAGED_COMPARE_URL: "https://github.com/example/project/compare/base...feature",
@@ -36,12 +36,12 @@ test("renders every stage without unresolved template values", () => {
 });
 
 test("preserves template-like text inside replacement values", () => {
-  const root = mkdtempSync(path.join(tmpdir(), "devx-mux-staged-review-values-"));
+  const root = mkdtempSync(path.join(tmpdir(), "mux-staged-review-values-"));
   const promptFile = path.join(root, "stage-1.txt");
   execFileSync(process.execPath, [script, "send", "1", "chatgpt", promptFile], {
     env: {
       ...process.env,
-      DEVX_MUX_SKILL_DIR: muxSkill,
+      MUX_ORCHESTRATE_SKILL_DIR: muxSkill,
       STAGED_REVIEW_DRY_RUN: "1",
       STAGED_PR_URL: "https://github.com/example/project/pull/42",
       STAGED_COMPARE_URL: "https://github.com/example/project/compare/base...feature",
@@ -56,9 +56,9 @@ test("preserves template-like text inside replacement values", () => {
 });
 
 test("routes both Rex product names through the Rex transport", () => {
-  const root = mkdtempSync(path.join(tmpdir(), "devx-mux-staged-rex-target-"));
+  const root = mkdtempSync(path.join(tmpdir(), "mux-staged-rex-target-"));
   try {
-    const fakeMuxSkill = path.join(root, "devx-mux");
+    const fakeMuxSkill = path.join(root, "mux-orchestrate");
     const scripts = path.join(fakeMuxSkill, "scripts");
     mkdirSync(scripts, { recursive: true });
     writeFileSync(path.join(fakeMuxSkill, "SKILL.md"), "# test skill\n");
@@ -75,7 +75,7 @@ test("routes both Rex product names through the Rex transport", () => {
         env: {
           ...environment,
           APP_NAME_TEST: appName,
-          DEVX_MUX_SKILL_DIR: fakeMuxSkill,
+          MUX_ORCHESTRATE_SKILL_DIR: fakeMuxSkill,
           STAGED_PR_URL: "https://github.com/example/project/pull/42",
           STAGED_COMPARE_URL: "https://github.com/example/project/compare/base...feature",
           STAGED_REQUEST_ID: `stage-${appName.toLowerCase()}`,
