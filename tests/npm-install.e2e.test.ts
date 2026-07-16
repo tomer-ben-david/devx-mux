@@ -50,10 +50,8 @@ test("the packed npm release installs the CLI and public skills into an isolated
     const packageFiles = packageResult.files.map((file) => file.path);
     assert(packageFiles.includes("dist/main.js"));
     assert(packageFiles.includes("skills/mux-orchestrate/SKILL.md"));
-    assert(packageFiles.includes("skills/mux-orchestrate/scripts/chatgpt-review-wait.mjs"));
-    assert(packageFiles.includes("skills/mux-orchestrate/scripts/chatgpt-review-poll.mjs"));
-    assert(packageFiles.includes("skills/mux-orchestrate/scripts/chatgpt-review-adopt.mjs"));
-    assert(packageFiles.includes("skills/mux-orchestrate/scripts/chatgpt-review-request.mjs"));
+    assert.equal(packageFiles.some((file) => file.includes("chatgpt-review-wait")), false);
+    assert.equal(packageFiles.some((file) => file.includes("chatgpt-browser-state")), false);
     assert(packageFiles.includes("skills/mux-chatgpt-review/SKILL.md"));
     assert.equal(packageFiles.some((file) => file.startsWith("skills/devx-mux/")), false);
     assert.equal(packageFiles.some((file) => file.includes(".test.")), false);
@@ -108,23 +106,6 @@ test("the packed npm release installs the CLI and public skills into an isolated
         assert.match(realpathSync(skillLink), /node_modules[/\\]devx-mux[/\\]skills/);
         assert.match(readFileSync(path.join(skillLink, "SKILL.md"), "utf8"), new RegExp(`name: ${skillName}`));
       }
-    }
-
-    const installedWaiter = path.join(codexHome, "skills", "mux-orchestrate", "scripts", "chatgpt-review-wait.mjs");
-    const waiterUsage = spawnSync(process.execPath, [installedWaiter], {
-      env: isolatedEnvironment,
-      encoding: "utf8",
-    });
-    assert.equal(waiterUsage.status, 2, `installed waiter did not execute through its skill symlink\n${waiterUsage.stderr}`);
-    assert.match(waiterUsage.stderr, /^Usage: chatgpt-review-wait\.mjs/m);
-
-    for (const executable of ["chatgpt-review-poll.mjs", "chatgpt-review-adopt.mjs", "chatgpt-review-request.mjs"]) {
-      const result = spawnSync(process.execPath, [path.join(path.dirname(installedWaiter), executable)], {
-        env: isolatedEnvironment,
-        encoding: "utf8",
-      });
-      assert.equal(result.status, 2, `installed ${executable} did not execute through its skill symlink`);
-      assert.match(result.stderr, /^Usage:/m);
     }
 
     const fixture = path.join(temporaryRoot, "fixture");

@@ -136,23 +136,19 @@ For persistent Codex and Grok panels, prefer their JSONL session files over term
 
 ## Browser review
 
-The scripts in `scripts/` provide one public, shared ChatGPT browser transport for cmux and Rex:
+The scripts in `scripts/` provide shared prompt submission for cmux and Rex:
 
 ```bash
 SKILL=${CODEX_HOME:-$HOME/.codex}/skills/mux-orchestrate
 
 "$SKILL/scripts/cmux-review-send.sh" browser chatgpt /tmp/review-prompt.txt
-REQUEST=$(node "$SKILL/scripts/chatgpt-review-request.mjs" MUX_REQUEST_ID=<id> /tmp/review-prompt.txt)
-READY=$(node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux chatgpt "$REQUEST")
-node "$SKILL/scripts/chatgpt-review-poll.mjs" cmux chatgpt "$READY"
 
 "$SKILL/scripts/rex-review-send.sh" chatgpt /tmp/review-prompt.txt
-REQUEST=$(node "$SKILL/scripts/chatgpt-review-request.mjs" MUX_REQUEST_ID=<id> /tmp/review-prompt.txt)
-READY=$(node "$SKILL/scripts/chatgpt-review-wait.mjs" rex chatgpt "$REQUEST")
-node "$SKILL/scripts/chatgpt-review-poll.mjs" rex chatgpt "$READY"
 ```
 
-Send one prompt per request and require confirmed submission. Keep transport metadata out of reviewer-visible prompts; encode the local `MUX_REQUEST_ID` label and exact prompt in a `REQUEST_TOKEN`. Start the shared waiter once and wait on that process; do not build an agent-owned sleep or polling loop. Checked TypeScript bundles the local HTML parser into the `.mjs` runtime used through installed skill symlinks. Binding is part of the retrying waiter state machine: the exact prompt-matching user turn and conversation URL must match across two observations before they freeze into an immutable boundary. A later unrelated user turn cannot replace it. Legacy prompts containing `REQUEST_ID` remain readable, but new workflows must use the local request token. An existing turn token skips startup reads. The waiter then requires the exact response turn's local completed UI control and settles the same response signature across three polls before returning a `READY_TOKEN` containing the turn boundary and settled digest. The agent performs one digest-validated exact-turn read with `chatgpt-review-poll.mjs`; a changed body is rejected and requires a new settlement cycle. Transient reads retry, identity and conversation failures fail loudly, heartbeats include the last semantic state, and there is no elapsed-time timeout. Do not use page JavaScript, raw assistant-node counts, or body-text scraping. Never use `/new` to recover or attach to an existing review; generate a turn token read-only and preserve the conversation.
+Send one prompt per request and verify the newest visible user message matches it. Keep local routing metadata out of the reviewer-visible prompt and browser state. After submission, use the agent runtime's background wait for about five minutes, then inspect the same browser surface directly. If the review is still working or incomplete, wait another five minutes and inspect again. Do not impose a total timeout.
+
+Mux deliberately does not provide a ChatGPT waiter, DOM parser, request token, response digest, or result extractor. cmux and Rex are generic browser transports, while the agent interprets the current visible UI at each control boundary. A background sleep is only a delay between inspections, never evidence that a result is ready. Do not build shell polling loops, run page JavaScript, or treat a missing progress control as a completed review. Never use `/new`, navigation, reload, or retry to recover an existing review; preserve the conversation and inspect it directly.
 
 ## Reporting
 

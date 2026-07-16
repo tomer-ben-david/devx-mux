@@ -42,15 +42,6 @@ function runTransport(command: string, args: string[]): void {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-function runNodeCapture(script: string, args: string[]): string {
-  if (!existsSync(script)) fail(`Missing transport: ${script}`);
-  try {
-    return execFileSync(process.execPath, [script, ...args], { encoding: "utf8", stdio: ["inherit", "pipe", "inherit"] }).trim();
-  } catch (error) {
-    fail(`${script}: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
 function send(args: string[]): void {
   if (args.length < 1 || args.length > 3) {
     fail("Usage: staged-review-send.sh <1|2|3|4> [target] [prompt-file]", 2);
@@ -107,12 +98,7 @@ function send(args: string[]): void {
   writeFileSync(promptFile, prompt);
   const muxSkill = muxSkillDirectory();
   if (!existsSync(path.join(muxSkill, "SKILL.md"))) fail(`Mux Orchestrate skill not found: ${muxSkill}`);
-  const requestToken = runNodeCapture(path.join(muxSkill, "scripts", "chatgpt-review-request.mjs"), [
-    `MUX_REQUEST_ID=${requestId}`,
-    promptFile,
-  ]);
-  if (!requestToken.startsWith("REQUEST_TOKEN=")) fail(`Unexpected ChatGPT request token: ${requestToken || "<empty>"}`);
-  process.stdout.write(`prompt=${promptFile}\nrequest_id=${requestId}\nrequest_token=${requestToken}\n`);
+  process.stdout.write(`prompt=${promptFile}\nrequest_id=${requestId}\nreview_target=${target}\n`);
 
   if (process.env.STAGED_REVIEW_DRY_RUN === "1") {
     process.stdout.write(prompt);
@@ -127,27 +113,8 @@ function send(args: string[]): void {
   } else {
     runTransport(path.join(muxSkill, "scripts", "cmux-review-send.sh"), ["browser", target, promptFile]);
   }
-  process.stdout.write(`poll_hint: ${path.join(scriptDirectory, "staged-review-poll.sh")} ${target} ${requestToken}\n`);
-}
-
-function poll(args: string[]): void {
-  if (args.length < 1 || args.length > 2) {
-    fail("Usage: staged-review-poll.sh [target] REQUEST_TOKEN=<token>", 2);
-  }
-  const target = isTarget(args[0]) ? args[0]! : defaultTarget();
-  const requestToken = isTarget(args[0]) ? args[1] : args[0];
-  if (!requestToken?.startsWith("REQUEST_TOKEN=")) fail(`Expected REQUEST_TOKEN=<token>, got: ${requestToken ?? ""}`, 2);
-
-  const muxSkill = muxSkillDirectory();
-  if (!existsSync(path.join(muxSkill, "SKILL.md"))) fail(`Mux Orchestrate skill not found: ${muxSkill}`);
-  const tool = target === "rex" ? "rex" : "cmux";
-  const handle = target === "rex" ? process.env.STAGED_REX_TARGET ?? "chatgpt" : target;
-  const ready = runNodeCapture(path.join(muxSkill, "scripts", "chatgpt-review-wait.mjs"), [tool, handle, requestToken]);
-  if (!ready.startsWith("READY_TOKEN=")) fail(`Unexpected ChatGPT waiter result: ${ready || "<empty>"}`);
-  runTransport(process.execPath, [path.join(muxSkill, "scripts", "chatgpt-review-poll.mjs"), tool, handle, ready]);
 }
 
 const [command, ...args] = process.argv.slice(2);
 if (command === "send") send(args);
-else if (command === "poll") poll(args);
-else fail("Usage: staged-review.ts <send|poll> ...", 2);
+else fail("Usage: staged-review.ts send ...", 2);

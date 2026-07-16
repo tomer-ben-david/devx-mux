@@ -68,7 +68,7 @@ A report is complete only when the provider emitted its final assistant response
 
 ## Browser exception
 
-ChatGPT browser panes do not use the local Codex or Grok JSONL stores. Poll the exact assistant turn through the shared browser transport and the local `REQUEST_TOKEN` that carries its prompt identity and `MUX_REQUEST_ID` label.
+ChatGPT browser panes do not use the local Codex or Grok JSONL stores. After a long background wait, inspect the same browser surface directly and interpret its latest visible response. Do not delegate result selection or completion judgment to a parser or waiter script.
 
 ## Mux fallback
 
