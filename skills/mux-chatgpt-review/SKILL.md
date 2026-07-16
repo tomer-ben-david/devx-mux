@@ -28,7 +28,16 @@ Verify that the selected surface belongs to the supplied pane and workspace and 
 
 ## Start the working chat
 
-Begin the first review in a fresh conversation under the same ChatGPT project or custom GPT shown by the selected surface. A person may use ChatGPT's `/new` menu and choose `New chat`, never `Branch chat` or `Retry response`. For cmux browser automation, use ChatGPT's `Shift+Command+O` new-chat shortcut; it is more deterministic than automating the transient `/new` menu and preserves the current GPT or project. Do not use the global sidebar action if it would leave the selected GPT or project.
+Inspect the selected conversation before changing it. If it already contains an active or completed review that the user wants to continue, preserve the conversation and adopt its latest user turn with the read-only adoption command:
+
+```bash
+ADOPT_TOKEN=$(node "$SKILL/scripts/chatgpt-review-adopt.mjs" cmux surface:N)
+node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux surface:N "$ADOPT_TOKEN"
+```
+
+The adoption token binds the waiter to both the exact user-message identity and normalized conversation URL. Adoption never navigates, submits, branches, replaces, or resets the conversation. Never use `/new` as recovery for a running, completed, unmarked, or temporarily unreadable review. Recover the same UUID-backed surface and conversation. If a share link is needed for diagnosis, open it in a different surface.
+
+Only when the selected conversation contains no review to preserve, begin the first Mux-submitted review in a fresh conversation under the same ChatGPT project or custom GPT. A person may use ChatGPT's `/new` menu and choose `New chat`, never `Branch chat` or `Retry response`. For cmux browser automation, use ChatGPT's `Shift+Command+O` new-chat shortcut. Do not use the global sidebar action if it would leave the selected GPT or project.
 
 Verify the conversation URL or identity changed and that no prior user or assistant messages remain before sending the review. Do not submit the literal `/new` text as a chat message.
 
@@ -56,7 +65,7 @@ Confirm submission by reading the newest user message and matching the request I
 
 ## Wait for the real result
 
-Run `chatgpt-review-wait.mjs` once in a background terminal and wait on that same process until it exits. The runtime is built from checked TypeScript, has no runtime dependencies, and works through installed skill symlinks. The shared waiter owns only transport completion for cmux and Rex: it checks request-bound structured state internally once per minute, requires ChatGPT's response-local completed UI control, then requires the same response on three consecutive polls before returning it. It emits at most one waiting status every five minutes and has no elapsed-time timeout. The structural and settling gates cover temporary gaps in global generation controls and long-lived research placeholders between phases. The agent must not add its own sleep loop, browser polling, or body-text scraping around it. Do not send reminders, duplicate the prompt, or interpret intermediate research notes as findings.
+Run `chatgpt-review-wait.mjs` once in a background terminal and wait on that same process until it exits. The runtime is built from checked TypeScript, bundles its parser dependencies, and works through installed skill symlinks. The shared waiter owns only transport completion for cmux and Rex: it reads thread HTML through semantic cmux or Rex socket commands, parses it locally, checks request-bound structured state internally once per minute, requires the completed UI control inside the exact response turn, then requires the same response on three consecutive polls before returning it. It retries transient browser-read timeouts and frame replacement, but fails loudly for a lost surface, changed conversation, wrong tab, socket failure, or malformed state. It emits at most one waiting status every five minutes and has no elapsed-time timeout. The agent must not add its own sleep loop, browser polling, page JavaScript, or body-text scraping around it. Do not send reminders, duplicate the prompt, or interpret intermediate research notes as findings.
 
 Elapsed time alone never makes a ChatGPT review stalled or incomplete. There is no elapsed-time timeout or unchanged-progress limit. Do not click `Stop answering`, restart the review, or open a fresh chat because progress is unchanged or the review has taken many minutes. Keep waiting on the shared waiter process as long as it remains active. The 15-minute guidance refresh reloads the skill around the active run; it must not restart, replace, or otherwise disturb that run.
 

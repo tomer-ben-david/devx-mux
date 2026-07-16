@@ -9,10 +9,15 @@ test("ChatGPT review converges in one chat before a fresh independent confirmati
   assert.match(skill, /checks request-bound structured state internally once per minute/);
   assert.match(skill, /same response on three consecutive polls/);
   assert.match(skill, /shared waiter owns only transport completion/);
-  assert.match(skill, /response-local completed UI control/);
+  assert.match(skill, /completed UI control inside the exact response turn/);
+  assert.match(skill, /retries transient browser-read timeouts and frame replacement/);
+  assert.match(skill, /fails loudly for a lost surface, changed conversation, wrong tab, socket failure, or malformed state/);
   assert.match(skill, /focused workflow must accept it only when it contains both/);
   assert.match(skill, /emits at most one waiting status every five minutes/);
-  assert.match(skill, /must not add its own sleep loop, browser polling, or body-text scraping/);
+  assert.match(skill, /must not add its own sleep loop, browser polling, page JavaScript, or body-text scraping/);
+  assert.match(skill, /Adoption never navigates, submits, branches, replaces, or resets the conversation/);
+  assert.match(skill, /Never use `\/new` as recovery/);
+  assert.match(skill, /exact user-message identity and normalized conversation URL/);
   assert.match(skill, /Elapsed time alone never makes a ChatGPT review stalled or incomplete/);
   assert.match(skill, /There is no elapsed-time timeout or unchanged-progress limit/);
   assert.match(skill, /Do not click `Stop answering`/);

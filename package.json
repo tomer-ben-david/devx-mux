@@ -23,6 +23,7 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "esbuild": "^0.28.1",
+    "linkedom": "^0.18.13",
     "typescript": "^5.9.0"
   },
   "engines": {

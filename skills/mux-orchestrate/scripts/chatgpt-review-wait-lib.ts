@@ -8,6 +8,13 @@ export interface ReviewWaitOptions {
   requestId: string;
 }
 
+export function isRetryableBrowserPollFailure(error: unknown): boolean {
+  const details = error instanceof Error
+    ? `${error.message}\n${"stderr" in error ? String(error.stderr) : ""}`
+    : String(error);
+  return /timed out|timeout|Execution context was destroyed|frame was detached|temporarily unavailable/i.test(details);
+}
+
 export async function waitForChatGptReview(options: ReviewWaitOptions): Promise<string> {
   const startedAt = options.now();
   let nextStatusAt = startedAt + options.statusIntervalMs;

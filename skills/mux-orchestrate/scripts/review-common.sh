@@ -5,12 +5,12 @@
 # same five-step flow:
 #
 #   resolve socket -> find ChatGPT pane -> verify it is ChatGPT
-#                  -> submit prompt / read body -> check REQUEST_ID
+#                  -> submit prompt / read body
 #
 # Only the *transport* differs (cmux CLI vs Rex's nc -U text protocol). Every
 # transport appears exactly once here, branched on the `tool` argument (cmux|rex).
-# The per-tool send/poll wrappers source this file and call these functions, so
-# no orchestration logic is duplicated across the two loops.
+# Polling is implemented by checked TypeScript over semantic cmux or Rex socket
+# reads; this shell library owns target resolution and prompt submission only.
 #
 # This file is a library: source it, do not execute it. It defines functions and
 # resolves its own directory; it performs no work at source time beyond that.
@@ -24,12 +24,7 @@
 #   review_is_chatgpt <tool> <handle>         0 if handle is a ChatGPT tab, else 1
 #   review_submit <tool> <handle> <prompt>    submit prompt; exit 1 if not confirmed
 #   review_read_body <tool> <handle>          print visible body text for diagnostics
-#   review_read_last_answer <tool> <handle>   print the latest assistant response
-#   review_read_answer_state <tool> <handle> [REQUEST_ID=<id>]
-#                                             print request-bound structured state
-#   review_request_id_status <body> <id>      print "observed <id>" / "waiting missing <id>"
 #   review_send_prompt_file <tool> <target> <file>
-#   review_poll_latest_answer <tool> <target> REQUEST_ID=<id>
 
 # Directory of this file. Both transport socket resolvers live next to it.
 # BASH_SOURCE[0] is set under bash (the shebang runtime); fall back to $0 so a
@@ -491,119 +486,6 @@ review_read_body() {
     esac
 }
 
-# Print ONLY ChatGPT's latest assistant response - robust to stale scrollback and
-# to the submitted prompt being echoed back into the page. The REQUEST_ID lives in
-# the prompt itself, so matching it against the whole body (review_read_body +
-# review_request_id_status) can fire on the prompt echo, not the answer. This reads
-# the last DOM node ChatGPT tags data-message-author-role="assistant" - the newest
-# complete answer - with no scrolling (querySelectorAll scans the whole document).
-review_read_last_answer() {
-    local tool="$1" handle="$2"
-    # ChatGPT tags each AI message with data-message-author-role="assistant".
-    local js='(()=>{const t=document.querySelectorAll('"'"'[data-message-author-role="assistant"]'"'"');return t.length?t[t.length-1].innerText:"";})()'
-    case "$tool" in
-        cmux)
-            _review_setup_socket cmux
-            cmux browser "$handle" eval "$js" 2>/dev/null || true
-            ;;
-        rex)
-            local sock raw header
-            sock="$(review_socket_path rex)"
-            if ! raw="$(printf 'browser-eval %s %s\n' "$handle" "$js" | nc -U "$sock" 2>&1)"; then
-                echo "review_read_last_answer: Rex browser-eval failed for $handle" >&2
-                return 1
-            fi
-            header="${raw%%$'\n'*}"
-            if [[ "$header" != "ok "* ]]; then
-                echo "review_read_last_answer: unexpected Rex response for $handle: ${raw:-<empty>}" >&2
-                return 1
-            fi
-            printf '%s\n' "${raw#*$'\n'}"
-            ;;
-        *)
-            echo "review_read_last_answer: unknown tool '$tool' (use cmux|rex)" >&2
-            exit 2
-            ;;
-    esac
-}
-
-# Print a JSON envelope for the current ChatGPT response state. When a request ID
-# is provided, select only an assistant node that follows the matching user
-# message. This binds the result to the prompt without relying on DOM node counts,
-# which can change when ChatGPT virtualizes or re-renders a conversation.
-review_read_answer_state() {
-    local tool="$1" handle="$2" request_id="${3:-}" request_id_json js
-    request_id_json="$(node -e 'process.stdout.write(JSON.stringify(process.argv[1]))' "$request_id")" || return 1
-    js='(()=>{const requestId='"$request_id_json"';const messages=Array.from(document.querySelectorAll('"'"'[data-message-author-role]'"'"'));let requestIndex=-1;if(requestId){for(let i=messages.length-1;i>=0;i--){if(messages[i].getAttribute('"'"'data-message-author-role'"'"')==='"'"'user'"'"'&&messages[i].innerText.includes(requestId)){requestIndex=i;break;}}}const assistants=messages.slice(requestIndex+1).filter(message=>message.getAttribute('"'"'data-message-author-role'"'"')==='"'"'assistant'"'"');const responseObserved=assistants.length>0;const response=responseObserved?assistants[assistants.length-1]:null;const answer=response?response.innerText:"";let responseRoot=response;while(responseRoot&&!Array.from(responseRoot.querySelectorAll('"'"'button,[role="button"]'"'"')).some(control=>[control.innerText,control.getAttribute('"'"'aria-label'"'"')].some(label=>(label||"").trim()==="Copy response"))){responseRoot=responseRoot.parentElement;}const responseComplete=Boolean(responseRoot);const stopVisible=Array.from(document.querySelectorAll('"'"'button,[role="button"]'"'"')).some(button=>button.matches('"'"'[data-testid="stop-button"]'"'"')||[button.innerText,button.getAttribute('"'"'aria-label'"'"')].some(label=>(label||"").trim()==="Stop answering"));const generation=stopVisible?"generating":"complete";return JSON.stringify({requestObserved:!requestId||requestIndex>=0,responseObserved,responseComplete,generation,answer});})()'
-    case "$tool" in
-        cmux)
-            _review_setup_socket cmux
-            if ! cmux browser "$handle" eval "$js"; then
-                echo "review_read_answer_state: cmux browser eval failed for $handle" >&2
-                return 1
-            fi
-            ;;
-        rex)
-            local sock raw header
-            sock="$(review_socket_path rex)"
-            if ! raw="$(printf 'browser-eval %s %s\n' "$handle" "$js" | nc -U "$sock" 2>&1)"; then
-                echo "review_read_answer_state: Rex browser-eval failed for $handle" >&2
-                return 1
-            fi
-            header="${raw%%$'\n'*}"
-            if [[ "$header" != "ok "* ]]; then
-                echo "review_read_answer_state: unexpected Rex response for $handle: ${raw:-<empty>}" >&2
-                return 1
-            fi
-            printf '%s\n' "${raw#*$'\n'}"
-            ;;
-        *)
-            echo "review_read_answer_state: unknown tool '$tool' (use cmux|rex)" >&2
-            exit 2
-            ;;
-    esac
-}
-
-# Validate the browser envelope and print request-observed, response-observed,
-# response-complete, generation, and base64-encoded answer separated by pipes.
-review_parse_answer_state() {
-    local state="$1"
-    if [[ -z "$state" ]]; then
-        echo "review_parse_answer_state: empty browser response" >&2
-        return 1
-    fi
-    node -e '
-const raw = process.argv[1];
-let value;
-try { value = JSON.parse(raw); } catch { process.exitCode = 1; }
-if (
-  !value || typeof value.requestObserved !== "boolean" || typeof value.responseObserved !== "boolean" ||
-  typeof value.responseComplete !== "boolean" ||
-  !["generating", "complete"].includes(value.generation) || typeof value.answer !== "string"
-) process.exitCode = 1;
-if (!process.exitCode) {
-  process.stdout.write(`${value.requestObserved}|${value.responseObserved}|${value.responseComplete}|${value.generation}|${Buffer.from(value.answer, "utf8").toString("base64")}`);
-}
-' "$state" || {
-        echo "review_parse_answer_state: malformed browser response" >&2
-        return 1
-    }
-}
-
-# Pure helper: report whether REQUEST_ID is visible in the body.
-review_request_id_status() {
-    local body="$1" request_id="$2"
-    if [[ "$request_id" != REQUEST_ID=* ]]; then
-        echo "Expected REQUEST_ID=<id>, got $request_id" >&2
-        return 2
-    fi
-    if printf '%s\n' "$body" | grep -Fq "$request_id"; then
-        echo "observed $request_id"
-    else
-        echo "waiting missing $request_id"
-    fi
-}
-
 # Resolve and verify a ChatGPT browser target, then submit one prompt file.
 review_send_prompt_file() {
     local tool="$1" target="$2" prompt_file="$3"
@@ -620,56 +502,4 @@ review_send_prompt_file() {
     fi
 
     review_submit "$tool" "$handle" "$(<"$prompt_file")"
-}
-
-# Print only the completed assistant response following the requested user prompt.
-review_poll_latest_answer() {
-    local tool="$1" target="$2" request_id="${3:-}"
-    if [[ "$request_id" != REQUEST_ID=* ]]; then
-        echo "Expected REQUEST_ID=<id>, got $request_id" >&2
-        return 2
-    fi
-
-    local handle state parsed request_observed response_observed response_complete remainder generation encoded_answer answer
-    handle="$(review_find_chatgpt_pane "$tool" "$target")"
-    if ! review_is_chatgpt "$tool" "$handle"; then
-        echo "Refusing browser poll: ${handle} is not a ChatGPT tab." >&2
-        return 1
-    fi
-
-    state="$(review_read_answer_state "$tool" "$handle" "$request_id")" || return 1
-    parsed="$(review_parse_answer_state "$state")" || return 1
-    request_observed="${parsed%%|*}"
-    remainder="${parsed#*|}"
-    response_observed="${remainder%%|*}"
-    encoded_answer="${remainder#*|}"
-    response_complete="${encoded_answer%%|*}"
-    encoded_answer="${encoded_answer#*|}"
-    generation="${encoded_answer%%|*}"
-    encoded_answer="${encoded_answer#*|}"
-    if ! answer="$(node -e 'process.stdout.write(Buffer.from(process.argv[1], "base64"))' "$encoded_answer")"; then
-        echo "review_poll_latest_answer: invalid encoded answer" >&2
-        return 1
-    fi
-    if [[ "$request_observed" != true ]]; then
-        echo "waiting missing $request_id"
-        return 0
-    fi
-    if [[ "$response_observed" != true ]]; then
-        echo "waiting response for $request_id"
-        return 0
-    fi
-    if [[ "$response_complete" != true ]]; then
-        echo "waiting response incomplete for $request_id"
-        return 0
-    fi
-    if [[ "$generation" != "complete" ]]; then
-        echo "waiting generating $request_id"
-        return 0
-    fi
-    if [[ -z "${answer//[[:space:]]/}" ]]; then
-        echo "waiting empty $request_id"
-        return 0
-    fi
-    printf '%s\n' "$answer"
 }

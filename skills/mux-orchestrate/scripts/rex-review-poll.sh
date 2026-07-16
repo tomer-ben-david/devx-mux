@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# rex-review-poll.sh - Rex thin wrapper over review-common.sh.
+# rex-review-poll.sh - compatibility wrapper over the checked TypeScript poller.
 #
 # Usage:
 #   rex-review-poll.sh <pane:id|chatgpt|browser|pane-name> REQUEST_ID=<id>
@@ -26,14 +26,11 @@ if [[ $# -ne 2 ]]; then
 fi
 
 target="$1"
-request_id="$2"
-if [[ "$request_id" != REQUEST_ID=* ]]; then
-    echo "Expected REQUEST_ID=<id>, got $request_id" >&2
+boundary="$2"
+if [[ "$boundary" != REQUEST_ID=* && "$boundary" != ADOPT_TOKEN=* ]]; then
+    echo "Expected REQUEST_ID=<id> or ADOPT_TOKEN=<token>, got $boundary" >&2
     exit 2
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=review-common.sh
-source "$script_dir/review-common.sh"
-
-review_poll_latest_answer rex "$target" "$request_id"
+exec node "$script_dir/chatgpt-review-poll.mjs" rex "$target" "$boundary"

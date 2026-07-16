@@ -122,7 +122,7 @@ Read [references/review-protocol.md](references/review-protocol.md) before start
 For every round:
 
 1. Record the exact head and selected scope.
-2. Start each interactive reviewer fresh with `/new` and verify reset succeeded.
+2. Start each new interactive reviewer fresh and verify reset succeeded. For an existing ChatGPT review, preserve and adopt its exact conversation and user-message identity; never use `/new` as recovery.
 3. Invoke the reviewer's native review mechanism against the same scope.
 4. Poll each reviewer independently and read its full report.
 5. Relay every finding with its source and an orchestrator classification. Never silently filter a finding.
@@ -148,7 +148,7 @@ node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux chatgpt REQUEST_ID=<id>
 node "$SKILL/scripts/chatgpt-review-wait.mjs" rex chatgpt REQUEST_ID=<id>
 ```
 
-Send one prompt per request and require confirmed submission. Start the shared waiter once and wait on that process; do not build an agent-owned sleep or polling loop. Checked TypeScript is bundled into the dependency-free `.mjs` runtime used through installed skill symlinks. The waiter owns transport state only: it uses the request ID to select an assistant node following its user message across cmux and Rex, polls internally once per minute, requires that response's local completed UI control, then settles the same result across three polls. It reports status every five minutes and has no elapsed-time timeout. The calling workflow owns scope-specific result validation such as exact GitHub heads or verdict wording. Do not use raw assistant-node counts as a boundary because browser re-rendering can change them. Do not treat stale or partially generated browser text as a new answer.
+Send one prompt per request and require confirmed submission. Start the shared waiter once and wait on that process; do not build an agent-owned sleep or polling loop. Checked TypeScript bundles the local HTML parser into the `.mjs` runtime used through installed skill symlinks. The waiter owns transport state only: it reads thread HTML through semantic cmux or Rex socket commands, uses the request ID or an adoption token to select the exact user turn and its following assistant turn, polls internally once per minute, requires that exact response turn's local completed UI control, then settles the same result across three polls. It retries transient browser-read timeouts or frame replacement but fails loudly on identity, conversation, socket, and malformed-state failures. It reports status every five minutes and has no elapsed-time timeout. The calling workflow owns scope-specific result validation such as exact GitHub heads or verdict wording. Do not use page JavaScript, raw assistant-node counts, or body-text scraping. Never use `/new` to recover or attach to an existing review; generate an adoption token read-only and preserve the conversation.
 
 ## Reporting
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { waitForChatGptReview } from "./chatgpt-review-wait-lib.ts";
+import { isRetryableBrowserPollFailure, waitForChatGptReview } from "./chatgpt-review-wait-lib.ts";
 
 const requestId = "REQUEST_ID=staged-s1-provider-neutral";
 const reviewResult = "completed provider-neutral review result";
@@ -59,4 +59,12 @@ test("the shared waiter fails closed on an empty poll result", async () => {
     }),
     /empty response/,
   );
+});
+
+test("only transient browser read failures are retryable", () => {
+  assert.equal(isRetryableBrowserPollFailure(new Error("browser read timed out")), true);
+  assert.equal(isRetryableBrowserPollFailure(new Error("Execution context was destroyed")), true);
+  assert.equal(isRetryableBrowserPollFailure(new Error("frame was detached")), true);
+  assert.equal(isRetryableBrowserPollFailure(new Error("Refusing browser poll: target is not ChatGPT")), false);
+  assert.equal(isRetryableBrowserPollFailure(new Error("cmux socket missing")), false);
 });

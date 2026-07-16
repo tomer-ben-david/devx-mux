@@ -1,31 +1,41 @@
 #!/usr/bin/env node
-import { execFileSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { waitForChatGptReview } from "./chatgpt-review-wait-lib.ts";
+import { parseReviewBoundary } from "./chatgpt-browser-state.ts";
+import { formatBrowserReviewState, readBrowserReviewState } from "./chatgpt-review-transport.ts";
+import { isRetryableBrowserPollFailure, waitForChatGptReview } from "./chatgpt-review-wait-lib.ts";
 
 function usage(): never {
-  console.error("Usage: chatgpt-review-wait.mjs <cmux|rex> <surface-or-pane> REQUEST_ID=<id>");
+  console.error("Usage: chatgpt-review-wait.mjs <cmux|rex> <surface-or-pane> <REQUEST_ID|ADOPT_TOKEN>");
   process.exit(2);
 }
 
-const [tool, target, requestId, ...extra] = process.argv.slice(2);
-if (extra.length > 0 || typeof tool !== "string" || !["cmux", "rex"].includes(tool) || !target || !requestId?.startsWith("REQUEST_ID=")) {
+const [tool, target, boundaryValue, ...extra] = process.argv.slice(2);
+if (extra.length > 0 || typeof tool !== "string" || !["cmux", "rex"].includes(tool) || !target || !boundaryValue) {
   usage();
 }
 
 const selectedTool = tool as "cmux" | "rex";
-const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
-const poller = path.join(scriptDirectory, selectedTool === "cmux" ? "cmux-review-poll.sh" : "rex-review-poll.sh");
-const pollArguments = selectedTool === "cmux" ? ["browser", target, requestId] : [target, requestId];
+const selectedTarget = target as string;
+const selectedBoundaryValue = boundaryValue as string;
+const boundary = parseReviewBoundary(selectedBoundaryValue);
+
+function poll(): string {
+  try {
+    return formatBrowserReviewState(readBrowserReviewState(selectedTool, selectedTarget, boundary), selectedBoundaryValue);
+  } catch (error) {
+    if (isRetryableBrowserPollFailure(error)) {
+      return "waiting transient browser read failure";
+    }
+    throw error;
+  }
+}
 
 const result = await waitForChatGptReview({
-  poll: () => execFileSync(poller, pollArguments, { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }),
+  poll,
   sleep: milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)),
   now: Date.now,
   onStatus: message => console.error(message),
   pollIntervalMs: 60_000,
   statusIntervalMs: 300_000,
-  requestId,
+  requestId: selectedBoundaryValue,
 });
 process.stdout.write(`${result}\n`);

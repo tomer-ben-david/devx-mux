@@ -75,6 +75,6 @@ ChatGPT browser panes do not use the local Codex or Grok JSONL stores. Poll the 
 If the provider cannot identify a usable session file, read through the active transport:
 
 - cmux: use `cmux read-screen` for terminal reviewers and the browser DOM helper for ChatGPT.
-- Rex: use the socket `tail` command for terminal reviewers and `browser-eval` or `browser-text` for ChatGPT.
+- Rex: use the socket `tail` command for terminal reviewers and the shared semantic browser HTML transport for ChatGPT.
 
 Re-resolve the target before each fallback read. Treat pane and surface IDs as ephemeral, and read enough scrollback to include the complete report rather than only its verdict tail.
