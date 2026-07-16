@@ -4,11 +4,11 @@ import { test } from "node:test";
 
 const skill = readFileSync(new URL("./SKILL.md", import.meta.url), "utf8");
 
-test("ChatGPT review waits for an exact-head final verdict without biasing rereviews", () => {
+test("ChatGPT review converges in one chat before a fresh independent confirmation", () => {
   assert.match(skill, /Wait at least two minutes before the first result poll/);
-  assert.match(skill, /newest completed assistant message contains all of/);
-  assert.match(skill, /the current request ID/);
-  assert.match(skill, /the exact full head SHA/);
-  assert.match(skill, /Do not describe the prior finding or the fix in the rereview prompt/);
-  assert.match(skill, /Finish only when ChatGPT reports `ALL CLEAN` for the current GitHub head/);
+  assert.match(skill, /REQUEST_ID=github:<owner>\/<repository>:pr:<number>:head:<short-sha>:/);
+  assert.match(skill, /Review @GitHub <owner>\/<repository> PR #<number>\./);
+  assert.match(skill, /Updated\. Re-review everything\./);
+  assert.match(skill, /do not start a fresh chat while that working chat still reports findings/);
+  assert.match(skill, /two consecutive clean verdicts for the same unchanged GitHub head from two different chat conversations/);
 });
