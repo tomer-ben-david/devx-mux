@@ -25,9 +25,10 @@
 #   review_submit <tool> <handle> <prompt>    submit prompt; exit 1 if not confirmed
 #   review_read_body <tool> <handle>          print visible body text for diagnostics
 #   review_read_last_answer <tool> <handle>   print the latest assistant response
+#   review_read_answer_state <tool> <handle>  print count, generation state, and latest text
 #   review_request_id_status <body> <id>      print "observed <id>" / "waiting missing <id>"
 #   review_send_prompt_file <tool> <target> <file>
-#   review_poll_latest_answer <tool> <target> [REQUEST_ID=<id>]
+#   review_poll_latest_answer <tool> <target> [REQUEST_ID=<id>] [after-assistant-count]
 
 # Directory of this file. Both transport socket resolvers live next to it.
 # BASH_SOURCE[0] is set under bash (the shebang runtime); fall back to $0 so a
@@ -525,6 +526,50 @@ review_read_last_answer() {
     esac
 }
 
+# Print a three-part envelope for the current ChatGPT response state:
+# assistant message count, generation state, and latest assistant text. Callers
+# capture the count before submission, then reject nodes at or before that prompt
+# boundary and reject the newest node while ChatGPT is still generating it.
+review_read_answer_state() {
+    local tool="$1" handle="$2"
+    local js='(()=>{const t=document.querySelectorAll('"'"'[data-message-author-role="assistant"]'"'"');const text=t.length?t[t.length-1].innerText:"";const state=document.querySelector('"'"'button[data-testid="stop-button"]'"'"')?"generating":"complete";return `${t.length}\n${state}\n${text}`;})()'
+    case "$tool" in
+        cmux)
+            _review_setup_socket cmux
+            cmux browser "$handle" eval "$js" 2>/dev/null || true
+            ;;
+        rex)
+            local sock raw header
+            sock="$(review_socket_path rex)"
+            if ! raw="$(printf 'browser-eval %s %s\n' "$handle" "$js" | nc -U "$sock" 2>&1)"; then
+                echo "review_read_answer_state: Rex browser-eval failed for $handle" >&2
+                return 1
+            fi
+            header="${raw%%$'\n'*}"
+            if [[ "$header" != "ok "* ]]; then
+                echo "review_read_answer_state: unexpected Rex response for $handle: ${raw:-<empty>}" >&2
+                return 1
+            fi
+            printf '%s\n' "${raw#*$'\n'}"
+            ;;
+        *)
+            echo "review_read_answer_state: unknown tool '$tool' (use cmux|rex)" >&2
+            exit 2
+            ;;
+    esac
+}
+
+review_assistant_count() {
+    local tool="$1" target="$2" handle state
+    handle="$(review_find_chatgpt_pane "$tool" "$target")"
+    if ! review_is_chatgpt "$tool" "$handle"; then
+        echo "Refusing browser count: ${handle} is not a ChatGPT tab." >&2
+        return 1
+    fi
+    state="$(review_read_answer_state "$tool" "$handle")" || return 1
+    printf '%s\n' "${state%%$'\n'*}"
+}
+
 # Pure helper: report whether REQUEST_ID is visible in the body.
 review_request_id_status() {
     local body="$1" request_id="$2"
@@ -559,20 +604,40 @@ review_send_prompt_file() {
 
 # Print only the latest assistant response and optionally verify REQUEST_ID.
 review_poll_latest_answer() {
-    local tool="$1" target="$2" request_id="${3:-}"
+    local tool="$1" target="$2" request_id="${3:-}" after_count="${4:-}"
     if [[ -n "$request_id" && "$request_id" != REQUEST_ID=* ]]; then
         echo "Expected REQUEST_ID=<id>, got $request_id" >&2
         return 2
     fi
+    if [[ -n "$after_count" && ! "$after_count" =~ ^[0-9]+$ ]]; then
+        echo "Expected numeric assistant count, got $after_count" >&2
+        return 2
+    fi
 
-    local handle answer
+    local handle state assistant_count remainder generation answer
     handle="$(review_find_chatgpt_pane "$tool" "$target")"
     if ! review_is_chatgpt "$tool" "$handle"; then
         echo "Refusing browser poll: ${handle} is not a ChatGPT tab." >&2
         return 1
     fi
 
-    answer="$(review_read_last_answer "$tool" "$handle")" || return 1
+    state="$(review_read_answer_state "$tool" "$handle")" || return 1
+    assistant_count="${state%%$'\n'*}"
+    remainder="${state#*$'\n'}"
+    generation="${remainder%%$'\n'*}"
+    answer="${remainder#*$'\n'}"
+    if [[ -n "$after_count" && "$assistant_count" -le "$after_count" ]]; then
+        echo "waiting assistant_count=$assistant_count after=$after_count"
+        return 0
+    fi
+    if [[ "$generation" != "complete" ]]; then
+        echo "waiting generating assistant_count=$assistant_count"
+        return 0
+    fi
+    if [[ -z "${answer//[[:space:]]/}" ]]; then
+        echo "waiting empty assistant_count=$assistant_count"
+        return 0
+    fi
     printf '%s\n' "$answer"
     if [[ -n "$request_id" ]]; then
         review_request_id_status "$answer" "$request_id"

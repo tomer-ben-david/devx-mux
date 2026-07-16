@@ -37,19 +37,20 @@ Verify the conversation URL or identity changed and that no prior user or assist
 Keep the prompt short so ChatGPT owns the investigation. Do not include suspected bugs, implementation history, preferred fixes, or a long checklist:
 
 ```text
-REQUEST_ID=github:<owner>/<repository>:pr:<number>:head:<short-sha>:<YYYYMMDDTHHMMSS+offset>
+REQUEST_ID=github:<owner>/<repository>:pr:<number>:head:<full-sha>:<YYYYMMDDTHHMMSS+offset>
 
 Review @GitHub <owner>/<repository> PR #<number>.
 ```
 
-Generate the request ID from the live GitHub head and current system time. It is a routing marker for the orchestrator, not an instruction that ChatGPT must echo.
+Immediately before submission, read and retain the immutable full PR head from GitHub and capture the current assistant-message count. Generate the request ID from that submission head and current system time. It is a routing marker for the orchestrator, not an instruction that ChatGPT must echo.
 
 Use the shared browser transport from `mux-orchestrate`:
 
 ```bash
 SKILL=${CODEX_HOME:-$HOME/.codex}/skills/mux-orchestrate
+BASELINE=$("$SKILL/scripts/cmux-review-poll.sh" browser surface:N COUNT_ONLY)
 "$SKILL/scripts/cmux-review-send.sh" browser surface:N /tmp/review-prompt.txt
-"$SKILL/scripts/cmux-review-poll.sh" browser surface:N
+"$SKILL/scripts/cmux-review-poll.sh" browser surface:N AFTER_ASSISTANT_COUNT="$BASELINE"
 ```
 
 Confirm submission by reading the newest user message and matching the request ID. A successful fill or click alone is not proof.
@@ -58,12 +59,12 @@ Confirm submission by reading the newest user message and matching the request I
 
 ChatGPT reviews commonly take several minutes. Wait at least two minutes before the first result poll and at least two minutes between later polls while the review remains active. Do not send reminders, duplicate the prompt, or interpret intermediate research notes as findings.
 
-Accept a result only when the newest completed assistant message was created after the current prompt and contains both:
+The poller must report `waiting` until a new assistant node exists after the captured baseline, ChatGPT is no longer generating, and the new node contains non-empty text. Accept that completed result only when it contains both:
 
-- the exact full head SHA it reviewed, matching the current GitHub head
+- the exact full head SHA it reviewed, matching both the retained submission head and a fresh GitHub head read
 - actionable findings or an explicit clean verdict
 
-The stop button, progress text, source cards, elapsed-time label, or disappearance of a generating indicator is not sufficient. An answer for an older head is stale even when it is the newest completed assistant message. If the final answer omits the reviewed head, ask only which full head SHA it reviewed before classifying the verdict.
+The stop button, progress text, source cards, elapsed-time label, or disappearance of a generating indicator is not sufficient. If GitHub moved after submission, discard the result as stale even if ChatGPT reviewed the retained submission head correctly. An answer for an older head is stale even when it is the newest completed assistant message. If the final answer omits the reviewed head, ask only which full head SHA it reviewed before classifying the verdict.
 
 ## Fix and rereview
 
@@ -79,7 +80,7 @@ Classify every final finding against the live diff. Relay reviewer errors with e
 Keep fixes and rereviews in the same working chat so ChatGPT retains its own findings. After every changed head, send only:
 
 ```text
-REQUEST_ID=github:<owner>/<repository>:pr:<number>:head:<short-sha>:<YYYYMMDDTHHMMSS+offset>
+REQUEST_ID=github:<owner>/<repository>:pr:<number>:head:<full-sha>:<YYYYMMDDTHHMMSS+offset>
 
 Updated. Re-review everything.
 ```

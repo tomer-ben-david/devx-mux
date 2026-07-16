@@ -63,6 +63,8 @@ Before implementation or review, establish:
 - Review scope: local, commit, branch from its Git-derived merge base, PR, or codebase.
 - Mutation authority: whether the implementor may edit, commit, push, update a PR, or resolve threads.
 
+Assign the scope contract one stable goal ID when it is established and keep that ID until the goal completes. Bind every repair-family entry and tombstone to it. Record a compact recoverable snapshot containing the goal, non-goals, review scope, mutation authority, required outcome, and acceptance evidence. Do not use a moving head SHA as the goal identity.
+
 Never assume `main` or `origin/main`. Ask Git for the base unless the user explicitly supplies one. Treat the PR body as context that can be stale, not as proof of the current diff.
 
 Use `$mux-pr-description` when the PR title/body is missing, stale, or unclear. Keep `Goals` and `Non-goals` named exactly so reviewers share one scope lens.
@@ -107,7 +109,7 @@ Record an absolute ISO 8601 timestamp with a time-zone offset whenever the orche
 
 When 15 minutes have elapsed, reread this entire skill, the repository instruction files, the scope contract, and every reference currently active for the workflow before taking the next action. This is a backstop, not a sleep-based timer: the orchestrator cannot wake itself while idle, so refresh at the next control boundary. Refresh immediately, regardless of elapsed time, after context compaction or session reset, or whenever actions reveal forgotten or contradictory guidance.
 
-Guidance refresh restores instructions, not workflow state. After context compaction or session reset, reconstruct every open repair family, closed-family tombstone, and attempt history from the last live report plus retained reviewer reports, implementor responses, Git heads and diffs, and verification artifacts. Reconcile those sources before another edit or review round, and compare new findings with both open and closed identities. If a family's attempt count or evidence history cannot be recovered, mark it unknown, do not reset it to zero, and run a structural reset for that family before implementation resumes.
+Guidance refresh restores instructions, not workflow state. After context compaction or session reset, restore the stable goal ID and scope-contract snapshot before reconstructing every open repair family, closed-family tombstone, and attempt history from the last live report plus retained reviewer reports, implementor responses, Git heads and diffs, and verification artifacts. Reconcile ledger state only when its bound goal ID and snapshot match the restored repository, scope, and user request; do not attach retained families to a different or ambiguous goal. Compare new findings with both open and closed identities. If the goal identity, scope snapshot, attempt count, or evidence history cannot be recovered, mark the affected state unknown, do not reset it to zero, and run a structural reset before implementation resumes.
 
 Before declaring completion, confirm that the current diff, verification, remote actions, and unresolved limitations still match the refreshed guidance and scope contract.
 
@@ -137,14 +139,15 @@ The scripts in `scripts/` provide one public, shared ChatGPT browser transport f
 ```bash
 SKILL=${CODEX_HOME:-$HOME/.codex}/skills/mux-orchestrate
 
+BASELINE=$("$SKILL/scripts/cmux-review-poll.sh" browser chatgpt COUNT_ONLY)
 "$SKILL/scripts/cmux-review-send.sh" browser chatgpt /tmp/review-prompt.txt
-"$SKILL/scripts/cmux-review-poll.sh" browser chatgpt REQUEST_ID=<id>
+"$SKILL/scripts/cmux-review-poll.sh" browser chatgpt REQUEST_ID=<id> AFTER_ASSISTANT_COUNT="$BASELINE"
 
 "$SKILL/scripts/rex-review-send.sh" chatgpt /tmp/review-prompt.txt
 "$SKILL/scripts/rex-review-poll.sh" chatgpt REQUEST_ID=<id>
 ```
 
-Send one prompt per request, require confirmed submission, and poll until the current request's answer is visible. Do not treat stale browser text as a new answer.
+Send one prompt per request, require confirmed submission, and capture the assistant count before submission. Poll against that boundary until a newer non-empty assistant message is complete. Do not treat stale or partially generated browser text as a new answer.
 
 ## Reporting
 
@@ -154,6 +157,8 @@ Keep the live report small. Emit one entry per open repair family and one tombst
 Transport: cmux | rex
 Implementor: <target>
 Reviewers: <targets>
+Goal ID: <stable identifier assigned when the scope contract was established>
+Scope contract: goal=<outcome>; non-goals=<boundaries>; review=<scope>; mutation=<authority>; acceptance=<required evidence>
 Scope: <exact comparison>
 Head: <sha>
 State: implementing | reviewing | fixing | clean | blocked

@@ -4,10 +4,9 @@
 # Usage:
 #   rex-review-poll.sh <pane:id|chatgpt|browser|pane-name> REQUEST_ID=<id>
 #
-# Reads the Rex browser pane once. It never sends follow-up prompts.
-# This helper does not decide whether the answer is complete; inspect the printed
-# browser text. The orchestrator owns sleep/backoff and should stop polling as
-# soon as the visible answer is complete.
+# Reads the Rex browser pane once. It never sends follow-up prompts. The shared
+# poller withholds empty or partially generated responses and verifies the
+# request marker. The orchestrator owns sleep/backoff.
 set -euo pipefail
 
 usage() {
@@ -16,8 +15,8 @@ Usage:
   rex-review-poll.sh <pane:id|chatgpt|browser|pane-name> REQUEST_ID=<id>
 
 Reads the Rex browser pane once. It never sends follow-up prompts.
-This helper does not decide whether the answer is complete; inspect the printed browser text.
-The orchestrator owns sleep/backoff and should stop polling as soon as the visible answer is complete.
+The shared poller withholds empty or partially generated responses and verifies the request marker.
+The orchestrator owns sleep/backoff.
 EOF
 }
 
