@@ -74,7 +74,6 @@ function send(args: string[]): void {
   const requestId = process.env.STAGED_REQUEST_ID ?? `staged-s${stage}-${Math.floor(Date.now() / 1000)}`;
   const promptFile = promptArgument ?? path.join(tmpdir(), `${requestId}.txt`);
   const replacements: Record<string, string> = {
-    REQUEST_ID: requestId,
     PR_URL: prUrl,
     COMPARE_URL: compareUrl,
     BASE: process.env.STAGED_BASE ?? "the PR base branch",
@@ -96,14 +95,15 @@ function send(args: string[]): void {
   if (unresolved.length > 0) fail(`Unresolved stage template values: ${unresolved.join(", ")}`);
   const prompt = template.replace(/\{\{([^}]+)\}\}/g, (_token, key: string) => replacements[key]!);
   writeFileSync(promptFile, prompt);
-  const muxSkill = muxSkillDirectory();
-  if (!existsSync(path.join(muxSkill, "SKILL.md"))) fail(`Mux Orchestrate skill not found: ${muxSkill}`);
   process.stdout.write(`prompt=${promptFile}\nrequest_id=${requestId}\nreview_target=${target}\n`);
 
   if (process.env.STAGED_REVIEW_DRY_RUN === "1") {
     process.stdout.write(prompt);
     return;
   }
+
+  const muxSkill = muxSkillDirectory();
+  if (!existsSync(path.join(muxSkill, "SKILL.md"))) fail(`Mux Orchestrate skill not found: ${muxSkill}`);
 
   if (target === "rex") {
     runTransport(path.join(muxSkill, "scripts", "rex-review-send.sh"), [

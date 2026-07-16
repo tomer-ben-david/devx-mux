@@ -11,6 +11,9 @@ test("ChatGPT review converges in one chat before a fresh independent confirmati
   assert.match(skill, /A sleep only delays the next inspection/);
   assert.match(skill, /agent owns the one browser read after each wait/);
   assert.match(skill, /Never use `\/new`, navigation, reload, branching, or retry as recovery/);
+  assert.match(skill, /through non-mutating inspection methods/);
+  assert.match(skill, /report the blocker and do not classify the run as complete/);
+  assert.doesNotMatch(skill, /recover or reload/);
   assert.match(skill, /Elapsed time alone never makes a ChatGPT review stalled or incomplete/);
   assert.match(skill, /Do not click `Stop answering`/);
   assert.match(skill, /15-minute guidance refresh reloads instructions around the active run/);

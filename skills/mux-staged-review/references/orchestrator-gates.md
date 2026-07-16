@@ -15,7 +15,7 @@ Do not batch stages or advance while a finding remains unresolved.
 
 ## Neutral prompts
 
-Render the fixed stage template with only current factual values: request ID, PR URL, compare URL, base, branch, head, and commit subject.
+Render the fixed stage template with only current factual values: PR URL, compare URL, base, branch, head, and commit subject. Retain the request label only in the local live report; never render it into the reviewer-visible prompt or browser state.
 
 Do not add prior findings, fix summaries, suggested conclusions, pasted diffs, or targeted hints to a fresh-stage prompt. The reviewer must form a new opinion from the current pushed source.
 

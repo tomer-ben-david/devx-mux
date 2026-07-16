@@ -66,7 +66,7 @@ There is intentionally no Mux waiter, request token, turn token, response digest
 
 Elapsed time alone never makes a ChatGPT review stalled or incomplete. Do not click `Stop answering`, restart the review, or open a fresh chat because progress is unchanged or the review has taken many minutes. The 15-minute guidance refresh reloads instructions around the active run; it must not restart, replace, or otherwise disturb that run.
 
-A run becomes incomplete only when ChatGPT reports an explicit failure or cancellation, the selected surface or conversation is lost and cannot be recovered, or the user cancels it. If a completed answer is visually present but browser text extraction fails, recover or reload the same conversation and preserve its context instead of starting over. A missing or temporarily inaccessible surface requires recovery attempts against the same UUID-backed surface and conversation before the run may be classified as lost.
+A run becomes incomplete only when ChatGPT reports an explicit failure or cancellation, the selected surface or conversation is lost and cannot be recovered, or the user cancels it. If a completed answer is visually present but browser text extraction fails, recover the same UUID-backed surface and conversation through non-mutating inspection methods. If those methods cannot recover it, report the blocker and do not classify the run as complete. A missing or temporarily inaccessible surface requires recovery attempts against the same UUID-backed surface and conversation before the run may be classified as lost.
 
 After the agent reads a completed review, this focused workflow must accept it only when it contains both:
 

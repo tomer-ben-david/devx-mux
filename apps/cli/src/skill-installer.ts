@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readlinkSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,12 +43,42 @@ function resolveSkillsSourceRoot(): string {
   return sourceRoot;
 }
 
+function pathsOverlap(left: string, right: string): boolean {
+  const relative = path.relative(left, right);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function resolveThroughExistingAncestor(candidate: string): string {
+  const suffix: string[] = [];
+  let existingAncestor = path.resolve(candidate);
+  while (lstatSync(existingAncestor, { throwIfNoEntry: false }) === undefined) {
+    const parent = path.dirname(existingAncestor);
+    if (parent === existingAncestor) break;
+    suffix.unshift(path.basename(existingAncestor));
+    existingAncestor = parent;
+  }
+  return path.join(realpathSync(existingAncestor), ...suffix);
+}
+
 function inspectSkillLink(skillRoot: string, skillsSourceRoot: string, skillName: string): SkillLink {
-  const source = path.join(skillsSourceRoot, skillName);
+  const source = path.resolve(skillsSourceRoot, skillName);
   if (!existsSync(path.join(source, "SKILL.md"))) {
     throw new Error(`Packaged skill is missing: ${source}`);
   }
-  const destination = path.join(skillRoot, skillName);
+  const destination = path.resolve(skillRoot, skillName);
+  const canonicalSource = realpathSync(source);
+  const canonicalDestination = path.join(
+    resolveThroughExistingAncestor(path.dirname(destination)),
+    path.basename(destination),
+  );
+  if (
+    pathsOverlap(canonicalSource, canonicalDestination)
+    || pathsOverlap(canonicalDestination, canonicalSource)
+  ) {
+    throw new Error(
+      `Refusing to install skill because its source and destination overlap: ${source} -> ${destination}`,
+    );
+  }
   const stat = lstatSync(destination, { throwIfNoEntry: false });
   const linkedSource = stat?.isSymbolicLink() ? path.resolve(skillRoot, readlinkSync(destination)) : undefined;
   return { destination, source, state: linkedSource === source ? "current" : "replace" };

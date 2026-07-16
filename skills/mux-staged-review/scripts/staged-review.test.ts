@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const script = path.join(scriptDirectory, "staged-review.ts");
 const muxSkill = path.resolve(scriptDirectory, "..", "..", "mux-orchestrate");
+const gates = path.resolve(scriptDirectory, "..", "references", "orchestrator-gates.md");
 
 test("renders every stage without unresolved template values", () => {
   const root = mkdtempSync(path.join(tmpdir(), "mux-staged-review-"));
@@ -53,6 +54,32 @@ test("preserves template-like text inside replacement values", () => {
   });
 
   assert.match(readFileSync(promptFile, "utf8"), /document \{\{HEAD\}\} literally/);
+});
+
+test("keeps request labels local and renders dry runs without an installed transport skill", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "mux-staged-review-dry-run-"));
+  try {
+    const promptFile = path.join(root, "stage-1.txt");
+    const result = execFileSync(process.execPath, [script, "send", "1", "chatgpt", promptFile], {
+      env: {
+        ...process.env,
+        MUX_ORCHESTRATE_SKILL_DIR: path.join(root, "missing-mux-orchestrate"),
+        STAGED_REVIEW_DRY_RUN: "1",
+        STAGED_PR_URL: "https://github.com/example/project/pull/42",
+        STAGED_COMPARE_URL: "https://github.com/example/project/compare/base...feature",
+        STAGED_REQUEST_ID: "local-stage-label",
+      },
+      encoding: "utf8",
+    });
+
+    assert.match(result, /request_id=local-stage-label/);
+    assert.doesNotMatch(readFileSync(promptFile, "utf8"), /local-stage-label/);
+    const gateGuidance = readFileSync(gates, "utf8");
+    assert.match(gateGuidance, /Retain the request label only in the local live report/);
+    assert.doesNotMatch(gateGuidance, /values: request ID/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("routes both Rex product names through the Rex transport", () => {
