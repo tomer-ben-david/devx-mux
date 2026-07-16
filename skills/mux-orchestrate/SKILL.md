@@ -62,6 +62,8 @@ Before implementation or review, establish:
 - Non-goals: the real boundaries.
 - Review scope: local, commit, branch from its Git-derived merge base, PR, or codebase.
 - Mutation authority: whether the implementor may edit, commit, push, update a PR, or resolve threads.
+- Required outcome: the concrete state that must be true before the goal can close.
+- Acceptance evidence: the observations, checks, or artifacts that prove the required outcome.
 
 Assign the scope contract one stable goal ID when it is established and keep that ID until the goal completes. Bind every repair-family entry and tombstone to it. Record a compact recoverable snapshot containing the goal, non-goals, review scope, mutation authority, required outcome, and acceptance evidence. Do not use a moving head SHA as the goal identity.
 
@@ -159,7 +161,7 @@ Transport: cmux | rex
 Implementor: <target>
 Reviewers: <targets>
 Goal ID: <stable identifier assigned when the scope contract was established>
-Scope contract: goal=<outcome>; non-goals=<boundaries>; review=<scope>; mutation=<authority>; acceptance=<required evidence>
+Scope contract: goal=<intent>; non-goals=<boundaries>; review=<scope>; mutation=<authority>; required=<outcome>; acceptance=<evidence>
 Scope: <exact comparison>
 Head: <sha>
 State: implementing | reviewing | fixing | clean | blocked

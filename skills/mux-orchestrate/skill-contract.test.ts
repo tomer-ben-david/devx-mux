@@ -13,7 +13,9 @@ test("the live checkpoint preserves every open repair family across context loss
   assert.match(skill, /compact tombstone that retains its stable identity, attempt count, closure head and evidence/);
   assert.match(skill, /Closed repair families:\n- id=<stable family identity>; attempts=<count or unknown>/);
   assert.match(skill, /Assign the scope contract one stable goal ID/);
-  assert.match(skill, /Scope contract: goal=<outcome>; non-goals=<boundaries>; review=<scope>; mutation=<authority>; acceptance=<required evidence>/);
+  assert.match(skill, /Required outcome: the concrete state that must be true before the goal can close/);
+  assert.match(skill, /Acceptance evidence: the observations, checks, or artifacts that prove the required outcome/);
+  assert.match(skill, /Scope contract: goal=<intent>; non-goals=<boundaries>; review=<scope>; mutation=<authority>; required=<outcome>; acceptance=<evidence>/);
   assert.match(skill, /Reconcile ledger state only when its bound goal ID and snapshot match/);
   assert.doesNotMatch(skill, /^Repair family:/m);
   assert.doesNotMatch(skill, /^Repair attempts:/m);
