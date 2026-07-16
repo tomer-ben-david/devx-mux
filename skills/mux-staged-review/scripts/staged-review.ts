@@ -42,6 +42,15 @@ function runTransport(command: string, args: string[]): void {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
+function runNodeCapture(script: string, args: string[]): string {
+  if (!existsSync(script)) fail(`Missing transport: ${script}`);
+  try {
+    return execFileSync(process.execPath, [script, ...args], { encoding: "utf8", stdio: ["inherit", "pipe", "inherit"] }).trim();
+  } catch (error) {
+    fail(`${script}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 function send(args: string[]): void {
   if (args.length < 1 || args.length > 3) {
     fail("Usage: staged-review-send.sh <1|2|3|4> [target] [prompt-file]", 2);
@@ -126,14 +135,11 @@ function poll(args: string[]): void {
 
   const muxSkill = muxSkillDirectory();
   if (!existsSync(path.join(muxSkill, "SKILL.md"))) fail(`Mux Orchestrate skill not found: ${muxSkill}`);
-  if (target === "rex") {
-    runTransport(path.join(muxSkill, "scripts", "rex-review-poll.sh"), [
-      process.env.STAGED_REX_TARGET ?? "chatgpt",
-      requestId,
-    ]);
-  } else {
-    runTransport(path.join(muxSkill, "scripts", "cmux-review-poll.sh"), ["browser", target, requestId]);
-  }
+  const tool = target === "rex" ? "rex" : "cmux";
+  const handle = target === "rex" ? process.env.STAGED_REX_TARGET ?? "chatgpt" : target;
+  const ready = runNodeCapture(path.join(muxSkill, "scripts", "chatgpt-review-wait.mjs"), [tool, handle, requestId]);
+  if (!ready.startsWith("READY_TOKEN=")) fail(`Unexpected ChatGPT waiter result: ${ready || "<empty>"}`);
+  runTransport(process.execPath, [path.join(muxSkill, "scripts", "chatgpt-review-poll.mjs"), tool, handle, ready]);
 }
 
 const [command, ...args] = process.argv.slice(2);

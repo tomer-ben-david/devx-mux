@@ -39,7 +39,7 @@ Inspect the selected conversation before changing it. If it already contains an 
 ```bash
 TURN_TOKEN=$(node "$SKILL/scripts/chatgpt-review-adopt.mjs" cmux surface:N)
 READY=$(node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux surface:N "$TURN_TOKEN")
-node "$SKILL/scripts/chatgpt-review-poll.mjs" cmux surface:N "${READY#READY }"
+node "$SKILL/scripts/chatgpt-review-poll.mjs" cmux surface:N "$READY"
 ```
 
 The adoption token binds the waiter to both the exact user-message identity and normalized conversation URL. Adoption never navigates, submits, branches, replaces, or resets the conversation. Never use `/new` as recovery for a running, completed, unmarked, or temporarily unreadable review. Recover the same UUID-backed surface and conversation. If a share link is needed for diagnosis, open it in a different surface.
@@ -65,14 +65,14 @@ Use the shared browser transport from `mux-orchestrate`:
 ```bash
 "$SKILL/scripts/cmux-review-send.sh" browser surface:N /tmp/review-prompt.txt
 READY=$(node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux surface:N REQUEST_ID=<id>)
-node "$SKILL/scripts/chatgpt-review-poll.mjs" cmux surface:N "${READY#READY }"
+node "$SKILL/scripts/chatgpt-review-poll.mjs" cmux surface:N "$READY"
 ```
 
 Confirm submission by reading the newest user message and matching the request ID. A successful fill or click alone is not proof.
 
 ## Wait for the real result
 
-Run `chatgpt-review-wait.mjs` once in a background terminal and wait on that same process until it exits. At startup it resolves the submitted request into the same immutable conversation-URL and user-message boundary used by adoption; every later poll uses only that bound turn identity. The runtime is built from checked TypeScript, bundles its parser dependencies, and works through installed skill symlinks. The waiter owns readiness only: it polls internally once per minute, requires the completed UI control inside the exact response turn, then requires the same response signature on three consecutive polls before returning `READY <turn-token>`. It never returns the review body. After it exits, the agent performs one exact-turn read with `chatgpt-review-poll.mjs` and interprets that result itself. The waiter retries transient browser-read timeouts and frame replacement, but fails loudly for a lost surface, changed conversation, wrong tab, socket failure, or malformed state. It emits the last semantic wait state at most once every five minutes and has no elapsed-time timeout. The agent must not add its own sleep loop, browser polling, page JavaScript, or body-text scraping around it. Do not send reminders, duplicate the prompt, or interpret intermediate research notes as findings.
+Run `chatgpt-review-wait.mjs` once in a background terminal and wait on that same process until it exits. The waiter owns readiness only. Binding a submitted request is part of the retrying state machine: the exact user message and conversation URL must match across two observations before the boundary freezes. An adopted turn token skips startup page reads. The waiter then polls once per minute, requires the completed UI control inside the exact response turn, and requires the same response signature on three consecutive polls. It returns only a `READY_TOKEN` containing the immutable turn boundary and settled response digest. It never returns the review body. After it exits, the agent performs one digest-validated exact-turn read with `chatgpt-review-poll.mjs` and interprets that result itself. If the body differs, retrieval rejects it and the agent reruns settlement for the same turn. The waiter retries transient browser-read timeouts and frame replacement, but fails loudly for a lost surface, changed conversation, wrong tab, socket failure, or malformed state. It emits the last semantic wait state at most once every five minutes and has no elapsed-time timeout. The agent must not add its own sleep loop, browser polling, page JavaScript, or body-text scraping around it. Do not send reminders, duplicate the prompt, or interpret intermediate research notes as findings.
 
 Elapsed time alone never makes a ChatGPT review stalled or incomplete. There is no elapsed-time timeout or unchanged-progress limit. Do not click `Stop answering`, restart the review, or open a fresh chat because progress is unchanged or the review has taken many minutes. Keep waiting on the shared waiter process as long as it remains active. The 15-minute guidance refresh reloads the skill around the active run; it must not restart, replace, or otherwise disturb that run.
 

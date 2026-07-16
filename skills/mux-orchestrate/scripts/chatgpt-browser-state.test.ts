@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { bindReviewBoundary, createAdoptionToken, parseBrowserReviewState, parseReviewBoundary } from "./chatgpt-browser-state.ts";
+import { bindReviewBoundary, createAdoptionToken, parseBrowserReviewState, parseReadyRecord, parseReviewBoundary, RequestBoundaryTracker, serializeReadyRecord } from "./chatgpt-browser-state.ts";
 
 const requestId = "REQUEST_ID=github:owner/repo:pr:9:head:abc:20260716T100000+0300";
 const conversationUrl = "https://chatgpt.com/c/conversation-one";
@@ -48,6 +48,27 @@ test("a bound Mux request fails loudly when the surface changes conversations", 
   const html = `<main id="thread">${turn("user", "current-user", requestId)}${turn("assistant", "answer", "clean", true)}</main>`;
   const boundary = requestBoundary(html);
   assert.throws(() => parseBrowserReviewState(html, "https://chatgpt.com/c/another", boundary), /conversation URL changed/);
+});
+
+test("request binding waits for the turn and two stable URL observations", () => {
+  const tracker = new RequestBoundaryTracker();
+  const request = parseReviewBoundary(requestId);
+  assert.equal(request.kind, "unbound-request");
+  const empty = '<main id="thread"></main>';
+  const html = `<main id="thread">${turn("user", "current-user", requestId)}</main>`;
+  assert.equal(tracker.observe(empty, "https://chatgpt.com/", request), undefined);
+  assert.equal(tracker.observe(html, "https://chatgpt.com/", request), undefined);
+  assert.equal(tracker.observe(html, conversationUrl, request), undefined);
+  assert.equal(tracker.observe(html, conversationUrl, request)?.conversationUrl, conversationUrl);
+});
+
+test("ready records preserve the settled digest and exact turn boundary", () => {
+  const html = `<main id="thread">${turn("user", "current-user", requestId)}</main>`;
+  const boundary = requestBoundary(html);
+  assert.deepEqual(parseReadyRecord(serializeReadyRecord(boundary, "a".repeat(64))), {
+    boundary,
+    digest: "a".repeat(64),
+  });
 });
 
 test("adoption is read-only and polling scripts contain no browser evaluation", () => {

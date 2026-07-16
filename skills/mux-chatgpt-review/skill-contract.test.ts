@@ -6,7 +6,7 @@ const skill = readFileSync(new URL("./SKILL.md", import.meta.url), "utf8");
 
 test("ChatGPT review converges in one chat before a fresh independent confirmation", () => {
   assert.match(skill, /Run `chatgpt-review-wait\.mjs` once in a background terminal/);
-  assert.match(skill, /polls internally once per minute/);
+  assert.match(skill, /polls once per minute/);
   assert.match(skill, /same response signature on three consecutive polls/);
   assert.match(skill, /waiter owns readiness only/);
   assert.match(skill, /completed UI control inside the exact response turn/);
@@ -16,7 +16,7 @@ test("ChatGPT review converges in one chat before a fresh independent confirmati
   assert.match(skill, /emits the last semantic wait state at most once every five minutes/);
   assert.ok(skill.indexOf("SKILL=${CODEX_HOME") < skill.indexOf('$SKILL/scripts/chatgpt-review-adopt.mjs'));
   assert.match(skill, /It never returns the review body/);
-  assert.match(skill, /agent performs one exact-turn read/);
+  assert.match(skill, /agent performs one digest-validated exact-turn read/);
   assert.match(skill, /must not add its own sleep loop, browser polling, page JavaScript, or body-text scraping/);
   assert.match(skill, /Adoption never navigates, submits, branches, replaces, or resets the conversation/);
   assert.match(skill, /Never use `\/new` as recovery/);

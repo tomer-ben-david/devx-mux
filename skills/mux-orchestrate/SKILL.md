@@ -142,13 +142,15 @@ The scripts in `scripts/` provide one public, shared ChatGPT browser transport f
 SKILL=${CODEX_HOME:-$HOME/.codex}/skills/mux-orchestrate
 
 "$SKILL/scripts/cmux-review-send.sh" browser chatgpt /tmp/review-prompt.txt
-node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux chatgpt REQUEST_ID=<id>
+READY=$(node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux chatgpt REQUEST_ID=<id>)
+node "$SKILL/scripts/chatgpt-review-poll.mjs" cmux chatgpt "$READY"
 
 "$SKILL/scripts/rex-review-send.sh" chatgpt /tmp/review-prompt.txt
-node "$SKILL/scripts/chatgpt-review-wait.mjs" rex chatgpt REQUEST_ID=<id>
+READY=$(node "$SKILL/scripts/chatgpt-review-wait.mjs" rex chatgpt REQUEST_ID=<id>)
+node "$SKILL/scripts/chatgpt-review-poll.mjs" rex chatgpt "$READY"
 ```
 
-Send one prompt per request and require confirmed submission. Start the shared waiter once and wait on that process; do not build an agent-owned sleep or polling loop. Checked TypeScript bundles the local HTML parser into the `.mjs` runtime used through installed skill symlinks. The waiter owns readiness only: it binds the exact conversation and user turn, polls internally once per minute, requires that response turn's local completed UI control, and settles the same response signature across three polls before returning `READY <turn-token>`. The agent then performs one exact-turn read with `chatgpt-review-poll.mjs` and interprets the review outside the waiter. It retries transient browser-read timeouts or frame replacement but fails loudly on identity, conversation, socket, and malformed-state failures. It reports the last semantic state every five minutes and has no elapsed-time timeout. Do not use page JavaScript, raw assistant-node counts, or body-text scraping. Never use `/new` to recover or attach to an existing review; generate a turn token read-only and preserve the conversation.
+Send one prompt per request and require confirmed submission. Start the shared waiter once and wait on that process; do not build an agent-owned sleep or polling loop. Checked TypeScript bundles the local HTML parser into the `.mjs` runtime used through installed skill symlinks. For a raw request ID, binding is part of the retrying waiter state machine: the submitted user turn and conversation URL must match across two observations before they freeze into an immutable boundary. An existing turn token skips startup reads. The waiter then requires the exact response turn's local completed UI control and settles the same response signature across three polls before returning a `READY_TOKEN` containing the turn boundary and settled digest. The agent performs one digest-validated exact-turn read with `chatgpt-review-poll.mjs`; a changed body is rejected and requires a new settlement cycle. Transient reads retry, identity and conversation failures fail loudly, heartbeats include the last semantic state, and there is no elapsed-time timeout. Do not use page JavaScript, raw assistant-node counts, or body-text scraping. Never use `/new` to recover or attach to an existing review; generate a turn token read-only and preserve the conversation.
 
 ## Reporting
 
