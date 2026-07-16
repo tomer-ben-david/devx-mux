@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseBrowserReviewState, type BrowserReviewState, type ReviewBoundary } from "./chatgpt-browser-state.ts";
+import { bindReviewBoundary, parseBrowserReviewState, type BrowserReviewState, type ReviewBoundary, type TurnBoundary } from "./chatgpt-browser-state.ts";
 
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
 
@@ -93,10 +93,15 @@ export function readReviewPage(tool: "cmux" | "rex", target: string): ReviewPage
 export function readBrowserReviewState(
   tool: "cmux" | "rex",
   target: string,
-  boundary: ReviewBoundary,
+  boundary: TurnBoundary,
 ): BrowserReviewState {
   const page = readReviewPage(tool, target);
   return parseBrowserReviewState(page.html, page.conversationUrl, boundary);
+}
+
+export function bindBrowserReviewBoundary(tool: "cmux" | "rex", target: string, boundary: ReviewBoundary): TurnBoundary {
+  const page = readReviewPage(tool, target);
+  return bindReviewBoundary(page.html, page.conversationUrl, boundary);
 }
 
 export function formatBrowserReviewState(state: BrowserReviewState, boundaryLabel: string): string {

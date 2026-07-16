@@ -43,7 +43,7 @@ test("the shared waiter emits a five-minute heartbeat and has no elapsed-time ti
   });
 
   assert.equal(result, reviewResult);
-  assert.deepEqual(statuses, [`waiting ChatGPT review elapsed=5m polls=5 ${requestId}`]);
+  assert.deepEqual(statuses, [`waiting ChatGPT review elapsed=5m polls=5 state=waiting generating ${requestId}`]);
 });
 
 test("the shared waiter fails closed on an empty poll result", async () => {

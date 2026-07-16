@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import { parseReviewBoundary } from "./chatgpt-browser-state.ts";
-import { formatBrowserReviewState, readBrowserReviewState } from "./chatgpt-review-transport.ts";
+import { parseReviewBoundary, serializeTurnBoundary } from "./chatgpt-browser-state.ts";
+import { bindBrowserReviewBoundary, formatBrowserReviewState, readBrowserReviewState } from "./chatgpt-review-transport.ts";
 import { isRetryableBrowserPollFailure, waitForChatGptReview } from "./chatgpt-review-wait-lib.ts";
 
 function usage(): never {
-  console.error("Usage: chatgpt-review-wait.mjs <cmux|rex> <surface-or-pane> <REQUEST_ID|ADOPT_TOKEN>");
+  console.error("Usage: chatgpt-review-wait.mjs <cmux|rex> <surface-or-pane> <REQUEST_ID|TURN_TOKEN>");
   process.exit(2);
 }
 
@@ -16,11 +16,11 @@ if (extra.length > 0 || typeof tool !== "string" || !["cmux", "rex"].includes(to
 const selectedTool = tool as "cmux" | "rex";
 const selectedTarget = target as string;
 const selectedBoundaryValue = boundaryValue as string;
-const boundary = parseReviewBoundary(selectedBoundaryValue);
+const boundary = bindBrowserReviewBoundary(selectedTool, selectedTarget, parseReviewBoundary(selectedBoundaryValue));
 
 function poll(): string {
   try {
-    return formatBrowserReviewState(readBrowserReviewState(selectedTool, selectedTarget, boundary), selectedBoundaryValue);
+    return formatBrowserReviewState(readBrowserReviewState(selectedTool, selectedTarget, boundary), boundary.label);
   } catch (error) {
     if (isRetryableBrowserPollFailure(error)) {
       return "waiting transient browser read failure";
@@ -29,7 +29,7 @@ function poll(): string {
   }
 }
 
-const result = await waitForChatGptReview({
+await waitForChatGptReview({
   poll,
   sleep: milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)),
   now: Date.now,
@@ -38,4 +38,4 @@ const result = await waitForChatGptReview({
   statusIntervalMs: 300_000,
   requestId: selectedBoundaryValue,
 });
-process.stdout.write(`${result}\n`);
+process.stdout.write(`READY ${serializeTurnBoundary(boundary)}\n`);

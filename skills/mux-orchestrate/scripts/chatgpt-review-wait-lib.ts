@@ -21,6 +21,7 @@ export async function waitForChatGptReview(options: ReviewWaitOptions): Promise<
   let polls = 0;
   let candidate = "";
   let candidatePolls = 0;
+  let lastWaitingState = "waiting for first poll";
 
   for (;;) {
     await options.sleep(options.pollIntervalMs);
@@ -31,6 +32,7 @@ export async function waitForChatGptReview(options: ReviewWaitOptions): Promise<
       throw new Error("ChatGPT review poll returned an empty response");
     }
     if (output.startsWith("waiting ")) {
+      lastWaitingState = output;
       candidate = "";
       candidatePolls = 0;
     } else if (output === candidate) {
@@ -47,7 +49,7 @@ export async function waitForChatGptReview(options: ReviewWaitOptions): Promise<
     if (currentTime >= nextStatusAt) {
       const elapsedMinutes = Math.floor((currentTime - startedAt) / 60_000);
       const settling = candidatePolls > 0 ? ` settling=${candidatePolls}/3` : "";
-      options.onStatus(`waiting ChatGPT review elapsed=${elapsedMinutes}m polls=${polls}${settling} ${options.requestId}`);
+      options.onStatus(`waiting ChatGPT review elapsed=${elapsedMinutes}m polls=${polls}${settling} state=${lastWaitingState} ${options.requestId}`);
       nextStatusAt = currentTime + options.statusIntervalMs;
     }
   }

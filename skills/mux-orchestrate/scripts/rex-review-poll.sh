@@ -27,8 +27,8 @@ fi
 
 target="$1"
 boundary="$2"
-if [[ "$boundary" != REQUEST_ID=* && "$boundary" != ADOPT_TOKEN=* ]]; then
-    echo "Expected REQUEST_ID=<id> or ADOPT_TOKEN=<token>, got $boundary" >&2
+if [[ "$boundary" != REQUEST_ID=* && "$boundary" != TURN_TOKEN=* && "$boundary" != ADOPT_TOKEN=* ]]; then
+    echo "Expected REQUEST_ID=<id> or TURN_TOKEN=<token>, got $boundary" >&2
     exit 2
 fi
 

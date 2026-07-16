@@ -1,17 +1,18 @@
 import { parseHTML } from "linkedom";
 
-export interface RequestBoundary {
-  kind: "request";
+export interface UnboundRequestBoundary {
+  kind: "unbound-request";
   requestId: string;
 }
 
-export interface AdoptionBoundary {
-  kind: "adopt";
+export interface TurnBoundary {
+  kind: "turn";
   conversationUrl: string;
   userMessageId: string;
+  label: string;
 }
 
-export type ReviewBoundary = RequestBoundary | AdoptionBoundary;
+export type ReviewBoundary = UnboundRequestBoundary | TurnBoundary;
 
 export interface BrowserReviewState {
   requestObserved: boolean;
@@ -21,10 +22,11 @@ export interface BrowserReviewState {
   answer: string;
 }
 
-interface AdoptionTokenPayload {
+interface TurnTokenPayload {
   version: 1;
   conversationUrl: string;
   userMessageId: string;
+  label?: string;
 }
 
 function normalizeConversationUrl(value: string): string {
@@ -32,25 +34,27 @@ function normalizeConversationUrl(value: string): string {
   return `${url.origin}${url.pathname}`.replace(/\/$/, "");
 }
 
-export function encodeAdoptionToken(conversationUrl: string, userMessageId: string): string {
-  const payload: AdoptionTokenPayload = {
+export function encodeTurnToken(conversationUrl: string, userMessageId: string, label = "adopted review"): string {
+  const payload: TurnTokenPayload = {
     version: 1,
     conversationUrl: normalizeConversationUrl(conversationUrl),
     userMessageId,
+    label,
   };
-  return `ADOPT_TOKEN=${Buffer.from(JSON.stringify(payload), "utf8").toString("base64url")}`;
+  return `TURN_TOKEN=${Buffer.from(JSON.stringify(payload), "utf8").toString("base64url")}`;
 }
 
 export function parseReviewBoundary(value: string): ReviewBoundary {
   if (value.startsWith("REQUEST_ID=")) {
-    return { kind: "request", requestId: value };
+    return { kind: "unbound-request", requestId: value };
   }
-  if (!value.startsWith("ADOPT_TOKEN=")) {
-    throw new Error(`Expected REQUEST_ID=<id> or ADOPT_TOKEN=<token>, got ${value}`);
+  const tokenPrefix = value.startsWith("TURN_TOKEN=") ? "TURN_TOKEN=" : value.startsWith("ADOPT_TOKEN=") ? "ADOPT_TOKEN=" : "";
+  if (!tokenPrefix) {
+    throw new Error(`Expected REQUEST_ID=<id> or TURN_TOKEN=<token>, got ${value}`);
   }
   let payload: unknown;
   try {
-    payload = JSON.parse(Buffer.from(value.slice("ADOPT_TOKEN=".length), "base64url").toString("utf8"));
+    payload = JSON.parse(Buffer.from(value.slice(tokenPrefix.length), "base64url").toString("utf8"));
   } catch {
     throw new Error("Malformed ChatGPT adoption token");
   }
@@ -63,9 +67,10 @@ export function parseReviewBoundary(value: string): ReviewBoundary {
     throw new Error("Malformed ChatGPT adoption token");
   }
   return {
-    kind: "adopt",
+    kind: "turn",
     conversationUrl: normalizeConversationUrl(payload.conversationUrl),
     userMessageId: payload.userMessageId,
+    label: "label" in payload && typeof payload.label === "string" ? payload.label : "adopted review",
   };
 }
 
@@ -77,19 +82,39 @@ export function createAdoptionToken(html: string, conversationUrl: string): stri
   if (!messageId) {
     throw new Error("Cannot adopt ChatGPT review: no user message identity found");
   }
-  return encodeAdoptionToken(conversationUrl, messageId);
+  return encodeTurnToken(conversationUrl, messageId);
+}
+
+export function serializeTurnBoundary(boundary: TurnBoundary): string {
+  return encodeTurnToken(boundary.conversationUrl, boundary.userMessageId, boundary.label);
+}
+
+export function bindReviewBoundary(
+  html: string,
+  conversationUrl: string,
+  boundary: ReviewBoundary,
+): TurnBoundary {
+  if (boundary.kind === "turn") return boundary;
+  const { document } = parseHTML(html);
+  const user = [...document.querySelectorAll('section[data-turn="user"] [data-message-author-role="user"][data-message-id]')]
+    .findLast(message => (message.textContent ?? "").includes(boundary.requestId));
+  const userMessageId = user?.getAttribute("data-message-id");
+  if (!userMessageId) throw new Error(`Cannot bind ChatGPT request: submitted turn not found (${boundary.requestId})`);
+  return {
+    kind: "turn",
+    conversationUrl: normalizeConversationUrl(conversationUrl),
+    userMessageId,
+    label: boundary.requestId,
+  };
 }
 
 export function parseBrowserReviewState(
   html: string,
   conversationUrl: string,
-  boundary: ReviewBoundary,
+  boundary: TurnBoundary,
 ): BrowserReviewState {
-  if (
-    boundary.kind === "adopt" &&
-    normalizeConversationUrl(conversationUrl) !== boundary.conversationUrl
-  ) {
-    throw new Error("Refusing adopted review poll: ChatGPT conversation URL changed");
+  if (normalizeConversationUrl(conversationUrl) !== boundary.conversationUrl) {
+    throw new Error("Refusing ChatGPT review poll: conversation URL changed");
   }
 
   const { document } = parseHTML(html);
@@ -98,9 +123,7 @@ export function parseBrowserReviewState(
     if (turn.getAttribute("data-turn") !== "user") return false;
     const message = turn.querySelector('[data-message-author-role="user"]');
     if (!message) return false;
-    return boundary.kind === "request"
-      ? (message.textContent ?? "").includes(boundary.requestId)
-      : message.getAttribute("data-message-id") === boundary.userMessageId;
+    return message.getAttribute("data-message-id") === boundary.userMessageId;
   });
   if (userIndex < 0) {
     return { requestObserved: false, responseObserved: false, responseComplete: false, generating: false, answer: "" };

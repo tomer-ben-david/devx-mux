@@ -25,7 +25,7 @@ fi
 mode="$1"
 surface="$2"
 boundary="$3"
-if [[ "$boundary" != REQUEST_ID=* && "$boundary" != ADOPT_TOKEN=* ]]; then usage >&2; exit 2; fi
+if [[ "$boundary" != REQUEST_ID=* && "$boundary" != TURN_TOKEN=* && "$boundary" != ADOPT_TOKEN=* ]]; then usage >&2; exit 2; fi
 
 if [[ "$mode" != browser ]]; then
     usage >&2

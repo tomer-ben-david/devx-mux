@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { createAdoptionToken, parseBrowserReviewState, parseReviewBoundary } from "./chatgpt-browser-state.ts";
+import { bindReviewBoundary, createAdoptionToken, parseBrowserReviewState, parseReviewBoundary } from "./chatgpt-browser-state.ts";
 
 const requestId = "REQUEST_ID=github:owner/repo:pr:9:head:abc:20260716T100000+0300";
 const conversationUrl = "https://chatgpt.com/c/conversation-one";
@@ -13,9 +13,13 @@ function turn(role: "user" | "assistant", id: string, text: string, complete = f
   return `<section data-turn="${role}"><div data-message-author-role="${role}" data-message-id="${id}">${text}</div>${completion}</section>`;
 }
 
+function requestBoundary(html: string) {
+  return bindReviewBoundary(html, conversationUrl, parseReviewBoundary(requestId));
+}
+
 test("an earlier copy control cannot complete the current assistant turn", () => {
   const html = `<main id="thread">${turn("user", "old-user", "old request")}${turn("assistant", "old-answer", "old completed response", true)}${turn("user", "current-user", requestId)}${turn("assistant", "current-answer", "stable but incomplete response")}</main>`;
-  const state = parseBrowserReviewState(html, conversationUrl, parseReviewBoundary(requestId));
+  const state = parseBrowserReviewState(html, conversationUrl, requestBoundary(html));
   assert.equal(state.responseObserved, true);
   assert.equal(state.responseComplete, false);
   assert.equal(state.answer, "stable but incomplete response");
@@ -23,20 +27,26 @@ test("an earlier copy control cannot complete the current assistant turn", () =>
 
 test("completion is accepted only from the exact request-bound assistant turn", () => {
   const html = `<main id="thread">${turn("user", "current-user", requestId)}${turn("assistant", "current-answer", "ALL CLEAN", true)}</main>`;
-  assert.deepEqual(parseBrowserReviewState(html, conversationUrl, parseReviewBoundary(requestId)), {
+  assert.deepEqual(parseBrowserReviewState(html, conversationUrl, requestBoundary(html)), {
     requestObserved: true, responseObserved: true, responseComplete: true, generating: false, answer: "ALL CLEAN",
   });
 });
 
 test("global generation state still withholds a locally completed response", () => {
   const html = `<main id="thread">${turn("user", "current-user", requestId)}${turn("assistant", "current-answer", "partial", true)}<button data-testid="stop-button"></button></main>`;
-  assert.equal(parseBrowserReviewState(html, conversationUrl, parseReviewBoundary(requestId)).generating, true);
+  assert.equal(parseBrowserReviewState(html, conversationUrl, requestBoundary(html)).generating, true);
 });
 
 test("adoption binds a manual review to its exact message and conversation URL", () => {
   const html = `<main id="thread">${turn("user", "manual-user", "Review owner/repo PR #9")}${turn("assistant", "manual-answer", "one finding", true)}</main>`;
-  const boundary = parseReviewBoundary(createAdoptionToken(html, conversationUrl));
+  const boundary = bindReviewBoundary(html, conversationUrl, parseReviewBoundary(createAdoptionToken(html, conversationUrl)));
   assert.equal(parseBrowserReviewState(html, conversationUrl, boundary).answer, "one finding");
+  assert.throws(() => parseBrowserReviewState(html, "https://chatgpt.com/c/another", boundary), /conversation URL changed/);
+});
+
+test("a bound Mux request fails loudly when the surface changes conversations", () => {
+  const html = `<main id="thread">${turn("user", "current-user", requestId)}${turn("assistant", "answer", "clean", true)}</main>`;
+  const boundary = requestBoundary(html);
   assert.throws(() => parseBrowserReviewState(html, "https://chatgpt.com/c/another", boundary), /conversation URL changed/);
 });
 

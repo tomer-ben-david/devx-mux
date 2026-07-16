@@ -7,6 +7,12 @@ description: Loop a pull request through a user-selected ChatGPT browser surface
 
 Run one neutral pull request review loop through the ChatGPT browser surface selected by the user. Preserve one chat while findings are being fixed, then require a clean result from a fresh chat on the unchanged head. Reuse `$mux-orchestrate` for scope, repair-family, guidance-refresh, and structural-reset rules.
 
+Resolve the shared implementation once before any command example:
+
+```bash
+SKILL=${CODEX_HOME:-$HOME/.codex}/skills/mux-orchestrate
+```
+
 ## Resolve the run
 
 Establish the PR number, repository, current PR head, mutation authority, and required local checks. Read live PR metadata with `gh`; do not infer the head or base from the current branch name.
@@ -31,8 +37,9 @@ Verify that the selected surface belongs to the supplied pane and workspace and 
 Inspect the selected conversation before changing it. If it already contains an active or completed review that the user wants to continue, preserve the conversation and adopt its latest user turn with the read-only adoption command:
 
 ```bash
-ADOPT_TOKEN=$(node "$SKILL/scripts/chatgpt-review-adopt.mjs" cmux surface:N)
-node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux surface:N "$ADOPT_TOKEN"
+TURN_TOKEN=$(node "$SKILL/scripts/chatgpt-review-adopt.mjs" cmux surface:N)
+READY=$(node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux surface:N "$TURN_TOKEN")
+node "$SKILL/scripts/chatgpt-review-poll.mjs" cmux surface:N "${READY#READY }"
 ```
 
 The adoption token binds the waiter to both the exact user-message identity and normalized conversation URL. Adoption never navigates, submits, branches, replaces, or resets the conversation. Never use `/new` as recovery for a running, completed, unmarked, or temporarily unreadable review. Recover the same UUID-backed surface and conversation. If a share link is needed for diagnosis, open it in a different surface.
@@ -56,22 +63,22 @@ Immediately before submission, read and retain the immutable full PR head from G
 Use the shared browser transport from `mux-orchestrate`:
 
 ```bash
-SKILL=${CODEX_HOME:-$HOME/.codex}/skills/mux-orchestrate
 "$SKILL/scripts/cmux-review-send.sh" browser surface:N /tmp/review-prompt.txt
-node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux surface:N REQUEST_ID=<id>
+READY=$(node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux surface:N REQUEST_ID=<id>)
+node "$SKILL/scripts/chatgpt-review-poll.mjs" cmux surface:N "${READY#READY }"
 ```
 
 Confirm submission by reading the newest user message and matching the request ID. A successful fill or click alone is not proof.
 
 ## Wait for the real result
 
-Run `chatgpt-review-wait.mjs` once in a background terminal and wait on that same process until it exits. The runtime is built from checked TypeScript, bundles its parser dependencies, and works through installed skill symlinks. The shared waiter owns only transport completion for cmux and Rex: it reads thread HTML through semantic cmux or Rex socket commands, parses it locally, checks request-bound structured state internally once per minute, requires the completed UI control inside the exact response turn, then requires the same response on three consecutive polls before returning it. It retries transient browser-read timeouts and frame replacement, but fails loudly for a lost surface, changed conversation, wrong tab, socket failure, or malformed state. It emits at most one waiting status every five minutes and has no elapsed-time timeout. The agent must not add its own sleep loop, browser polling, page JavaScript, or body-text scraping around it. Do not send reminders, duplicate the prompt, or interpret intermediate research notes as findings.
+Run `chatgpt-review-wait.mjs` once in a background terminal and wait on that same process until it exits. At startup it resolves the submitted request into the same immutable conversation-URL and user-message boundary used by adoption; every later poll uses only that bound turn identity. The runtime is built from checked TypeScript, bundles its parser dependencies, and works through installed skill symlinks. The waiter owns readiness only: it polls internally once per minute, requires the completed UI control inside the exact response turn, then requires the same response signature on three consecutive polls before returning `READY <turn-token>`. It never returns the review body. After it exits, the agent performs one exact-turn read with `chatgpt-review-poll.mjs` and interprets that result itself. The waiter retries transient browser-read timeouts and frame replacement, but fails loudly for a lost surface, changed conversation, wrong tab, socket failure, or malformed state. It emits the last semantic wait state at most once every five minutes and has no elapsed-time timeout. The agent must not add its own sleep loop, browser polling, page JavaScript, or body-text scraping around it. Do not send reminders, duplicate the prompt, or interpret intermediate research notes as findings.
 
 Elapsed time alone never makes a ChatGPT review stalled or incomplete. There is no elapsed-time timeout or unchanged-progress limit. Do not click `Stop answering`, restart the review, or open a fresh chat because progress is unchanged or the review has taken many minutes. Keep waiting on the shared waiter process as long as it remains active. The 15-minute guidance refresh reloads the skill around the active run; it must not restart, replace, or otherwise disturb that run.
 
 A run becomes incomplete only when ChatGPT reports an explicit failure or cancellation, the selected surface or conversation is lost and cannot be recovered, or the user cancels it. If a completed answer is visually present but browser text extraction fails, recover or reload the same conversation and preserve its context instead of starting over. A missing or temporarily inaccessible surface requires recovery attempts against the same UUID-backed surface and conversation before the run may be classified as lost.
 
-The transport must report `waiting` until the submitted request ID is visible, an assistant node following that exact user message exists, that response exposes its local completed UI control, ChatGPT is no longer generating, and the response contains non-empty text. It must not use a raw assistant-node count because ChatGPT can virtualize or re-render conversation nodes. After the shared waiter returns the stable answer, this focused workflow must accept it only when it contains both:
+The transport must report `waiting` until the bound user turn is visible, its following assistant turn exists, that response exposes its local completed UI control, ChatGPT is no longer generating, and the response contains non-empty text. It must not use a raw assistant-node count because ChatGPT can virtualize or re-render conversation nodes. After the waiter reports readiness and the agent reads the completed review, this focused workflow must accept it only when it contains both:
 
 - the exact full head SHA it reviewed, matching both the retained submission head and a fresh GitHub head read
 - actionable findings or an explicit clean verdict
