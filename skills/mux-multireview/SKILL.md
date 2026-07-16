@@ -11,7 +11,7 @@ Run DevX Mux's provider-neutral concurrent review command from the repository be
 mux multireview <scope> [options]
 ```
 
-Read [`../devx-mux/references/review-protocol.md`](../devx-mux/references/review-protocol.md) before running the review.
+Read [`../mux-orchestrate/references/review-protocol.md`](../mux-orchestrate/references/review-protocol.md) before running the review.
 
 ## Scope
 

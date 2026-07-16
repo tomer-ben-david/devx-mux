@@ -1,5 +1,5 @@
 ---
-name: staged-pr-review
+name: mux-staged-review
 description: Run a strict four-stage pull request review pipeline across the latest commit, full branch functional diff, DevX standards and readability, and a final deep full-PR review. Use for staged review, multi-stage PR review, review gates, or requests to advance only after each reviewer is clean.
 ---
 
@@ -7,7 +7,7 @@ description: Run a strict four-stage pull request review pipeline across the lat
 
 Run one stage at a time. Do not advance until the current stage has no unresolved actionable findings at the current head.
 
-Read [references/orchestrator-gates.md](references/orchestrator-gates.md) and [`../devx-mux/references/review-protocol.md`](../devx-mux/references/review-protocol.md) before starting. Use the public `$devx-mux` skill for cmux and Rex transport behavior.
+Read [references/orchestrator-gates.md](references/orchestrator-gates.md) and [`../mux-orchestrate/references/review-protocol.md`](../mux-orchestrate/references/review-protocol.md) before starting. Use the public `$mux-orchestrate` skill for cmux and Rex transport behavior.
 
 ## Stages
 
@@ -24,24 +24,24 @@ Never assume the base is `main`. Use the PR base or Git-derived merge base and p
 
 1. Confirm the exact PR URL, compare URL, branch, base, and head.
 2. Confirm the feature branch is pushed. Ask before pushing or changing the PR.
-3. Resolve a ChatGPT browser target through `$devx-mux`.
-4. Keep one `REQUEST_ID` per send and verify the response belongs to it.
+3. Resolve a ChatGPT browser target through `$mux-orchestrate`. Retain both its exact `surface:` or `pane:` ref and stable UUID. Generic aliases are not valid for an iterative review.
+4. Keep one local request label per send, but do not expose it in the review prompt or browser state.
 
 ## Run
 
 ```bash
-SKILL=${CODEX_HOME:-$HOME/.codex}/skills/staged-pr-review
+SKILL=${CODEX_HOME:-$HOME/.codex}/skills/mux-staged-review
 
 export STAGED_PR_URL="https://github.com/owner/repo/pull/123"
 export STAGED_COMPARE_URL="https://github.com/owner/repo/compare/base...branch"
 export STAGED_REPO="/path/to/repo"
 export STAGED_BASE="base-branch"
+export STAGED_REVIEW_TARGET_ID="stable-surface-or-pane-uuid"
 
-"$SKILL/scripts/staged-review-send.sh" 1
-"$SKILL/scripts/staged-review-poll.sh" REQUEST_ID=staged-s1-...
+"$SKILL/scripts/staged-review-send.sh" 1 surface:N
 ```
 
-After stage 1 is clean, repeat with stages 2, 3, and 4. Targets may be `chatgpt`, `chatgpt-rex`, `browser`, `surface:N`, or `rex`.
+After sending, use `$mux-orchestrate`'s portable reminder to wait about five minutes. Re-resolve `STAGED_REVIEW_TARGET_ID` to its current ref, reverify the workspace, pane, URL, and conversation, then inspect that browser target directly. If ChatGPT is still working or the latest response is incomplete, wait another five minutes and inspect again. After stage 1 is clean, repeat with stages 2, 3, and 4.
 
 Set `STAGED_REVIEW_DRY_RUN=1` to render and print a stage prompt without sending it.
 
@@ -74,7 +74,7 @@ If a review was interrupted, treat it as incomplete and rerun it.
 Stage: N
 Scope: <exact comparison>
 Head: <sha>
-REQUEST_ID: <id>
+Request label: <local stage and submission identity>
 State: reviewing | fixing | clean | blocked
 Findings: <summary or none>
 Next: rerun stage N | advance to stage N+1 | complete

@@ -2,15 +2,13 @@
 # review-common.sh - single source of the ChatGPT review-loop orchestration.
 #
 # DevX Mux supports both Rex and cmux. Both drive a ChatGPT browser pane through the
-# same five-step flow:
+# same submission flow:
 #
-#   resolve socket -> find ChatGPT pane -> verify it is ChatGPT
-#                  -> submit prompt / read body -> check REQUEST_ID
+#   resolve socket -> find ChatGPT pane -> verify it is ChatGPT -> submit prompt
 #
 # Only the *transport* differs (cmux CLI vs Rex's nc -U text protocol). Every
 # transport appears exactly once here, branched on the `tool` argument (cmux|rex).
-# The per-tool send/poll wrappers source this file and call these functions, so
-# no orchestration logic is duplicated across the two loops.
+# Agents wait through their own runtime, then inspect visible browser state directly.
 #
 # This file is a library: source it, do not execute it. It defines functions and
 # resolves its own directory; it performs no work at source time beyond that.
@@ -23,11 +21,7 @@
 #                                             or an empty response (never prints empty)
 #   review_is_chatgpt <tool> <handle>         0 if handle is a ChatGPT tab, else 1
 #   review_submit <tool> <handle> <prompt>    submit prompt; exit 1 if not confirmed
-#   review_read_body <tool> <handle>          print visible body text for diagnostics
-#   review_read_last_answer <tool> <handle>   print the latest assistant response
-#   review_request_id_status <body> <id>      print "observed <id>" / "waiting missing <id>"
 #   review_send_prompt_file <tool> <target> <file>
-#   review_poll_latest_answer <tool> <target> [REQUEST_ID=<id>]
 
 # Directory of this file. Both transport socket resolvers live next to it.
 # BASH_SOURCE[0] is set under bash (the shebang runtime); fall back to $0 so a
@@ -84,7 +78,7 @@ review_socket_path() {
         cmux)
             if [[ ! -x "$_REVIEW_CMUX_SKILL_DIR/cmux-review-socket-path.sh" ]]; then
                 echo "review_socket_path: cmux skill not found at $_REVIEW_CMUX_SKILL_DIR" >&2
-                echo "  set CMUX_REVIEW_SKILL_DIR to the devx-mux scripts dir." >&2
+                echo "  set CMUX_REVIEW_SKILL_DIR to the mux-orchestrate scripts dir." >&2
                 exit 1
             fi
             "$_REVIEW_CMUX_SKILL_DIR/cmux-review-socket-path.sh"
@@ -445,7 +439,7 @@ review_submit() {
                 exit 1
             fi
             if [[ "$response" != ok* || "$response" != *" submitted "* ]]; then
-                echo "Browser send was not confirmed submitted; refusing to poll stale or unsent text." >&2
+                echo "Browser send was not confirmed submitted; refusing to continue with stale or unsent text." >&2
                 exit 1
             fi
             ;;
@@ -454,89 +448,6 @@ review_submit() {
             exit 2
             ;;
     esac
-}
-
-# Print the visible body text of the pane.
-review_read_body() {
-    local tool="$1" handle="$2"
-    case "$tool" in
-        cmux)
-            _review_setup_socket cmux
-            cmux browser "$handle" get text body 2>/dev/null || true
-            ;;
-        rex)
-            local sock raw header
-            sock="$(review_socket_path rex)"
-            # Rex returns "ok <pane> chars=N mode=embedded\n<body>". Fail loud
-            # on a socket/read error or an unexpected header: the orchestrator must
-            # distinguish "could not read the pane" from "answer not there yet".
-            if ! raw="$(printf 'browser-text %s 30000\n' "$handle" | nc -U "$sock" 2>&1)"; then
-                echo "review_read_body: Rex browser-text read failed for $handle: ${raw:-<no response>}" >&2
-                return 1
-            fi
-            header="${raw%%$'\n'*}"
-            if [[ "$header" != "ok "* ]]; then
-                echo "review_read_body: unexpected Rex response for $handle (expected 'ok ...'): ${raw:-<empty>}" >&2
-                return 1
-            fi
-            # Drop the status header line; print only the page text.
-            printf '%s\n' "${raw#*$'\n'}"
-            ;;
-        *)
-            echo "review_read_body: unknown tool '$tool' (use cmux|rex)" >&2
-            exit 2
-            ;;
-    esac
-}
-
-# Print ONLY ChatGPT's latest assistant response - robust to stale scrollback and
-# to the submitted prompt being echoed back into the page. The REQUEST_ID lives in
-# the prompt itself, so matching it against the whole body (review_read_body +
-# review_request_id_status) can fire on the prompt echo, not the answer. This reads
-# the last DOM node ChatGPT tags data-message-author-role="assistant" - the newest
-# complete answer - with no scrolling (querySelectorAll scans the whole document).
-review_read_last_answer() {
-    local tool="$1" handle="$2"
-    # ChatGPT tags each AI message with data-message-author-role="assistant".
-    local js='(()=>{const t=document.querySelectorAll('"'"'[data-message-author-role="assistant"]'"'"');return t.length?t[t.length-1].innerText:"";})()'
-    case "$tool" in
-        cmux)
-            _review_setup_socket cmux
-            cmux browser "$handle" eval "$js" 2>/dev/null || true
-            ;;
-        rex)
-            local sock raw header
-            sock="$(review_socket_path rex)"
-            if ! raw="$(printf 'browser-eval %s %s\n' "$handle" "$js" | nc -U "$sock" 2>&1)"; then
-                echo "review_read_last_answer: Rex browser-eval failed for $handle" >&2
-                return 1
-            fi
-            header="${raw%%$'\n'*}"
-            if [[ "$header" != "ok "* ]]; then
-                echo "review_read_last_answer: unexpected Rex response for $handle: ${raw:-<empty>}" >&2
-                return 1
-            fi
-            printf '%s\n' "${raw#*$'\n'}"
-            ;;
-        *)
-            echo "review_read_last_answer: unknown tool '$tool' (use cmux|rex)" >&2
-            exit 2
-            ;;
-    esac
-}
-
-# Pure helper: report whether REQUEST_ID is visible in the body.
-review_request_id_status() {
-    local body="$1" request_id="$2"
-    if [[ "$request_id" != REQUEST_ID=* ]]; then
-        echo "Expected REQUEST_ID=<id>, got $request_id" >&2
-        return 2
-    fi
-    if printf '%s\n' "$body" | grep -Fq "$request_id"; then
-        echo "observed $request_id"
-    else
-        echo "waiting missing $request_id"
-    fi
 }
 
 # Resolve and verify a ChatGPT browser target, then submit one prompt file.
@@ -555,26 +466,4 @@ review_send_prompt_file() {
     fi
 
     review_submit "$tool" "$handle" "$(<"$prompt_file")"
-}
-
-# Print only the latest assistant response and optionally verify REQUEST_ID.
-review_poll_latest_answer() {
-    local tool="$1" target="$2" request_id="${3:-}"
-    if [[ -n "$request_id" && "$request_id" != REQUEST_ID=* ]]; then
-        echo "Expected REQUEST_ID=<id>, got $request_id" >&2
-        return 2
-    fi
-
-    local handle answer
-    handle="$(review_find_chatgpt_pane "$tool" "$target")"
-    if ! review_is_chatgpt "$tool" "$handle"; then
-        echo "Refusing browser poll: ${handle} is not a ChatGPT tab." >&2
-        return 1
-    fi
-
-    answer="$(review_read_last_answer "$tool" "$handle")" || return 1
-    printf '%s\n' "$answer"
-    if [[ -n "$request_id" ]]; then
-        review_request_id_status "$answer" "$request_id"
-    fi
 }

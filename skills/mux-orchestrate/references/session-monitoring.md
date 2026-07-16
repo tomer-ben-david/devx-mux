@@ -19,11 +19,11 @@ If more than one session still qualifies, report the ambiguity instead of guessi
 Use the shared resolver when the provider and repository are known:
 
 ```bash
-SKILL=${DEVX_MUX_SKILL_DIR:-${CODEX_HOME:-$HOME/.codex}/skills/devx-mux}
+SKILL=${MUX_ORCHESTRATE_SKILL_DIR:-${CODEX_HOME:-$HOME/.codex}/skills/mux-orchestrate}
 session="$($SKILL/scripts/session-jsonl-path.sh codex "$PWD" <session-id>)"
-$SKILL/scripts/session-jsonl-read.sh --seed "$session" /tmp/devx-mux-review.cursor
+$SKILL/scripts/session-jsonl-read.sh --seed "$session" /tmp/mux-review.cursor
 # Send the review prompt after seeding.
-$SKILL/scripts/session-jsonl-read.sh codex "$session" /tmp/devx-mux-review.cursor
+$SKILL/scripts/session-jsonl-read.sh codex "$session" /tmp/mux-review.cursor
 ```
 
 Omit `<session-id>` only when cwd identifies exactly one active or stored candidate. The resolver deliberately fails on ambiguity. For Grok, replace `codex` with `grok`; its resolver uses the active-session registry before locating `chat_history.jsonl`.
@@ -68,13 +68,13 @@ A report is complete only when the provider emitted its final assistant response
 
 ## Browser exception
 
-ChatGPT browser panes do not use the local Codex or Grok JSONL stores. Poll the latest assistant DOM response through the shared browser transport and verify the current `REQUEST_ID`.
+ChatGPT browser panes do not use the local Codex or Grok JSONL stores. After a long background wait, inspect the same browser surface directly and interpret its latest visible response. Do not delegate result selection or completion judgment to a parser or waiter script.
 
 ## Mux fallback
 
 If the provider cannot identify a usable session file, read through the active transport:
 
 - cmux: use `cmux read-screen` for terminal reviewers and the browser DOM helper for ChatGPT.
-- Rex: use the socket `tail` command for terminal reviewers and `browser-eval` or `browser-text` for ChatGPT.
+- Rex: use the socket `tail` command for terminal reviewers and the shared semantic browser HTML transport for ChatGPT.
 
 Re-resolve the target before each fallback read. Treat pane and surface IDs as ephemeral, and read enough scrollback to include the complete report rather than only its verdict tail.

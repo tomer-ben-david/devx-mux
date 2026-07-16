@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mux Staged Review"
+  short_description: "Run gated multi-stage pull request reviews"
+  default_prompt: "Use $mux-staged-review to run each pull request review stage to a clean result before advancing."

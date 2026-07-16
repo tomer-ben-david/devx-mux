@@ -1,4 +1,0 @@
-interface:
-  display_name: "PR Title and Description"
-  short_description: "Write PR context, scope, and solution"
-  default_prompt: "Use $pr-title-description to draft or rewrite this PR title and description with a concrete solution summary for a fresh reviewer."

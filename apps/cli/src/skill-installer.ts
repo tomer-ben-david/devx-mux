@@ -1,20 +1,32 @@
-import { existsSync, lstatSync, mkdirSync, readlinkSync, symlinkSync, unlinkSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readlinkSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PUBLIC_SKILL_NAMES = [
-  "devx-mux",
-  "mux-multireview",
   "mux-orchestrate",
-  "pr-title-description",
-  "staged-pr-review",
+  "mux-chatgpt-review",
+  "mux-multireview",
+  "mux-pr-description",
+  "mux-staged-review",
 ] as const;
+
+const LEGACY_PUBLIC_SKILL_NAMES = ["devx-mux", "pr-title-description", "staged-pr-review"] as const;
 
 interface SkillLink {
   readonly destination: string;
   readonly source: string;
-  readonly state: "missing" | "current" | "stale";
+  readonly state: "current" | "replace";
+}
+
+interface LegacySkillPath {
+  readonly destination: string;
+  readonly exists: boolean;
+}
+
+interface SkillInstallPlan {
+  readonly canonicalLinks: readonly SkillLink[];
+  readonly legacyPaths: readonly LegacySkillPath[];
 }
 
 interface InstallPublicSkillsOptions {
@@ -29,54 +41,127 @@ function resolveSkillsSourceRoot(): string {
     path.resolve(moduleDirectory, "..", "skills"),
     path.resolve(moduleDirectory, "..", "..", "..", "skills"),
   ];
-  const sourceRoot = candidates.find((candidate) => existsSync(path.join(candidate, "devx-mux", "SKILL.md")));
+  const sourceRoot = candidates.find((candidate) => existsSync(path.join(candidate, "mux-orchestrate", "SKILL.md")));
   if (sourceRoot === undefined) {
     throw new Error("Packaged DevX Mux skills are missing. Reinstall devx-mux and run mux setup again.");
   }
   return sourceRoot;
 }
 
-function inspectSkillLink(skillRoot: string, skillsSourceRoot: string, skillName: string): SkillLink {
-  const source = path.join(skillsSourceRoot, skillName);
+function pathsOverlap(left: string, right: string): boolean {
+  const relative = path.relative(left, right);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function resolveThroughExistingAncestor(candidate: string): string {
+  const suffix: string[] = [];
+  let existingAncestor = path.resolve(candidate);
+  while (lstatSync(existingAncestor, { throwIfNoEntry: false }) === undefined) {
+    const parent = path.dirname(existingAncestor);
+    if (parent === existingAncestor) break;
+    suffix.unshift(path.basename(existingAncestor));
+    existingAncestor = parent;
+  }
+  return path.join(realpathSync(existingAncestor), ...suffix);
+}
+
+function normalizeSkillRoots(skillRoots: readonly string[]): readonly string[] {
+  const uniqueRoots = [...new Set(skillRoots.map(resolveThroughExistingAncestor))];
+  for (const [index, root] of uniqueRoots.entries()) {
+    for (const otherRoot of uniqueRoots.slice(index + 1)) {
+      if (pathsOverlap(root, otherRoot) || pathsOverlap(otherRoot, root)) {
+        throw new Error(`Configured skill roots must not be nested: ${root} <-> ${otherRoot}`);
+      }
+    }
+  }
+  return uniqueRoots;
+}
+
+function canonicalMutationPath(destination: string): string {
+  return path.join(
+    resolveThroughExistingAncestor(path.dirname(destination)),
+    path.basename(destination),
+  );
+}
+
+function validateMutationOutsideSourceTree(destination: string, canonicalSourceRoot: string): void {
+  const canonicalDestination = canonicalMutationPath(destination);
+  if (
+    pathsOverlap(canonicalSourceRoot, canonicalDestination)
+    || pathsOverlap(canonicalDestination, canonicalSourceRoot)
+  ) {
+    throw new Error(
+      `Refusing to mutate a skill path that overlaps the source tree: ${destination} <-> ${canonicalSourceRoot}`,
+    );
+  }
+}
+
+function inspectSkillLink(
+  skillRoot: string,
+  skillsSourceRoot: string,
+  canonicalSourceRoot: string,
+  skillName: string,
+): SkillLink {
+  const source = path.resolve(skillsSourceRoot, skillName);
   if (!existsSync(path.join(source, "SKILL.md"))) {
     throw new Error(`Packaged skill is missing: ${source}`);
   }
-  const destination = path.join(skillRoot, skillName);
+  const destination = path.resolve(skillRoot, skillName);
+  validateMutationOutsideSourceTree(destination, canonicalSourceRoot);
   const stat = lstatSync(destination, { throwIfNoEntry: false });
-  if (!stat) {
-    return { destination, source, state: "missing" };
-  }
-  if (!stat.isSymbolicLink()) {
-    throw new Error(`Refusing to replace existing file or directory: ${destination}`);
-  }
-  const linkedSource = path.resolve(skillRoot, readlinkSync(destination));
-  return { destination, source, state: linkedSource === source ? "current" : "stale" };
+  const linkedSource = stat?.isSymbolicLink() ? path.resolve(skillRoot, readlinkSync(destination)) : undefined;
+  return { destination, source, state: linkedSource === source ? "current" : "replace" };
 }
 
-function installSkillLink(link: SkillLink, output: Pick<NodeJS.WriteStream, "write">): void {
-  if (link.state === "current") {
-    output.write(`Skill already linked: ${link.destination}\n`);
-    return;
+function inspectLegacySkillPath(skillRoot: string, canonicalSourceRoot: string, skillName: string): LegacySkillPath {
+  const destination = path.resolve(skillRoot, skillName);
+  validateMutationOutsideSourceTree(destination, canonicalSourceRoot);
+  return { destination, exists: lstatSync(destination, { throwIfNoEntry: false }) !== undefined };
+}
+
+function createInstallPlan(skillRoots: readonly string[], skillsSourceRoot: string): SkillInstallPlan {
+  if (!existsSync(skillsSourceRoot)) {
+    throw new Error(`Packaged skills directory is missing: ${skillsSourceRoot}`);
   }
+  const canonicalSourceRoot = realpathSync(skillsSourceRoot);
+  const canonicalLinks = skillRoots.flatMap((root) =>
+    PUBLIC_SKILL_NAMES.map((name) => inspectSkillLink(root, canonicalSourceRoot, canonicalSourceRoot, name)),
+  );
+  const legacyPaths = skillRoots.flatMap((root) =>
+    LEGACY_PUBLIC_SKILL_NAMES.map((name) => inspectLegacySkillPath(root, canonicalSourceRoot, name)),
+  );
+  return { canonicalLinks, legacyPaths };
+}
+
+function installSkillLink(link: SkillLink): void {
+  if (link.state === "current") return;
   mkdirSync(path.dirname(link.destination), { recursive: true });
-  if (link.state === "stale") {
-    unlinkSync(link.destination);
-  }
+  rmSync(link.destination, { recursive: true, force: true });
   symlinkSync(link.source, link.destination, process.platform === "win32" ? "junction" : "dir");
-  output.write(`Linked skill: ${link.destination} -> ${link.source}\n`);
 }
 
 export function installPublicSkills(options: InstallPublicSkillsOptions = {}): void {
   const environment = options.environment ?? process.env;
   const skillsSourceRoot = options.skillsSourceRoot ?? resolveSkillsSourceRoot();
   const output = options.output ?? process.stdout;
-  const skillRoots = [
+  const skillRoots = normalizeSkillRoots([
     path.join(environment.CODEX_HOME ?? path.join(homedir(), ".codex"), "skills"),
     path.join(environment.CLAUDE_HOME ?? path.join(homedir(), ".claude"), "skills"),
     path.join(environment.AGENTS_HOME ?? path.join(homedir(), ".agents"), "skills"),
-  ];
-  const links = skillRoots.flatMap((root) =>
-    PUBLIC_SKILL_NAMES.map((name) => inspectSkillLink(root, skillsSourceRoot, name)),
-  );
-  links.forEach((link) => installSkillLink(link, output));
+  ]);
+  const { canonicalLinks, legacyPaths } = createInstallPlan(skillRoots, skillsSourceRoot);
+
+  canonicalLinks.forEach(installSkillLink);
+  legacyPaths.forEach((legacyPath) => rmSync(legacyPath.destination, { recursive: true, force: true }));
+
+  legacyPaths
+    .filter((legacyPath) => legacyPath.exists)
+    .forEach((legacyPath) => output.write(`Removed legacy skill: ${legacyPath.destination}\n`));
+  canonicalLinks.forEach((link) => {
+    if (link.state === "current") {
+      output.write(`Skill already linked: ${link.destination}\n`);
+    } else {
+      output.write(`Linked skill: ${link.destination} -> ${link.source}\n`);
+    }
+  });
 }

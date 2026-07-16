@@ -15,7 +15,7 @@ Do not batch stages or advance while a finding remains unresolved.
 
 ## Neutral prompts
 
-Render the fixed stage template with only current factual values: request ID, PR URL, compare URL, base, branch, head, and commit subject.
+Render the fixed stage template with only current factual values: PR URL, compare URL, base, branch, head, and commit subject. Retain the request label only in the local live report; never render it into the reviewer-visible prompt or browser state.
 
 Do not add prior findings, fix summaries, suggested conclusions, pasted diffs, or targeted hints to a fresh-stage prompt. The reviewer must form a new opinion from the current pushed source.
 
@@ -31,8 +31,8 @@ Use the PR base or a Git-derived merge base. Never hardcode a default branch nam
 ## Repeat until clean
 
 1. Send one stage prompt.
-2. Poll until the response for its `REQUEST_ID` is complete.
-3. Read the full response.
+2. Wait about five minutes without browser interaction, re-resolve the retained stable target UUID to its current ref, then inspect that browser target directly.
+3. If ChatGPT is still working or the response is incomplete, wait another five minutes and inspect again.
 4. Triage every finding.
 5. If code changes, validate and push with explicit approval.
 6. Rerun the same stage at the new head.
@@ -45,3 +45,5 @@ Do not treat an interrupted or partial response as clean.
 The browser reviews pushed GitHub source. Provide a PR or compare URL, not a pasted patch. If the branch is not pushed or the page cannot read the source, stop and report the blocker.
 
 Sending a review request does not authorize a push, PR edit, thread resolution, bot trigger, merge, or deploy.
+
+Every real send requires both a resolved `surface:` or `pane:` ref and its stable UUID. Generic aliases are insufficient for an iterative workflow because refs can be reassigned while the UUID remains stable.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mux ChatGPT Review"
+  short_description: "Loop ChatGPT PR review to an exact-head clean verdict"
+  default_prompt: "Use $mux-chatgpt-review to review this pull request through my selected cmux ChatGPT surface, fix approved findings, and rereview each new head until all clean."

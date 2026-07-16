@@ -1,0 +1,139 @@
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
+const script = path.join(scriptDirectory, "staged-review.ts");
+const muxSkill = path.resolve(scriptDirectory, "..", "..", "mux-orchestrate");
+const gates = path.resolve(scriptDirectory, "..", "references", "orchestrator-gates.md");
+
+test("renders every stage without unresolved template values", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "mux-staged-review-"));
+  for (const stage of ["1", "2", "3", "4"]) {
+    const promptFile = path.join(root, `stage-${stage}.txt`);
+    execFileSync(process.execPath, [script, "send", stage, promptFile], {
+      env: {
+        ...process.env,
+        MUX_ORCHESTRATE_SKILL_DIR: muxSkill,
+        STAGED_REVIEW_DRY_RUN: "1",
+        STAGED_PR_URL: "https://github.com/example/project/pull/42",
+        STAGED_COMPARE_URL: "https://github.com/example/project/compare/base...feature",
+        STAGED_BASE: "base",
+        STAGED_BRANCH: "feature",
+        STAGED_COMMIT: "abc1234",
+        STAGED_COMMIT_SUBJECT: "share review transports",
+        STAGED_REQUEST_ID: `stage-${stage}`,
+      },
+      stdio: "ignore",
+    });
+    const prompt = readFileSync(promptFile, "utf8");
+    assert.doesNotMatch(prompt, /REQUEST_ID=/);
+    assert.doesNotMatch(prompt, /\{\{[^}]+\}\}/);
+  }
+});
+
+test("preserves template-like text inside replacement values", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "mux-staged-review-values-"));
+  const promptFile = path.join(root, "stage-1.txt");
+  execFileSync(process.execPath, [script, "send", "1", promptFile], {
+    env: {
+      ...process.env,
+      MUX_ORCHESTRATE_SKILL_DIR: muxSkill,
+      STAGED_REVIEW_DRY_RUN: "1",
+      STAGED_PR_URL: "https://github.com/example/project/pull/42",
+      STAGED_COMPARE_URL: "https://github.com/example/project/compare/base...feature",
+      STAGED_COMMIT: "abc1234",
+      STAGED_COMMIT_SUBJECT: "document {{HEAD}} literally",
+      STAGED_REQUEST_ID: "stage-template-value",
+    },
+    stdio: "ignore",
+  });
+
+  assert.match(readFileSync(promptFile, "utf8"), /document \{\{HEAD\}\} literally/);
+});
+
+test("keeps request labels local and renders dry runs without an installed transport skill", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "mux-staged-review-dry-run-"));
+  try {
+    const promptFile = path.join(root, "stage-1.txt");
+    const result = execFileSync(process.execPath, [script, "send", "1", promptFile], {
+      env: {
+        ...process.env,
+        MUX_ORCHESTRATE_SKILL_DIR: path.join(root, "missing-mux-orchestrate"),
+        STAGED_REVIEW_DRY_RUN: "1",
+        STAGED_PR_URL: "https://github.com/example/project/pull/42",
+        STAGED_COMPARE_URL: "https://github.com/example/project/compare/base...feature",
+        STAGED_REQUEST_ID: "local-stage-label",
+      },
+      encoding: "utf8",
+    });
+
+    assert.match(result, /request_id=local-stage-label/);
+    assert.doesNotMatch(readFileSync(promptFile, "utf8"), /local-stage-label/);
+    const gateGuidance = readFileSync(gates, "utf8");
+    assert.match(gateGuidance, /Retain the request label only in the local live report/);
+    assert.doesNotMatch(gateGuidance, /values: request ID/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("routes a resolved Rex pane and reports its stable identity", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "mux-staged-rex-target-"));
+  try {
+    const fakeMuxSkill = path.join(root, "mux-orchestrate");
+    const scripts = path.join(fakeMuxSkill, "scripts");
+    mkdirSync(scripts, { recursive: true });
+    writeFileSync(path.join(fakeMuxSkill, "SKILL.md"), "# test skill\n");
+    writeFileSync(path.join(scripts, "rex-review-send.sh"), "#!/bin/sh\nexit 0\n");
+    writeFileSync(path.join(scripts, "cmux-review-send.sh"), "#!/bin/sh\nexit 9\n");
+    chmodSync(path.join(scripts, "rex-review-send.sh"), 0o755);
+    chmodSync(path.join(scripts, "cmux-review-send.sh"), 0o755);
+
+    const result = execFileSync(
+      process.execPath,
+      [script, "send", "1", "pane:42", path.join(root, "rex.txt")],
+      {
+        env: {
+          ...process.env,
+          MUX_ORCHESTRATE_SKILL_DIR: fakeMuxSkill,
+          STAGED_PR_URL: "https://github.com/example/project/pull/42",
+          STAGED_COMPARE_URL: "https://github.com/example/project/compare/base...feature",
+          STAGED_REQUEST_ID: "stage-rex",
+          STAGED_REVIEW_TARGET_ID: "229FE04F-3226-4276-A557-B408F817DB52",
+        },
+        encoding: "utf8",
+      },
+    );
+    assert.match(result, /review_target=pane:42/);
+    assert.match(result, /review_target_id=229FE04F-3226-4276-A557-B408F817DB52/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("rejects unresolved aliases and missing stable identity for real sends", () => {
+  const environment = {
+    ...process.env,
+    STAGED_PR_URL: "https://github.com/example/project/pull/42",
+    STAGED_COMPARE_URL: "https://github.com/example/project/compare/base...feature",
+  };
+  assert.throws(
+    () => execFileSync(process.execPath, [script, "send", "1", "chatgpt"], { env: environment }),
+    /exact surface:ref or pane:ref target/,
+  );
+  assert.throws(
+    () => execFileSync(process.execPath, [script, "send", "1", "surface:42"], { env: environment }),
+    /STAGED_REVIEW_TARGET_ID/,
+  );
+  assert.throws(
+    () => execFileSync(process.execPath, [script, "send", "1", "surface:42"], {
+      env: { ...environment, STAGED_REVIEW_TARGET_ID: "surface:42" },
+    }),
+    /stable surface or pane UUID/,
+  );
+});

@@ -71,11 +71,11 @@ DevX Mux is also the canonical public home for reusable agent workflows:
 
 | Skill | Responsibility |
 | --- | --- |
-| `devx-mux` | Coordinate implementors and reviewers, detect patch loops, and refresh guidance across cmux or DevX Rex |
+| `mux-orchestrate` | Coordinate implementors and reviewers, detect patch loops, and refresh guidance across cmux or DevX Rex |
+| `mux-chatgpt-review` | Loop a pull request through a user-selected ChatGPT browser surface until the exact head is clean |
 | `mux-multireview` | Run the same read-only scope concurrently through independent Codex and Grok reviewers |
-| `mux-orchestrate` | Provider-neutral invocation for the `devx-mux` implementation and independent review loop |
-| `pr-title-description` | Draft reviewer-neutral PR titles and descriptions with explicit Goals, Non-goals, and Solution |
-| `staged-pr-review` | Run commit, branch, standards, and final full-PR review gates sequentially |
+| `mux-pr-description` | Draft reviewer-neutral PR titles and descriptions with explicit Goals, Non-goals, and Solution |
+| `mux-staged-review` | Run commit, branch, standards, and final full-PR review gates sequentially |
 
 Install links for Codex, Claude, and shared agent discovery:
 
@@ -83,15 +83,17 @@ Install links for Codex, Claude, and shared agent discovery:
 mux setup
 ```
 
-Each person runs the installer once after installing the npm package. It links the packaged public skills into their Codex, Claude, and shared-agent skill directories, so `$mux-multireview` and `$mux-orchestrate` can be invoked while working in any repository. Source contributors can use `./mux.sh link-agent-files` to link the same skills directly to their checkout.
+Each person runs the installer once after installing the npm package. It links the packaged public skills into their Codex, Claude, and shared-agent skill directories, so every public workflow is available under a `mux-*` invocation name. Source contributors can use `./mux.sh link-agent-files` to link the same skills directly to their checkout.
 
-The installer refreshes stale symlinks it owns, but never overwrites a real file or directory. Legacy names such as `codex-orchestrate`, `cmux-review-loop`, and `rex-review-loop` may remain compatibility pointers to `devx-mux`; new orchestration prompts should use `mux-orchestrate`. The canonical workflow and shared browser transport live in `devx-mux`.
+DevX Mux reserves the canonical names in the table plus the obsolete `devx-mux`, `pr-title-description`, and `staged-pr-review` names in the skill directories it manages. The installer deduplicates identical configured skill roots, rejects nested roots, builds and validates the complete canonical-link and obsolete-name cleanup plan, then applies it. Every canonical reserved name is force-replaced with the current source, and every obsolete reserved name is deleted. This makes setup deterministic after reinstalling or moving the package without risking its source checkout or preserving an older installed copy. The canonical orchestration workflow and shared browser transport live in `mux-orchestrate`.
 
 The repository's root `AGENTS.md` remains local to each clone and is not installed globally. Reusable workflows belong in public skills; repository-specific policy stays in `AGENTS.md`.
 
 ### Portability
 
 DevX Mux keeps portable orchestration and provider logic in TypeScript wherever possible so the same code can evolve across macOS, Linux, and Windows. Shell files are limited to thin compatibility entrypoints and adapters for inherently Unix-specific cmux or Rex socket behavior. New shared logic should not be implemented twice in separate mux scripts.
+
+Iterative browser workflows retain both the exact surface or pane ref and its stable UUID. Their portable reminder only delays and prints that UUID; after each delay the agent re-resolves the current ref and reads the browser itself. The reminder never calls cmux, Rex, or a browser API and never classifies review completion.
 
 ### Run the same review with Codex and Grok
 
@@ -250,7 +252,7 @@ Use the local runner for the complete development workflow:
 
 Run `./mux.sh help` for individual test, type-check, build, link, review, and cleanup commands. The project intentionally uses local verification instead of consuming hosted CI minutes.
 
-The npm release is built from a clean CLI bundle and includes the five public skills. Verify the exact consumer installation path locally with:
+The npm release is built from a clean CLI bundle and includes the five public `mux-*` skills. Verify the exact consumer installation path locally with:
 
 ```bash
 npm run test:install
