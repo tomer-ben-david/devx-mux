@@ -34,7 +34,7 @@ Verify that the selected surface belongs to the supplied pane and workspace and 
 
 ## Start the working chat
 
-Inspect the selected conversation before changing it. If it already contains an active or completed review that the user wants to continue, preserve it and read that conversation directly. Never use `/new`, navigation, reload, branching, or retry as recovery for a running, completed, unmarked, or temporarily unreadable review. Recover the same UUID-backed surface and conversation. If a share link is needed for diagnosis, open it in a different surface.
+Inspect the selected conversation before changing it. Classify its review provenance before reading or sending: `Mux-submitted` when this workflow retained the head immediately before submission, or `adopted` when the review was already active or completed. If it already contains an active or completed review that the user wants to continue, preserve it, record the retained submission head as unavailable, and read that conversation directly. Never use `/new`, navigation, reload, branching, or retry as recovery for a running, completed, unmarked, or temporarily unreadable review. Recover the same UUID-backed surface and conversation. If a share link is needed for diagnosis, open it in a different surface.
 
 Only when starting the first review or the required independent clean confirmation, begin a fresh conversation under the same ChatGPT project or custom GPT. Use ChatGPT's visible `New chat` control through a fresh cmux accessibility snapshot. Never encode a keyboard shortcut for this action: cmux owns some application shortcuts, and ChatGPT's web UI is not a stable shortcut API. Do not navigate to a guessed base URL or use the global sidebar if either action may leave the selected GPT or reopen the previous conversation.
 
@@ -68,10 +68,14 @@ Elapsed time alone never makes a ChatGPT review stalled or incomplete. Do not cl
 
 A run becomes incomplete only when ChatGPT reports an explicit failure or cancellation, the selected surface or conversation is lost and cannot be recovered, or the user cancels it. If a completed answer is visually present but browser text extraction fails, recover the same UUID-backed surface and conversation through non-mutating inspection methods. If those methods cannot recover it, report the blocker and do not classify the run as complete. A missing or temporarily inaccessible surface requires recovery attempts against the same UUID-backed surface and conversation before the run may be classified as lost.
 
-After the agent reads a completed review, this focused workflow must accept it only when it contains both:
+After the agent reads a completed review, apply one acceptance rule based on the recorded provenance:
 
-- the exact full head SHA it reviewed, matching both the retained submission head and a fresh GitHub head read
-- actionable findings or an explicit clean verdict
+| Provenance | Retained submission head | Exact-head acceptance |
+| --- | --- | --- |
+| `Mux-submitted` | Required | The response's full reviewed SHA matches both the retained submission head and a fresh GitHub head read. |
+| `adopted` | Unavailable | The response's full reviewed SHA matches a fresh GitHub head read. The result may drive fixes or count as the working-chat verdict, but it never replaces the independent fresh-chat confirmation. |
+
+Both paths also require actionable findings or an explicit clean verdict. Never manufacture a retained head after seeing an adopted review's result.
 
 The disappearance of one progress indicator is not proof of completion; inspect the whole visible latest response. If GitHub moved after submission, discard the result as stale even if ChatGPT reviewed the retained submission head correctly. An answer for an older head is stale even when it is the newest completed assistant message. If the final answer omits the reviewed head, ask only which full head SHA it reviewed before classifying the verdict.
 

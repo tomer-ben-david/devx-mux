@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 const skill = readFileSync(new URL("./SKILL.md", import.meta.url), "utf8");
+const reviewProtocol = readFileSync(new URL("./references/review-protocol.md", import.meta.url), "utf8");
 
 test("the live checkpoint preserves every open repair family across context loss", () => {
   assert.match(skill, /Maintain one repair-family ledger for the current goal/);
@@ -19,4 +20,11 @@ test("the live checkpoint preserves every open repair family across context loss
   assert.match(skill, /Reconcile ledger state only when its bound goal ID and snapshot match/);
   assert.doesNotMatch(skill, /^Repair family:/m);
   assert.doesNotMatch(skill, /^Repair attempts:/m);
+});
+
+test("the shared protocol preserves ChatGPT working-chat continuity", () => {
+  assert.match(reviewProtocol, /owns one explicit persistent-conversation exception/);
+  assert.match(reviewProtocol, /Updated\. Re-review everything\./);
+  assert.match(reviewProtocol, /Freshness applies when that workflow starts its independent clean-confirmation conversation/);
+  assert.match(reviewProtocol, /provenance and exact-head gates still apply to every result/);
 });

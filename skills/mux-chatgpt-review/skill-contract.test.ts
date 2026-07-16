@@ -20,7 +20,12 @@ test("ChatGPT review converges in one chat before a fresh independent confirmati
   assert.match(skill, /recovery attempts against the same UUID-backed surface and conversation/);
   assert.match(skill, /Review @GitHub <owner>\/<repository> PR #<number>\./);
   assert.doesNotMatch(skill, /\nREQUEST_ID=github:<owner>\/<repository>:pr:<number>:head:<full-sha>:/);
-  assert.match(skill, /matching both the retained submission head and a fresh GitHub head read/);
+  assert.match(skill, /Classify its review provenance before reading or sending/);
+  assert.match(skill, /record the retained submission head as unavailable/);
+  assert.match(skill, /`Mux-submitted` \| Required/);
+  assert.match(skill, /`adopted` \| Unavailable/);
+  assert.match(skill, /it never replaces the independent fresh-chat confirmation/);
+  assert.match(skill, /Never manufacture a retained head after seeing an adopted review's result/);
   assert.match(skill, /Updated\. Re-review everything\./);
   assert.match(skill, /visible `New chat` control through a fresh cmux accessibility snapshot/);
   assert.match(skill, /Never encode a keyboard shortcut for this action/);
