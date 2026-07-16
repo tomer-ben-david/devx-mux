@@ -81,9 +81,9 @@ Do not edit code locally when the user asked the orchestrator to manage a separa
 
 Track repair attempts per repair family, not across the whole goal. A repair family is the same symptom, finding class, broken invariant or state owner, or attempted structural direction. Group attempts only when evidence points to the same underlying problem; keep unrelated accepted findings in separate families. A repair attempt is an implementor edit-and-verification response after a failed reproduction, rejected approach, or accepted finding in that family.
 
-Maintain one open repair-family ledger for the orchestration. Give each family a stable identity based on its symptom, finding class, invariant or state owner, or structural direction rather than transient review wording. Record its attempt count, invariant or state owner, evidence references, and last attempted structural direction. Update the ledger after every accepted finding, repair attempt, reclassification, and closure. Keep every unrelated open family in the ledger at the same time; never replace one family's state when attention moves to another.
+Maintain one repair-family ledger for the current goal. Give each family a stable identity based on its symptom, finding class, invariant or state owner, or structural direction rather than transient review wording. Every open entry records its attempt count, invariant or state owner, evidence references, and last attempted structural direction. Update the ledger after every accepted finding, repair attempt, reclassification, and closure. Keep every unrelated open family in the ledger at the same time; never replace one family's state when attention moves to another.
 
-Do not close a repair family because its symptom moved to an adjacent layer or a narrow test passed. Close it when the scope contract's required outcome and acceptance evidence are proven, using user-visible verification when applicable, or when new evidence proves the work belongs to a different family.
+Do not close a repair family because its symptom moved to an adjacent layer or a narrow test passed. Close it when the scope contract's required outcome and acceptance evidence are proven, using user-visible verification when applicable, or when new evidence proves the work belongs to a different family. On closure, replace the open entry with a compact tombstone that retains its stable identity, attempt count, closure head and evidence, and last structural direction for the rest of the current goal. If the same family returns, reopen it with its prior history and trigger a structural reset rather than starting at zero.
 
 Pause implementation and run a structural reset when any of these occurs:
 
@@ -107,7 +107,7 @@ Record an absolute ISO 8601 timestamp with a time-zone offset whenever the orche
 
 When 15 minutes have elapsed, reread this entire skill, the repository instruction files, the scope contract, and every reference currently active for the workflow before taking the next action. This is a backstop, not a sleep-based timer: the orchestrator cannot wake itself while idle, so refresh at the next control boundary. Refresh immediately, regardless of elapsed time, after context compaction or session reset, or whenever actions reveal forgotten or contradictory guidance.
 
-Guidance refresh restores instructions, not workflow state. After context compaction or session reset, reconstruct every open repair family and its attempt history from the last live report plus retained reviewer reports, implementor responses, Git heads and diffs, and verification artifacts. Reconcile those sources before another edit or review round. If a family's attempt count or evidence history cannot be recovered, mark it unknown, do not reset it to zero, and run a structural reset for that family before implementation resumes.
+Guidance refresh restores instructions, not workflow state. After context compaction or session reset, reconstruct every open repair family, closed-family tombstone, and attempt history from the last live report plus retained reviewer reports, implementor responses, Git heads and diffs, and verification artifacts. Reconcile those sources before another edit or review round, and compare new findings with both open and closed identities. If a family's attempt count or evidence history cannot be recovered, mark it unknown, do not reset it to zero, and run a structural reset for that family before implementation resumes.
 
 Before declaring completion, confirm that the current diff, verification, remote actions, and unresolved limitations still match the refreshed guidance and scope contract.
 
@@ -148,7 +148,7 @@ Send one prompt per request, require confirmed submission, and poll until the cu
 
 ## Reporting
 
-Keep the live report small. Emit one entry per open repair family. When no family is open, write `Open repair families: none` instead of an empty list.
+Keep the live report small. Emit one entry per open repair family and one tombstone per closed family retained for the current goal. When a section has no entries, write `none` instead of an empty list.
 
 ```text
 Transport: cmux | rex
@@ -159,6 +159,8 @@ Head: <sha>
 State: implementing | reviewing | fixing | clean | blocked
 Open repair families:
 - id=<stable family identity>; attempts=<count or unknown>; invariant=<owner>; evidence=<finding, review, head, or artifact refs>; last direction=<structural approach or none>
+Closed repair families:
+- id=<stable family identity>; attempts=<count or unknown>; closed at=<head and evidence>; last direction=<structural approach or none>
 Guidance refreshed at: <ISO 8601 timestamp with offset>
 Guidance refresh boundary: <optional event>
 Unresolved: <findings or none>

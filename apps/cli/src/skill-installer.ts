@@ -1,10 +1,11 @@
-import { existsSync, lstatSync, mkdirSync, readlinkSync, symlinkSync, unlinkSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PUBLIC_SKILL_NAMES = [
   "mux-orchestrate",
+  "mux-chatgpt-review",
   "mux-multireview",
   "mux-pr-description",
   "mux-staged-review",
@@ -15,7 +16,12 @@ const LEGACY_PUBLIC_SKILL_NAMES = ["devx-mux", "pr-title-description", "staged-p
 interface SkillLink {
   readonly destination: string;
   readonly source: string;
-  readonly state: "missing" | "current" | "stale";
+  readonly state: "current" | "replace";
+}
+
+interface LegacySkillPath {
+  readonly destination: string;
+  readonly exists: boolean;
 }
 
 interface InstallPublicSkillsOptions {
@@ -37,25 +43,6 @@ function resolveSkillsSourceRoot(): string {
   return sourceRoot;
 }
 
-function removeOwnedLegacySkillLinks(
-  skillRoot: string,
-  skillsSourceRoot: string,
-  output: Pick<NodeJS.WriteStream, "write">,
-): void {
-  for (const skillName of LEGACY_PUBLIC_SKILL_NAMES) {
-    const destination = path.join(skillRoot, skillName);
-    const stat = lstatSync(destination, { throwIfNoEntry: false });
-    if (!stat?.isSymbolicLink()) continue;
-
-    const linkedSource = path.resolve(skillRoot, readlinkSync(destination));
-    const ownedLegacySource = path.join(skillsSourceRoot, skillName);
-    if (linkedSource !== ownedLegacySource) continue;
-
-    unlinkSync(destination);
-    output.write(`Removed legacy skill link: ${destination}\n`);
-  }
-}
-
 function inspectSkillLink(skillRoot: string, skillsSourceRoot: string, skillName: string): SkillLink {
   const source = path.join(skillsSourceRoot, skillName);
   if (!existsSync(path.join(source, "SKILL.md"))) {
@@ -63,27 +50,15 @@ function inspectSkillLink(skillRoot: string, skillsSourceRoot: string, skillName
   }
   const destination = path.join(skillRoot, skillName);
   const stat = lstatSync(destination, { throwIfNoEntry: false });
-  if (!stat) {
-    return { destination, source, state: "missing" };
-  }
-  if (!stat.isSymbolicLink()) {
-    throw new Error(`Refusing to replace existing file or directory: ${destination}`);
-  }
-  const linkedSource = path.resolve(skillRoot, readlinkSync(destination));
-  return { destination, source, state: linkedSource === source ? "current" : "stale" };
+  const linkedSource = stat?.isSymbolicLink() ? path.resolve(skillRoot, readlinkSync(destination)) : undefined;
+  return { destination, source, state: linkedSource === source ? "current" : "replace" };
 }
 
-function installSkillLink(link: SkillLink, output: Pick<NodeJS.WriteStream, "write">): void {
-  if (link.state === "current") {
-    output.write(`Skill already linked: ${link.destination}\n`);
-    return;
-  }
+function installSkillLink(link: SkillLink): void {
+  if (link.state === "current") return;
   mkdirSync(path.dirname(link.destination), { recursive: true });
-  if (link.state === "stale") {
-    unlinkSync(link.destination);
-  }
+  rmSync(link.destination, { recursive: true, force: true });
   symlinkSync(link.source, link.destination, process.platform === "win32" ? "junction" : "dir");
-  output.write(`Linked skill: ${link.destination} -> ${link.source}\n`);
 }
 
 export function installPublicSkills(options: InstallPublicSkillsOptions = {}): void {
@@ -95,9 +70,27 @@ export function installPublicSkills(options: InstallPublicSkillsOptions = {}): v
     path.join(environment.CLAUDE_HOME ?? path.join(homedir(), ".claude"), "skills"),
     path.join(environment.AGENTS_HOME ?? path.join(homedir(), ".agents"), "skills"),
   ];
-  skillRoots.forEach((root) => removeOwnedLegacySkillLinks(root, skillsSourceRoot, output));
-  const links = skillRoots.flatMap((root) =>
+  const canonicalLinks = skillRoots.flatMap((root) =>
     PUBLIC_SKILL_NAMES.map((name) => inspectSkillLink(root, skillsSourceRoot, name)),
   );
-  links.forEach((link) => installSkillLink(link, output));
+  const legacyPaths = skillRoots.flatMap((root) =>
+    LEGACY_PUBLIC_SKILL_NAMES.map((name): LegacySkillPath => {
+      const destination = path.join(root, name);
+      return { destination, exists: lstatSync(destination, { throwIfNoEntry: false }) !== undefined };
+    }),
+  );
+
+  canonicalLinks.forEach(installSkillLink);
+  legacyPaths.forEach((legacyPath) => rmSync(legacyPath.destination, { recursive: true, force: true }));
+
+  legacyPaths
+    .filter((legacyPath) => legacyPath.exists)
+    .forEach((legacyPath) => output.write(`Removed legacy skill: ${legacyPath.destination}\n`));
+  canonicalLinks.forEach((link) => {
+    if (link.state === "current") {
+      output.write(`Skill already linked: ${link.destination}\n`);
+    } else {
+      output.write(`Linked skill: ${link.destination} -> ${link.source}\n`);
+    }
+  });
 }
