@@ -25,10 +25,11 @@
 #   review_submit <tool> <handle> <prompt>    submit prompt; exit 1 if not confirmed
 #   review_read_body <tool> <handle>          print visible body text for diagnostics
 #   review_read_last_answer <tool> <handle>   print the latest assistant response
-#   review_read_answer_state <tool> <handle>  print count, generation state, and latest text
+#   review_read_answer_state <tool> <handle> [REQUEST_ID=<id>]
+#                                             print request-bound structured state
 #   review_request_id_status <body> <id>      print "observed <id>" / "waiting missing <id>"
 #   review_send_prompt_file <tool> <target> <file>
-#   review_poll_latest_answer <tool> <target> [REQUEST_ID=<id>] [after-assistant-count]
+#   review_poll_latest_answer <tool> <target> REQUEST_ID=<id>
 
 # Directory of this file. Both transport socket resolvers live next to it.
 # BASH_SOURCE[0] is set under bash (the shebang runtime); fall back to $0 so a
@@ -526,12 +527,14 @@ review_read_last_answer() {
     esac
 }
 
-# Print a JSON envelope for the current ChatGPT response state. Callers capture
-# the count before submission, then reject nodes at or before that prompt
-# boundary and reject the newest node while ChatGPT is still generating it.
+# Print a JSON envelope for the current ChatGPT response state. When a request ID
+# is provided, select only an assistant node that follows the matching user
+# message. This binds the result to the prompt without relying on DOM node counts,
+# which can change when ChatGPT virtualizes or re-renders a conversation.
 review_read_answer_state() {
-    local tool="$1" handle="$2"
-    local js='(()=>{const t=document.querySelectorAll('"'"'[data-message-author-role="assistant"]'"'"');const answer=t.length?t[t.length-1].innerText:"";const generation=document.querySelector('"'"'button[data-testid="stop-button"]'"'"')?"generating":"complete";return JSON.stringify({assistantCount:t.length,generation,answer});})()'
+    local tool="$1" handle="$2" request_id="${3:-}" request_id_json js
+    request_id_json="$(node -e 'process.stdout.write(JSON.stringify(process.argv[1]))' "$request_id")" || return 1
+    js='(()=>{const requestId='"$request_id_json"';const messages=Array.from(document.querySelectorAll('"'"'[data-message-author-role]'"'"'));let requestIndex=-1;if(requestId){for(let i=messages.length-1;i>=0;i--){if(messages[i].getAttribute('"'"'data-message-author-role'"'"')==='"'"'user'"'"'&&messages[i].innerText.includes(requestId)){requestIndex=i;break;}}}const assistants=messages.slice(requestIndex+1).filter(message=>message.getAttribute('"'"'data-message-author-role'"'"')==='"'"'assistant'"'"');const responseObserved=assistants.length>0;const answer=responseObserved?assistants[assistants.length-1].innerText:"";const stopVisible=Array.from(document.querySelectorAll('"'"'button'"'"')).some(button=>button.matches('"'"'[data-testid="stop-button"]'"'"')||[button.innerText,button.getAttribute('"'"'aria-label'"'"')].some(label=>(label||"").trim()==="Stop answering"));const generation=stopVisible?"generating":"complete";return JSON.stringify({requestObserved:!requestId||requestIndex>=0,responseObserved,generation,answer});})()'
     case "$tool" in
         cmux)
             _review_setup_socket cmux
@@ -561,9 +564,9 @@ review_read_answer_state() {
     esac
 }
 
-# Validate the browser envelope and print count, generation, and base64-encoded
-# answer separated by pipes. Base64 preserves empty and multiline answers across
-# shell command substitution without relying on trailing newlines.
+# Validate the browser envelope and print request-observed, response-observed,
+# generation, and base64-encoded answer separated by pipes. Base64 preserves
+# empty and multiline answers across shell command substitution.
 review_parse_answer_state() {
     local state="$1"
     if [[ -z "$state" ]]; then
@@ -575,32 +578,16 @@ const raw = process.argv[1];
 let value;
 try { value = JSON.parse(raw); } catch { process.exitCode = 1; }
 if (
-  !value || !Number.isSafeInteger(value.assistantCount) || value.assistantCount < 0 ||
+  !value || typeof value.requestObserved !== "boolean" || typeof value.responseObserved !== "boolean" ||
   !["generating", "complete"].includes(value.generation) || typeof value.answer !== "string"
 ) process.exitCode = 1;
 if (!process.exitCode) {
-  process.stdout.write(`${value.assistantCount}|${value.generation}|${Buffer.from(value.answer, "utf8").toString("base64")}`);
+  process.stdout.write(`${value.requestObserved}|${value.responseObserved}|${value.generation}|${Buffer.from(value.answer, "utf8").toString("base64")}`);
 }
 ' "$state" || {
         echo "review_parse_answer_state: malformed browser response" >&2
         return 1
     }
-}
-
-review_assistant_count() {
-    local tool="$1" target="$2" handle state parsed assistant_count remainder generation encoded_answer
-    handle="$(review_find_chatgpt_pane "$tool" "$target")"
-    if ! review_is_chatgpt "$tool" "$handle"; then
-        echo "Refusing browser count: ${handle} is not a ChatGPT tab." >&2
-        return 1
-    fi
-    state="$(review_read_answer_state "$tool" "$handle")" || return 1
-    parsed="$(review_parse_answer_state "$state")" || return 1
-    assistant_count="${parsed%%|*}"
-    remainder="${parsed#*|}"
-    generation="${remainder%%|*}"
-    encoded_answer="${remainder#*|}"
-    printf '%s\n' "$assistant_count"
 }
 
 # Pure helper: report whether REQUEST_ID is visible in the body.
@@ -635,49 +622,48 @@ review_send_prompt_file() {
     review_submit "$tool" "$handle" "$(<"$prompt_file")"
 }
 
-# Print only the latest assistant response and optionally verify REQUEST_ID.
+# Print only the completed assistant response following the requested user prompt.
 review_poll_latest_answer() {
-    local tool="$1" target="$2" request_id="${3:-}" after_count="${4:-}"
-    if [[ -n "$request_id" && "$request_id" != REQUEST_ID=* ]]; then
+    local tool="$1" target="$2" request_id="${3:-}"
+    if [[ "$request_id" != REQUEST_ID=* ]]; then
         echo "Expected REQUEST_ID=<id>, got $request_id" >&2
         return 2
     fi
-    if [[ -n "$after_count" && ! "$after_count" =~ ^[0-9]+$ ]]; then
-        echo "Expected numeric assistant count, got $after_count" >&2
-        return 2
-    fi
 
-    local handle state parsed assistant_count remainder generation encoded_answer answer
+    local handle state parsed request_observed response_observed remainder generation encoded_answer answer
     handle="$(review_find_chatgpt_pane "$tool" "$target")"
     if ! review_is_chatgpt "$tool" "$handle"; then
         echo "Refusing browser poll: ${handle} is not a ChatGPT tab." >&2
         return 1
     fi
 
-    state="$(review_read_answer_state "$tool" "$handle")" || return 1
+    state="$(review_read_answer_state "$tool" "$handle" "$request_id")" || return 1
     parsed="$(review_parse_answer_state "$state")" || return 1
-    assistant_count="${parsed%%|*}"
+    request_observed="${parsed%%|*}"
     remainder="${parsed#*|}"
-    generation="${remainder%%|*}"
+    response_observed="${remainder%%|*}"
     encoded_answer="${remainder#*|}"
+    generation="${encoded_answer%%|*}"
+    encoded_answer="${encoded_answer#*|}"
     if ! answer="$(node -e 'process.stdout.write(Buffer.from(process.argv[1], "base64"))' "$encoded_answer")"; then
         echo "review_poll_latest_answer: invalid encoded answer" >&2
         return 1
     fi
-    if [[ -n "$after_count" && "$assistant_count" -le "$after_count" ]]; then
-        echo "waiting assistant_count=$assistant_count after=$after_count"
+    if [[ "$request_observed" != true ]]; then
+        echo "waiting missing $request_id"
+        return 0
+    fi
+    if [[ "$response_observed" != true ]]; then
+        echo "waiting response for $request_id"
         return 0
     fi
     if [[ "$generation" != "complete" ]]; then
-        echo "waiting generating assistant_count=$assistant_count"
+        echo "waiting generating $request_id"
         return 0
     fi
     if [[ -z "${answer//[[:space:]]/}" ]]; then
-        echo "waiting empty assistant_count=$assistant_count"
+        echo "waiting empty $request_id"
         return 0
     fi
     printf '%s\n' "$answer"
-    if [[ -n "$request_id" ]]; then
-        review_request_id_status "$answer" "$request_id"
-    fi
 }

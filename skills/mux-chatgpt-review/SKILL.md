@@ -42,33 +42,32 @@ REQUEST_ID=github:<owner>/<repository>:pr:<number>:head:<full-sha>:<YYYYMMDDTHHM
 Review @GitHub <owner>/<repository> PR #<number>.
 ```
 
-Immediately before submission, read and retain the immutable full PR head from GitHub and capture the current assistant-message count. Generate the request ID from that submission head and current system time. It is a routing marker for the orchestrator, not an instruction that ChatGPT must echo.
+Immediately before submission, read and retain the immutable full PR head from GitHub. Generate the request ID from that submission head and current system time. It is both the prompt-to-response boundary and a routing marker for the orchestrator, not an instruction that ChatGPT must echo.
 
 Use the shared browser transport from `mux-orchestrate`:
 
 ```bash
 SKILL=${CODEX_HOME:-$HOME/.codex}/skills/mux-orchestrate
-BASELINE=$("$SKILL/scripts/cmux-review-poll.sh" browser surface:N COUNT_ONLY)
 "$SKILL/scripts/cmux-review-send.sh" browser surface:N /tmp/review-prompt.txt
-"$SKILL/scripts/cmux-review-poll.sh" browser surface:N AFTER_ASSISTANT_COUNT="$BASELINE"
+node "$SKILL/scripts/chatgpt-review-wait.ts" cmux surface:N REQUEST_ID=<id>
 ```
 
 Confirm submission by reading the newest user message and matching the request ID. A successful fill or click alone is not proof.
 
 ## Wait for the real result
 
-ChatGPT reviews commonly take several minutes. Wait at least two minutes before the first result poll and at least two minutes between later polls while the review remains active. Do not send reminders, duplicate the prompt, or interpret intermediate research notes as findings.
+Run `chatgpt-review-wait.ts` once in a background terminal and wait on that same process until it exits. The shared waiter owns the polling cadence for both cmux and Rex: it checks request-bound structured state internally once per minute, emits at most one waiting status every five minutes, and has no elapsed-time timeout. The agent must not add its own sleep loop, browser polling, or body-text scraping around it. Do not send reminders, duplicate the prompt, or interpret intermediate research notes as findings.
 
-Elapsed time alone never makes a ChatGPT review stalled or incomplete. There is no elapsed-time timeout or unchanged-progress limit. Do not click `Stop answering`, restart the review, or open a fresh chat because progress is unchanged or the review has taken many minutes. Continue the two-minute polling cadence as long as ChatGPT is generating or exposing research progress. The 15-minute guidance refresh reloads the skill around the active run; it must not restart, replace, or otherwise disturb that run.
+Elapsed time alone never makes a ChatGPT review stalled or incomplete. There is no elapsed-time timeout or unchanged-progress limit. Do not click `Stop answering`, restart the review, or open a fresh chat because progress is unchanged or the review has taken many minutes. Keep waiting on the shared waiter process as long as it remains active. The 15-minute guidance refresh reloads the skill around the active run; it must not restart, replace, or otherwise disturb that run.
 
 A run becomes incomplete only when ChatGPT reports an explicit failure or cancellation, the selected surface or conversation is lost and cannot be recovered, or the user cancels it. If a completed answer is visually present but browser text extraction fails, recover or reload the same conversation and preserve its context instead of starting over. A missing or temporarily inaccessible surface requires recovery attempts against the same UUID-backed surface and conversation before the run may be classified as lost.
 
-The poller must report `waiting` until a new assistant node exists after the captured baseline, ChatGPT is no longer generating, and the new node contains non-empty text. Accept that completed result only when it contains both:
+The poller must report `waiting` until the submitted request ID is visible, an assistant node following that exact user message exists, ChatGPT is no longer generating, and the response contains non-empty text. It must not use a raw assistant-node count because ChatGPT can virtualize or re-render conversation nodes. Accept that completed result only when it contains both:
 
 - the exact full head SHA it reviewed, matching both the retained submission head and a fresh GitHub head read
 - actionable findings or an explicit clean verdict
 
-The stop button, progress text, source cards, elapsed-time label, or disappearance of a generating indicator is not sufficient. If GitHub moved after submission, discard the result as stale even if ChatGPT reviewed the retained submission head correctly. An answer for an older head is stale even when it is the newest completed assistant message. If the final answer omits the reviewed head, ask only which full head SHA it reviewed before classifying the verdict.
+Generation detection recognizes both ChatGPT's stop-button test ID and its visible or accessible `Stop answering` label. The stop button, progress text, source cards, elapsed-time label, or disappearance of only one generating indicator is not sufficient. If GitHub moved after submission, discard the result as stale even if ChatGPT reviewed the retained submission head correctly. An answer for an older head is stale even when it is the newest completed assistant message. If the final answer omits the reviewed head, ask only which full head SHA it reviewed before classifying the verdict.
 
 ## Fix and rereview
 
@@ -89,7 +88,7 @@ REQUEST_ID=github:<owner>/<repository>:pr:<number>:head:<full-sha>:<YYYYMMDDTHHM
 Updated. Re-review everything.
 ```
 
-Do not summarize the finding or fix and do not start a fresh chat while that working chat still reports findings. Wait using the same two-minute minimum interval.
+Do not summarize the finding or fix and do not start a fresh chat while that working chat still reports findings. Start the same shared waiter once for the new request and wait on its process.
 
 ## Independent clean confirmation
 

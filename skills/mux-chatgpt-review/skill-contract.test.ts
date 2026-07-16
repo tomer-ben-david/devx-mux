@@ -5,7 +5,10 @@ import { test } from "node:test";
 const skill = readFileSync(new URL("./SKILL.md", import.meta.url), "utf8");
 
 test("ChatGPT review converges in one chat before a fresh independent confirmation", () => {
-  assert.match(skill, /Wait at least two minutes before the first result poll/);
+  assert.match(skill, /Run `chatgpt-review-wait\.ts` once in a background terminal/);
+  assert.match(skill, /checks request-bound structured state internally once per minute/);
+  assert.match(skill, /emits at most one waiting status every five minutes/);
+  assert.match(skill, /must not add its own sleep loop, browser polling, or body-text scraping/);
   assert.match(skill, /Elapsed time alone never makes a ChatGPT review stalled or incomplete/);
   assert.match(skill, /There is no elapsed-time timeout or unchanged-progress limit/);
   assert.match(skill, /Do not click `Stop answering`/);
@@ -13,8 +16,9 @@ test("ChatGPT review converges in one chat before a fresh independent confirmati
   assert.match(skill, /recovery attempts against the same UUID-backed surface and conversation/);
   assert.match(skill, /REQUEST_ID=github:<owner>\/<repository>:pr:<number>:head:<full-sha>:/);
   assert.match(skill, /Review @GitHub <owner>\/<repository> PR #<number>\./);
-  assert.match(skill, /COUNT_ONLY/);
-  assert.match(skill, /AFTER_ASSISTANT_COUNT="\$BASELINE"/);
+  assert.match(skill, /chatgpt-review-wait\.ts" cmux surface:N REQUEST_ID=<id>/);
+  assert.match(skill, /must not use a raw assistant-node count/);
+  assert.match(skill, /visible or accessible `Stop answering` label/);
   assert.match(skill, /matching both the retained submission head and a fresh GitHub head read/);
   assert.match(skill, /Updated\. Re-review everything\./);
   assert.match(skill, /use ChatGPT's `Shift\+Command\+O` new-chat shortcut/);
