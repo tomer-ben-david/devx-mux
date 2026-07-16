@@ -53,6 +53,7 @@ test("the packed npm release installs the CLI and public skills into an isolated
     assert(packageFiles.includes("skills/mux-orchestrate/scripts/chatgpt-review-wait.mjs"));
     assert(packageFiles.includes("skills/mux-orchestrate/scripts/chatgpt-review-poll.mjs"));
     assert(packageFiles.includes("skills/mux-orchestrate/scripts/chatgpt-review-adopt.mjs"));
+    assert(packageFiles.includes("skills/mux-orchestrate/scripts/chatgpt-review-request.mjs"));
     assert(packageFiles.includes("skills/mux-chatgpt-review/SKILL.md"));
     assert.equal(packageFiles.some((file) => file.startsWith("skills/devx-mux/")), false);
     assert.equal(packageFiles.some((file) => file.includes(".test.")), false);
@@ -117,7 +118,7 @@ test("the packed npm release installs the CLI and public skills into an isolated
     assert.equal(waiterUsage.status, 2, `installed waiter did not execute through its skill symlink\n${waiterUsage.stderr}`);
     assert.match(waiterUsage.stderr, /^Usage: chatgpt-review-wait\.mjs/m);
 
-    for (const executable of ["chatgpt-review-poll.mjs", "chatgpt-review-adopt.mjs"]) {
+    for (const executable of ["chatgpt-review-poll.mjs", "chatgpt-review-adopt.mjs", "chatgpt-review-request.mjs"]) {
       const result = spawnSync(process.execPath, [path.join(path.dirname(installedWaiter), executable)], {
         env: isolatedEnvironment,
         encoding: "utf8",

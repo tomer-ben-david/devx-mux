@@ -2,7 +2,9 @@ import { parseHTML } from "linkedom";
 
 export interface UnboundRequestBoundary {
   kind: "unbound-request";
-  requestId: string;
+  label: string;
+  expectedPromptText: string;
+  matchMode: "exact" | "contains";
 }
 
 export interface TurnBoundary {
@@ -34,6 +36,25 @@ interface TurnTokenPayload {
   label?: string;
 }
 
+interface RequestTokenPayload {
+  version: 1;
+  label: string;
+  expectedPromptText: string;
+}
+
+function normalizePromptText(value: string): string {
+  return value.trim();
+}
+
+export function encodeRequestToken(label: string, expectedPromptText: string): string {
+  const prompt = normalizePromptText(expectedPromptText);
+  if (!label.startsWith("MUX_REQUEST_ID=") || !prompt) {
+    throw new Error("A request token requires a MUX_REQUEST_ID label and non-empty prompt");
+  }
+  const payload: RequestTokenPayload = { version: 1, label, expectedPromptText: prompt };
+  return `REQUEST_TOKEN=${Buffer.from(JSON.stringify(payload), "utf8").toString("base64url")}`;
+}
+
 function normalizeConversationUrl(value: string): string {
   const url = new URL(value);
   return `${url.origin}${url.pathname}`.replace(/\/$/, "");
@@ -51,11 +72,31 @@ export function encodeTurnToken(conversationUrl: string, userMessageId: string, 
 
 export function parseReviewBoundary(value: string): ReviewBoundary {
   if (value.startsWith("REQUEST_ID=")) {
-    return { kind: "unbound-request", requestId: value };
+    return { kind: "unbound-request", label: value, expectedPromptText: value, matchMode: "contains" };
+  }
+  if (value.startsWith("REQUEST_TOKEN=")) {
+    let payload: unknown;
+    try {
+      payload = JSON.parse(Buffer.from(value.slice("REQUEST_TOKEN=".length), "base64url").toString("utf8"));
+    } catch {
+      throw new Error("Malformed ChatGPT request token");
+    }
+    if (
+      typeof payload !== "object" || payload === null ||
+      !("version" in payload) || payload.version !== 1 ||
+      !("label" in payload) || typeof payload.label !== "string" || !payload.label.startsWith("MUX_REQUEST_ID=") ||
+      !("expectedPromptText" in payload) || typeof payload.expectedPromptText !== "string" || !normalizePromptText(payload.expectedPromptText)
+    ) throw new Error("Malformed ChatGPT request token");
+    return {
+      kind: "unbound-request",
+      label: payload.label,
+      expectedPromptText: normalizePromptText(payload.expectedPromptText),
+      matchMode: "exact",
+    };
   }
   const tokenPrefix = value.startsWith("TURN_TOKEN=") ? "TURN_TOKEN=" : value.startsWith("ADOPT_TOKEN=") ? "ADOPT_TOKEN=" : "";
   if (!tokenPrefix) {
-    throw new Error(`Expected REQUEST_ID=<id> or TURN_TOKEN=<token>, got ${value}`);
+    throw new Error(`Expected REQUEST_ID=<id>, REQUEST_TOKEN=<token>, or TURN_TOKEN=<token>, got ${value}`);
   }
   let payload: unknown;
   try {
@@ -101,15 +142,20 @@ export function bindReviewBoundary(
 ): TurnBoundary {
   if (boundary.kind === "turn") return boundary;
   const { document } = parseHTML(html);
-  const user = [...document.querySelectorAll('section[data-turn="user"] [data-message-author-role="user"][data-message-id]')]
-    .findLast(message => (message.textContent ?? "").includes(boundary.requestId));
+  const users = [...document.querySelectorAll('section[data-turn="user"] [data-message-author-role="user"][data-message-id]')];
+  const user = users.findLast(message => {
+    const text = normalizePromptText(message.textContent ?? "");
+    return boundary.matchMode === "exact"
+      ? text === boundary.expectedPromptText
+      : text.includes(boundary.expectedPromptText);
+  });
   const userMessageId = user?.getAttribute("data-message-id");
-  if (!userMessageId) throw new Error(`Cannot bind ChatGPT request: submitted turn not found (${boundary.requestId})`);
+  if (!userMessageId) throw new Error(`Cannot bind ChatGPT request: submitted turn not found (${boundary.label})`);
   return {
     kind: "turn",
     conversationUrl: normalizeConversationUrl(conversationUrl),
     userMessageId,
-    label: boundary.requestId,
+    label: boundary.label,
   };
 }
 

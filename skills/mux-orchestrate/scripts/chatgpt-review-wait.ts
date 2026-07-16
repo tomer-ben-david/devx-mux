@@ -5,7 +5,7 @@ import { formatBrowserReviewState, readBrowserReviewState, readReviewPage } from
 import { isRetryableBrowserPollFailure, waitForChatGptReview } from "./chatgpt-review-wait-lib.ts";
 
 function usage(): never {
-  console.error("Usage: chatgpt-review-wait.mjs <cmux|rex> <surface-or-pane> <REQUEST_ID|TURN_TOKEN>");
+  console.error("Usage: chatgpt-review-wait.mjs <cmux|rex> <surface-or-pane> <REQUEST_ID|REQUEST_TOKEN|TURN_TOKEN>");
   process.exit(2);
 }
 

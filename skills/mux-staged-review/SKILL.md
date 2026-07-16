@@ -25,7 +25,7 @@ Never assume the base is `main`. Use the PR base or Git-derived merge base and p
 1. Confirm the exact PR URL, compare URL, branch, base, and head.
 2. Confirm the feature branch is pushed. Ask before pushing or changing the PR.
 3. Resolve a ChatGPT browser target through `$mux-orchestrate`.
-4. Keep one `REQUEST_ID` per send. The shared waiter binds it to an immutable turn, settles readiness, and retrieves only the digest-matched response.
+4. Keep one local `MUX_REQUEST_ID` per send and encode it with the exact prompt in a `REQUEST_TOKEN`. Do not expose either value in the review prompt. The shared waiter binds the exact prompt-matching turn, settles readiness, and retrieves only the digest-matched response.
 
 ## Run
 
@@ -38,7 +38,7 @@ export STAGED_REPO="/path/to/repo"
 export STAGED_BASE="base-branch"
 
 "$SKILL/scripts/staged-review-send.sh" 1
-"$SKILL/scripts/staged-review-poll.sh" REQUEST_ID=staged-s1-...
+"$SKILL/scripts/staged-review-poll.sh" REQUEST_TOKEN=...
 ```
 
 `staged-review-poll.sh` is a blocking compatibility name: it runs the shared bind, wait, settle, and digest-validated retrieval operation, then prints the exact review. After stage 1 is clean, repeat with stages 2, 3, and 4. Targets may be `chatgpt`, `chatgpt-rex`, `browser`, `surface:N`, or `rex`.
@@ -74,7 +74,7 @@ If a review was interrupted, treat it as incomplete and rerun it.
 Stage: N
 Scope: <exact comparison>
 Head: <sha>
-REQUEST_ID: <id>
+Request token: <local token carrying prompt identity and MUX request label>
 State: reviewing | fixing | clean | blocked
 Findings: <summary or none>
 Next: rerun stage N | advance to stage N+1 | complete

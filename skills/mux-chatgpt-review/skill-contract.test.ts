@@ -26,9 +26,12 @@ test("ChatGPT review converges in one chat before a fresh independent confirmati
   assert.match(skill, /Do not click `Stop answering`/);
   assert.match(skill, /15-minute guidance refresh reloads the skill around the active run/);
   assert.match(skill, /recovery attempts against the same UUID-backed surface and conversation/);
-  assert.match(skill, /REQUEST_ID=github:<owner>\/<repository>:pr:<number>:head:<full-sha>:/);
+  assert.match(skill, /MUX_REQUEST_ID=github:<owner>\/<repository>:pr:<number>:head:<full-sha>:/);
   assert.match(skill, /Review @GitHub <owner>\/<repository> PR #<number>\./);
-  assert.match(skill, /chatgpt-review-wait\.mjs" cmux surface:N REQUEST_ID=<id>/);
+  assert.match(skill, /chatgpt-review-request\.mjs" MUX_REQUEST_ID=<id> \/tmp\/review-prompt\.txt/);
+  assert.match(skill, /later unrelated user turn cannot steal the request boundary/);
+  assert.doesNotMatch(skill, /\nREQUEST_ID=github:<owner>\/<repository>:pr:<number>:head:<full-sha>:/);
+  assert.match(skill, /chatgpt-review-wait\.mjs" cmux surface:N "\$REQUEST"/);
   assert.match(skill, /must not use a raw assistant-node count/);
   assert.match(skill, /visible or accessible `Stop answering` label/);
   assert.match(skill, /matching both the retained submission head and a fresh GitHub head read/);

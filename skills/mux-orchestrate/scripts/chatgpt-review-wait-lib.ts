@@ -37,9 +37,11 @@ export async function waitForChatGptReview(options: ReviewWaitOptions): Promise<
       candidatePolls = 0;
     } else if (output === candidate) {
       candidatePolls += 1;
+      lastWaitingState = "settling completed response";
     } else {
       candidate = output;
       candidatePolls = 1;
+      lastWaitingState = "settling completed response";
     }
     if (candidatePolls >= 3) {
       return candidate;
@@ -49,7 +51,8 @@ export async function waitForChatGptReview(options: ReviewWaitOptions): Promise<
     if (currentTime >= nextStatusAt) {
       const elapsedMinutes = Math.floor((currentTime - startedAt) / 60_000);
       const settling = candidatePolls > 0 ? ` settling=${candidatePolls}/3` : "";
-      options.onStatus(`waiting ChatGPT review elapsed=${elapsedMinutes}m polls=${polls}${settling} state=${lastWaitingState} ${options.requestId}`);
+      const context = lastWaitingState.includes(options.requestId) ? "" : ` ${options.requestId}`;
+      options.onStatus(`waiting ChatGPT review elapsed=${elapsedMinutes}m polls=${polls}${settling} state=${lastWaitingState}${context}`);
       nextStatusAt = currentTime + options.statusIntervalMs;
     }
   }

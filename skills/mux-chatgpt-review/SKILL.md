@@ -53,22 +53,21 @@ Verify the conversation URL or identity changed and that no prior user or assist
 Keep the prompt short so ChatGPT owns the investigation. Do not include suspected bugs, implementation history, preferred fixes, or a long checklist:
 
 ```text
-REQUEST_ID=github:<owner>/<repository>:pr:<number>:head:<full-sha>:<YYYYMMDDTHHMMSS+offset>
-
 Review @GitHub <owner>/<repository> PR #<number>.
 ```
 
-Immediately before submission, read and retain the immutable full PR head from GitHub. Generate the request ID from that submission head and current system time. It is both the prompt-to-response boundary and a routing marker for the orchestrator, not an instruction that ChatGPT must echo.
+Immediately before submission, read and retain the immutable full PR head from GitHub. Generate a local `MUX_REQUEST_ID=github:<owner>/<repository>:pr:<number>:head:<full-sha>:<YYYYMMDDTHHMMSS+offset>` from that head and current system time, but do not include transport metadata in the reviewer-visible prompt. Encode the local label and exact prompt text into a `REQUEST_TOKEN`; the waiter uses that token to bind only the matching submitted user turn by stable conversation URL and message ID.
 
 Use the shared browser transport from `mux-orchestrate`:
 
 ```bash
+REQUEST=$(node "$SKILL/scripts/chatgpt-review-request.mjs" MUX_REQUEST_ID=<id> /tmp/review-prompt.txt)
 "$SKILL/scripts/cmux-review-send.sh" browser surface:N /tmp/review-prompt.txt
-READY=$(node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux surface:N REQUEST_ID=<id>)
+READY=$(node "$SKILL/scripts/chatgpt-review-wait.mjs" cmux surface:N "$REQUEST")
 node "$SKILL/scripts/chatgpt-review-poll.mjs" cmux surface:N "$READY"
 ```
 
-Confirm submission by reading the newest user message and matching the request ID. A successful fill or click alone is not proof.
+The waiter confirms submission by finding the exact reviewer-visible prompt carried in the local request token. A successful fill or click alone is not proof. A later unrelated user turn cannot steal the request boundary.
 
 ## Wait for the real result
 
@@ -101,12 +100,10 @@ Do not converge through whack-a-mole patches that add another guard, exception, 
 Keep fixes and rereviews in the same working chat so ChatGPT retains its own findings. After every changed head, send only:
 
 ```text
-REQUEST_ID=github:<owner>/<repository>:pr:<number>:head:<full-sha>:<YYYYMMDDTHHMMSS+offset>
-
 Updated. Re-review everything.
 ```
 
-Do not summarize the finding or fix and do not start a fresh chat while that working chat still reports findings. Start the same shared waiter once for the new request and wait on its process.
+Generate a new local `MUX_REQUEST_ID` and `REQUEST_TOKEN` for that submission, but keep both out of the prompt. Do not summarize the finding or fix and do not start a fresh chat while that working chat still reports findings. Start the same shared waiter once for the new request and wait on its process.
 
 ## Independent clean confirmation
 

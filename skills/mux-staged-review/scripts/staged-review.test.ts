@@ -30,7 +30,7 @@ test("renders every stage without unresolved template values", () => {
       stdio: "ignore",
     });
     const prompt = readFileSync(promptFile, "utf8");
-    assert.match(prompt, new RegExp(`REQUEST_ID=stage-${stage}`));
+    assert.doesNotMatch(prompt, /REQUEST_ID=/);
     assert.doesNotMatch(prompt, /\{\{[^}]+\}\}/);
   }
 });
@@ -62,6 +62,7 @@ test("routes both Rex product names through the Rex transport", () => {
     const scripts = path.join(fakeMuxSkill, "scripts");
     mkdirSync(scripts, { recursive: true });
     writeFileSync(path.join(fakeMuxSkill, "SKILL.md"), "# test skill\n");
+    writeFileSync(path.join(scripts, "chatgpt-review-request.mjs"), 'process.stdout.write("REQUEST_TOKEN=test-request\\n");\n');
     writeFileSync(path.join(scripts, "rex-review-send.sh"), "#!/bin/sh\nexit 0\n");
     writeFileSync(path.join(scripts, "cmux-review-send.sh"), "#!/bin/sh\nexit 9\n");
     chmodSync(path.join(scripts, "rex-review-send.sh"), 0o755);
@@ -96,14 +97,14 @@ test("staged polling uses shared settlement and digest-validated retrieval", () 
     mkdirSync(scripts, { recursive: true });
     writeFileSync(path.join(fakeMuxSkill, "SKILL.md"), "# test skill\n");
     writeFileSync(path.join(scripts, "chatgpt-review-wait.mjs"), `
-      if (process.argv.slice(2).join("|") !== "cmux|chatgpt|REQUEST_ID=stage-1") process.exit(8);
+      if (process.argv.slice(2).join("|") !== "cmux|chatgpt|REQUEST_TOKEN=test-request") process.exit(8);
       process.stdout.write("READY_TOKEN=test-ready\\n");
     `);
     writeFileSync(path.join(scripts, "chatgpt-review-poll.mjs"), `
       if (process.argv.slice(2).join("|") !== "cmux|chatgpt|READY_TOKEN=test-ready") process.exit(9);
       process.stdout.write("ALL CLEAN\\n");
     `);
-    const output = execFileSync(process.execPath, [script, "poll", "chatgpt", "REQUEST_ID=stage-1"], {
+    const output = execFileSync(process.execPath, [script, "poll", "chatgpt", "REQUEST_TOKEN=test-request"], {
       env: { ...process.env, MUX_ORCHESTRATE_SKILL_DIR: fakeMuxSkill },
       encoding: "utf8",
     });

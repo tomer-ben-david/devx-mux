@@ -31,7 +31,7 @@ Use the PR base or a Git-derived merge base. Never hardcode a default branch nam
 ## Repeat until clean
 
 1. Send one stage prompt.
-2. Run the shared blocking waiter until the immutable request turn is complete and settled.
+2. Run the shared blocking waiter with the local `REQUEST_TOKEN` until the exact prompt-matching request turn is complete and settled.
 3. Retrieve the full response only when it matches the settled digest.
 4. Triage every finding.
 5. If code changes, validate and push with explicit approval.

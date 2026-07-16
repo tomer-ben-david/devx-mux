@@ -1,5 +1,3 @@
-REQUEST_ID={{REQUEST_ID}}
-
 Read-only. No repository mutations. Reply in chat only.
 
 PR: {{PR_URL}}

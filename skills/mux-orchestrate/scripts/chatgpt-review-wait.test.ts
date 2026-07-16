@@ -46,6 +46,22 @@ test("the shared waiter emits a five-minute heartbeat and has no elapsed-time ti
   assert.deepEqual(statuses, [`waiting ChatGPT review elapsed=5m polls=5 state=waiting generating ${requestId}`]);
 });
 
+test("settling heartbeats replace stale incomplete state", async () => {
+  const statuses: string[] = [];
+  let now = 0;
+  const outputs = [reviewResult, reviewResult, reviewResult];
+  await waitForChatGptReview({
+    poll: () => outputs.shift()!,
+    sleep: async milliseconds => { now += milliseconds; },
+    now: () => now,
+    onStatus: message => statuses.push(message),
+    pollIntervalMs: 60_000,
+    statusIntervalMs: 60_000,
+    requestId,
+  });
+  assert.match(statuses[0]!, /settling=1\/3 state=settling completed response/);
+});
+
 test("the shared waiter fails closed on an empty poll result", async () => {
   await assert.rejects(
     waitForChatGptReview({

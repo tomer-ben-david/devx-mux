@@ -7,7 +7,7 @@ const [tool, target, boundaryValue, ...extra] = process.argv.slice(2);
 if (
   extra.length > 0 || !["cmux", "rex"].includes(tool ?? "") || !target || !boundaryValue
 ) {
-  console.error("Usage: chatgpt-review-poll.mjs <cmux|rex> <surface-or-pane> <REQUEST_ID|TURN_TOKEN|READY_TOKEN>");
+  console.error("Usage: chatgpt-review-poll.mjs <cmux|rex> <surface-or-pane> <REQUEST_ID|REQUEST_TOKEN|TURN_TOKEN|READY_TOKEN>");
   process.exit(2);
 }
 

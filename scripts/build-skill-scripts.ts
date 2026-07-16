@@ -11,6 +11,7 @@ export async function buildSkillScripts(): Promise<void> {
       "chatgpt-review-wait": path.join(scriptsDirectory, "chatgpt-review-wait.ts"),
       "chatgpt-review-poll": path.join(scriptsDirectory, "chatgpt-review-poll.ts"),
       "chatgpt-review-adopt": path.join(scriptsDirectory, "chatgpt-review-adopt.ts"),
+      "chatgpt-review-request": path.join(scriptsDirectory, "chatgpt-review-request.ts"),
     },
     outdir: scriptsDirectory,
     outExtension: { ".js": ".mjs" },

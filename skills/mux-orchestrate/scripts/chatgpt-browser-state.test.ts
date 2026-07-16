@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { bindReviewBoundary, createAdoptionToken, parseBrowserReviewState, parseReadyRecord, parseReviewBoundary, RequestBoundaryTracker, serializeReadyRecord } from "./chatgpt-browser-state.ts";
+import { bindReviewBoundary, createAdoptionToken, encodeRequestToken, parseBrowserReviewState, parseReadyRecord, parseReviewBoundary, RequestBoundaryTracker, serializeReadyRecord } from "./chatgpt-browser-state.ts";
 
 const requestId = "REQUEST_ID=github:owner/repo:pr:9:head:abc:20260716T100000+0300";
 const conversationUrl = "https://chatgpt.com/c/conversation-one";
@@ -60,6 +60,16 @@ test("request binding waits for the turn and two stable URL observations", () =>
   assert.equal(tracker.observe(html, "https://chatgpt.com/", request), undefined);
   assert.equal(tracker.observe(html, conversationUrl, request), undefined);
   assert.equal(tracker.observe(html, conversationUrl, request)?.conversationUrl, conversationUrl);
+});
+
+test("local request tokens bind the exact prompt without exposing their label", () => {
+  const tracker = new RequestBoundaryTracker();
+  const prompt = "Review @GitHub owner/repo PR #9.";
+  const request = parseReviewBoundary(encodeRequestToken("MUX_REQUEST_ID=github:owner/repo:pr:9:head:abc", prompt));
+  assert.equal(request.kind, "unbound-request");
+  const html = `<main id="thread">${turn("user", "matching-user", prompt)}${turn("assistant", "old-answer", "old answer", true)}${turn("user", "latest-user", "unrelated later prompt")}</main>`;
+  assert.equal(tracker.observe(html, conversationUrl, request), undefined);
+  assert.equal(tracker.observe(html, conversationUrl, request)?.userMessageId, "matching-user");
 });
 
 test("ready records preserve the settled digest and exact turn boundary", () => {
