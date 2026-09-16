@@ -71,6 +71,7 @@ DevX Mux is also the canonical public home for reusable agent workflows:
 
 | Skill | Responsibility |
 | --- | --- |
+| `mux-ai-engineer-workflow` | Drive features, bugs, refactors, and performance work with evidence, bounded implementation, human decision points, and learning from corrections |
 | `mux-director` | Orchestrate one PR's implementor and reviewers (fix loop, patch-loop detection, guidance refresh) OR oversee multiple parallel PRs with cross-PR smell detection, across cmux or DevX Rex |
 | `mux-chatgpt-review` | Loop a pull request through a user-selected ChatGPT browser surface until the exact head is clean |
 | `mux-multireview` | Run the same read-only scope concurrently through independent Codex and Grok reviewers |
@@ -84,6 +85,8 @@ mux setup
 ```
 
 Each person runs the installer once after installing the npm package. It links the packaged public skills into their Codex, Claude, and shared-agent skill directories, so every public workflow is available under a `mux-*` invocation name. Source contributors can use `./mux.sh link-agent-files` to link the same skills directly to their checkout.
+
+For day-to-day engineering work, start with `$mux-ai-engineer-workflow Implement <feature or fix>`. The skill drives investigation, design, implementation, and verification, asking only about unresolved consequential decisions. It also accepts ordinary steering such as “prove that,” “where are we?”, and “you're spiraling.” Existing task decisions carry forward; learnings are proposed for review before becoming permanent instructions.
 
 DevX Mux reserves the canonical names in the table plus the obsolete `devx-mux`, `mux-orchestrate`, `pr-title-description`, and `staged-pr-review` names in the skill directories it manages. The installer deduplicates identical configured skill roots, rejects nested roots, builds and validates the complete canonical-link and obsolete-name cleanup plan, then applies it. Every canonical reserved name is force-replaced with the current source, and every obsolete reserved name is deleted. This makes setup deterministic after reinstalling or moving the package without risking its source checkout or preserving an older installed copy. The canonical orchestration workflow and shared browser transport live in `mux-director` (which absorbed the former `mux-orchestrate`).
 
@@ -252,7 +255,7 @@ Use the local runner for the complete development workflow:
 
 Run `./mux.sh help` for individual test, type-check, build, link, review, and cleanup commands. The project intentionally uses local verification instead of consuming hosted CI minutes.
 
-The npm release is built from a clean CLI bundle and includes the five public `mux-*` skills. Verify the exact consumer installation path locally with:
+The npm release is built from a clean CLI bundle and includes the six public `mux-*` skills. Verify the exact consumer installation path locally with:
 
 ```bash
 npm run test:install

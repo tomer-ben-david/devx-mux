@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Engineer Workflow"
+  short_description: "Drive engineering work with evidence and judgment"
+  default_prompt: "Use $mux-ai-engineer-workflow to drive this task, verify the evidence, contain scope, and involve me in unresolved consequential decisions."

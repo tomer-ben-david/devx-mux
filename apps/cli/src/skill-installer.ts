@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PUBLIC_SKILL_NAMES = [
+  "mux-ai-engineer-workflow",
   "mux-chatgpt-review",
   "mux-director",
   "mux-multireview",

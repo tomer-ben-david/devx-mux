@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
 const publicSkills = [
+  "mux-ai-engineer-workflow",
   "mux-chatgpt-review",
   "mux-director",
   "mux-multireview",
