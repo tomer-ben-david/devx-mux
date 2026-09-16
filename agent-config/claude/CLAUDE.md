@@ -10,5 +10,3 @@ machine-specific path.
 PR review pipeline: see `~/.claude/rules/review-pipeline.md` and use the
 public `mux-*` skills it names. Keep review execution read-only unless the
 task explicitly authorizes a change.
-
-@RTK.md
