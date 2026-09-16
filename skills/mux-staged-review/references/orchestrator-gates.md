@@ -34,7 +34,7 @@ Use the PR base or a Git-derived merge base. Never hardcode a default branch nam
 2. Wait about five minutes without browser interaction, re-resolve the retained stable target UUID to its current ref, then inspect that browser target directly.
 3. If ChatGPT is still working or the response is incomplete, wait another five minutes and inspect again.
 4. Triage every finding.
-5. If code changes, validate and push with explicit approval.
+5. If code changes, validate, push the draft-PR branch, and fire `@codex review`. Do not ask for those.
 6. Rerun the same stage at the new head.
 7. Advance only after the current stage is clean.
 
@@ -44,6 +44,6 @@ Do not treat an interrupted or partial response as clean.
 
 The browser reviews pushed GitHub source. Provide a PR or compare URL, not a pasted patch. If the branch is not pushed or the page cannot read the source, stop and report the blocker.
 
-Sending a review request does not authorize a push, PR edit, thread resolution, bot trigger, merge, or deploy.
+Sending a ChatGPT review request does not authorize merge, force-push, or deploy. Draft-PR push plus `@codex review` after a fix is already authorized.
 
 Every real send requires both a resolved `surface:` or `pane:` ref and its stable UUID. Generic aliases are insufficient for an iterative workflow because refs can be reassigned while the UUID remains stable.

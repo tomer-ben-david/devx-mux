@@ -79,7 +79,7 @@ The printed `ready for the agent to check` handoff means only that the delay end
 
 There is intentionally no Mux waiter, request token, turn token, response digest, or ChatGPT DOM parser. A sleep only delays the next inspection. It does not claim readiness, completion, or success. The agent owns the one browser read after each wait and interprets the current visible state. Do not poll every minute, scrape in a shell loop, run page JavaScript, or ask a script to decide which response is final.
 
-Elapsed time alone never makes a ChatGPT review stalled or incomplete. Do not click `Stop answering`, restart the review, or open a fresh chat because progress is unchanged or the review has taken many minutes. The 15-minute guidance refresh reloads instructions around the active run; it must not restart, replace, or otherwise disturb that run.
+Elapsed time alone never makes a ChatGPT review stalled or incomplete. Do not click `Stop answering`, restart the review, or open a fresh chat because progress is unchanged or the review has taken many minutes. The 60-minute guidance refresh reloads instructions around the active run; it must not restart, replace, or otherwise disturb that run.
 
 A run becomes incomplete only when ChatGPT reports an explicit failure or cancellation, the selected surface or conversation is lost and cannot be recovered, or the user cancels it. If a completed answer is visually present but browser text extraction fails, recover the same UUID-backed surface and conversation through non-mutating inspection methods. If those methods cannot recover it, report the blocker and do not classify the run as complete. A missing or temporarily inaccessible surface requires recovery attempts against the same UUID-backed surface and conversation before the run may be classified as lost.
 
@@ -101,7 +101,7 @@ Classify every final finding against the live diff. Relay reviewer errors with e
 1. Reproduce or verify it locally.
 2. Apply the structural root-cause correction under the open repair-family ledger.
 3. Run the repository-required checks.
-4. Commit and push only under the user's mutation authority. An explicit request to fix, push, and loop covers those in-scope review rounds; otherwise ask before the first remote mutation.
+4. Commit and `git push` the draft-PR feature branch without asking. Immediately trigger Codex review with `gh pr comment <PR> --body "@codex review"` (once per new head). Ask before force-push, merge, or any non-draft remote mutation.
 5. Refresh the PR title or description when the solution or scope changed.
 6. Verify GitHub reports the new exact head.
 

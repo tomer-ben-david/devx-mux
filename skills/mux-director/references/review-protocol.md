@@ -30,19 +30,21 @@ For a PR review, post each reviewer's complete report as its own PR comment afte
 
 Posting is a remote mutation. Obtain explicit user authorization before the first comment unless the user already requested that the reviews be posted. Do not post partial or interrupted output. Later review rounds must read the earlier posted reports with the rest of the PR discussion.
 
-Authorization to publish completed reports does not authorize a bot trigger or another review. Obtain separate explicit authorization before posting `@codex review` or any equivalent trigger. Post an authorized trigger at most once per review round and head. Before retrying after an uncertain mutation result, inspect the PR discussion and post again only when the trigger is confirmed absent. A triggered reviewer becomes an additional participating reviewer for that round, and convergence must wait for its final result on the same head.
+After every successful draft-PR push, post `@codex review` immediately. Do not ask first. That trigger is standing global authorization. Post it at most once per review round and head. Before retrying after an uncertain mutation result, inspect the PR discussion and post again only when the trigger is confirmed absent. A triggered reviewer becomes an additional participating reviewer for that round. Convergence still blocks on the fast reviewers only; do not wait for the bot before continuing the cycle.
 
 ## Triage
 
-Classify every finding:
+Triage every finding independently against the PR's stated goal before any action. Do not blindly trust reviewers. Send only confirmed in-scope / real-and-required bugs for implementation. Report every classification to the human. Never forward a finding without this classification. If the finding is an edge in optional safety machinery, cut the machinery rather than patch the edge.
 
 | Class | Action |
 | --- | --- |
-| Real and in scope | Relay to implementor, fix, validate, rereview |
-| Pre-existing | Report separately; do not block this scope |
-| Non-goal | Report as out of scope; do not silently drop |
-| Policy/product decision | Ask the user |
-| Reviewer error | Send evidence and request withdrawal or correction |
+| Real / in-scope / real-and-required | Relay to implementor, fix, validate, rereview |
+| Pre-existing | Report; do not block unless tightly related to this PR's work, then fix |
+| Scope creep | Report as out of scope; do not implement |
+| Product decision | Ask the user |
+| Over-engineering / whack-a-mole | Reject with reasoning; cut machinery, do not patch the edge |
+| Optional-scope | Cut the machinery; do not patch |
+| Reviewer error | Refute with evidence; do not implement |
 
 The orchestrator's classification is advice, not a filter. The implementor and user must be able to see every finding.
 

@@ -23,7 +23,7 @@ Never assume the base is `main`. Use the PR base or Git-derived merge base and p
 ## Prerequisites
 
 1. Confirm the exact PR URL, compare URL, branch, base, and head.
-2. Confirm the feature branch is pushed. Ask before pushing or changing the PR.
+2. Confirm the feature branch is on a draft PR. If local commits are not on GitHub, push the feature branch and create a draft PR if needed. Do not ask. Then fire `gh pr comment <PR> --body "@codex review"`. Ask before force-push, merge, or marking the PR ready.
 3. Resolve a ChatGPT browser target through `$mux-director`. Retain both its exact `surface:` or `pane:` ref and stable UUID. Generic aliases are not valid for an iterative review.
 4. Keep one local request label per send, but do not expose it in the review prompt or browser state.
 
@@ -49,7 +49,7 @@ Set `STAGED_REVIEW_DRY_RUN=1` to render and print a stage prompt without sending
 
 | Finding | Action |
 | --- | --- |
-| Real and in scope | Fix, validate, push with approval, then rerun the same stage |
+| Real and in scope | Fix, validate, push the draft PR, fire `@codex review`, then rerun the same stage |
 | Disputed | Send concrete evidence and request withdrawal or a narrower finding |
 | Pre-existing | Report separately; do not block the PR |
 | Wrong stage | Defer to the matching stage; do not silently discard it |

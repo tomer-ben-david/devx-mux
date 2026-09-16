@@ -22,7 +22,7 @@ test("ChatGPT review converges in one chat before a fresh independent confirmati
   assert.doesNotMatch(skill, /recover or reload/);
   assert.match(skill, /Elapsed time alone never makes a ChatGPT review stalled or incomplete/);
   assert.match(skill, /Do not click `Stop answering`/);
-  assert.match(skill, /15-minute guidance refresh reloads instructions around the active run/);
+  assert.match(skill, /60-minute guidance refresh reloads instructions around the active run/);
   assert.match(skill, /recovery attempts against the same UUID-backed surface and conversation/);
   assert.match(skill, /Review @GitHub <owner>\/<repository> PR #<number>\./);
   assert.doesNotMatch(skill, /\nREQUEST_ID=github:<owner>\/<repository>:pr:<number>:head:<full-sha>:/);

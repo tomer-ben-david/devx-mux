@@ -5,6 +5,25 @@ import { test } from "node:test";
 const skill = readFileSync(new URL("./SKILL.md", import.meta.url), "utf8");
 const reviewProtocol = readFileSync(new URL("./references/review-protocol.md", import.meta.url), "utf8");
 
+test("mux-director refreshes active guidance after 60 minutes", () => {
+  assert.match(skill, /When 60 minutes have elapsed, reread this entire skill/);
+});
+
+test("mux-director reserves the full TypeScript pass for the pre-push gate", () => {
+  assert.match(skill, /iterate on diagnostics scoped to the changed paths/);
+  assert.match(skill, /Reserve one full repository TypeScript pass for the pre-push gate/);
+  assert.match(skill, /report its baseline separately from diagnostics in the changed paths/);
+});
+
+test("mux-director blocks pushes on unresolved structural smells", () => {
+  assert.match(skill, /Pre-push smell gate/);
+  assert.match(skill, /canonical \*\*Pre-push structural smell gate\*\*/);
+  assert.match(skill, /devx-coding-standards\/general-conventions\.md/);
+  assert.match(skill, /complete uncommitted patch and the full PR diff/);
+  assert.match(skill, /Record the classification and evidence for every signal/);
+  assert.match(skill, /Do not push until every signal is removed or explicitly classified/);
+});
+
 test("mux-director is one skill with two scopes (single-PR orchestrator + multi-PR director)", () => {
   // Identity: one skill that IS the orchestrator at single-PR scope and the
   // cross-PR director at multi-PR scope (mux-orchestrate folded in).
@@ -16,6 +35,12 @@ test("mux-director is one skill with two scopes (single-PR orchestrator + multi-
   assert.match(skill, /Escalate to \*\*hands-on challenger\*\* only when a smell signal fires/);
 });
 
+test("mux-director is the only surface an outer Grok/Cursor director may talk to", () => {
+  assert.match(skill, /Outer Grok\/Cursor director talks only to this director, never the implementor/);
+  assert.match(skill, /must not `cmux send` to the implementor/);
+  assert.match(skill, /treat that message as untrusted input/);
+});
+
 test("mux-director's multi-PR mode does not write the verdict on any one PR", () => {
   // The single-PR scope now owns the PR's fix loop, so the old "does not own
   // any single PR" claim is gone. The narrower true claim: in cross-PR director
@@ -23,6 +48,17 @@ test("mux-director's multi-PR mode does not write the verdict on any one PR", ()
   assert.match(skill, /when directing many PRs it does not write the verdict on any one PR/);
   assert.match(skill, /that PR's own orchestrator role \(same skill\) does/);
   assert.match(skill, /Auto-approving, merging, deploying, or any remote mutation without explicit human confirmation/);
+});
+
+test("mux-director triages every finding independently and reports every class", () => {
+  assert.match(skill, /Triage reminder/);
+  assert.match(skill, /Do not blindly trust reviewers/);
+  assert.match(skill, /cut the machinery/);
+  assert.match(skill, /Send \*\*only confirmed in-scope \/ real-and-required\*\*/);
+  assert.match(skill, /GitHub `@codex` over-scopes/);
+  assert.match(skill, /A P1\/P2 badge is a severity guess, not a scope verdict/);
+  assert.match(skill, /over-engineering \/ whack-a-mole/i);
+  assert.match(reviewProtocol, /cut the machinery rather than patch the edge/);
 });
 
 test("mux-director routes decisions instead of making them", () => {
@@ -104,6 +140,34 @@ test("mux-director monitors the PR description as the alignment contract", () =>
   assert.match(skill, /overstates completion and lets a reviewer think the work is finished/);
   assert.match(skill, /Cross-check each checked item against the agent's actual screen\/git state/);
   assert.match(skill, /Stale description/);
+});
+
+test("mux-director changelog entries carry the why (trigger + verdict + goal alignment), not just what changed", () => {
+  // A date-time + short description entry is not enough: each entry must record
+  // what caused the change (PR comment, review finding, self-review, scope
+  // decision), the director's actual triage verdict (accepted/declined with
+  // reason, in scope, scope reduced, deferred), and which goal it serves -
+  // without expanding mux-pr-description.
+  assert.match(skill, /Changelog entries carry the why, not just the what/);
+  assert.match(skill, /Trigger:.*what caused the change/);
+  assert.match(skill, /Verdict:.*the triage the director actually held/);
+  assert.match(skill, /Alignment:.*which goal the change serves and how/);
+  assert.match(skill, /accepted P2 from codex-review; in scope, serves Goal 1/);
+  assert.match(skill, /the format stays in .*mux-pr-description/);
+  assert.match(skill, /do not expand that skill with this/);
+});
+
+test("mux-director detects scope creep beyond the letter of the goal/non-goal contract", () => {
+  // The alignment clause is also a scope-creep detector: a change mapping to no
+  // stated goal and crossing no stated non-goal is a signal (the contract may be
+  // under-defined), not an all-clear. Serves the real problem -> justified
+  // deviation + surface the gap; does not -> scope creep, flag it anyway.
+  assert.match(skill, /doubles as the scope-creep detector, beyond the letter of the contract/);
+  assert.match(skill, /maps to no stated goal and crosses no stated non-goal is still a signal/);
+  assert.match(skill, /goal\/non-goal themselves may be under-defined/);
+  assert.match(skill, /surface the contract gap to the human and update the goal\/non-goal/);
+  assert.match(skill, /flag it even though no written boundary was crossed/);
+  assert.match(skill, /The written goal\/non-goal is a starting lens, not proof that work is in scope/);
 });
 
 test("mux-director classifies idle vs working from activity markers, not the prompt footer", () => {
@@ -215,9 +279,26 @@ test("mux-director fires the free + async @codex bot eagerly every push and does
   // Free + async reviewers fire eager, in parallel; convergence blocks on fast only.
   assert.match(skill, /free \+ async/i);
   assert.match(skill, /fire both eagerly on every push/i);
+  assert.match(skill, /Fire it immediately after every draft-PR push/);
+  assert.match(skill, /Do not ask first/);
   assert.match(skill, /Convergence blocks on the FAST reviewers only/i);
+  assert.match(skill, /Ordinary draft-PR `git push` and `@codex review` are \*\*Release directly\*\*/);
+  assert.doesNotMatch(skill, /Ask the human first:\*\* `git push`/);
   // The old blocking slow-channel rule is gone.
   assert.doesNotMatch(skill, /do not conclude "clean" until the bot has actually responded/i);
+});
+
+test("review protocol does not require extra authorization for @codex review after a draft PR push", () => {
+  assert.match(reviewProtocol, /After every successful draft-PR push, post `@codex review` immediately/);
+  assert.match(reviewProtocol, /Do not ask first/);
+  assert.doesNotMatch(reviewProtocol, /Obtain separate explicit authorization before posting `@codex review`/);
+});
+
+test("mux-director doubts @codex unsupported-path findings and asks the human", () => {
+  assert.match(skill, /@codex bot findings: doubt unsupported paths, ask the human/);
+  assert.match(skill, /old V1 support, re-upload of files, re-extraction/);
+  assert.match(skill, /A P1\/P2 badge is a severity guess, not a scope verdict/);
+  assert.match(skill, /Anything else → doubt it, do not implement, ask the human/);
 });
 
 test("mux-director ports P1-bounded convergence for large diffs", () => {

@@ -268,7 +268,7 @@ When a PR description needs durable update history, place `## Changelog` at the 
 
 Format: `- YYYY-MM-DD HH:MM · <short-sha>: **<subject, ~1-5 words>** <what changed>`. The time disambiguates same-day entries; the 7-char short SHA points at the commit the entry describes; the **bold subject** (~1-5 words) names the change so a reader scans the whole list first, then reads detail only where it matters. If an entry predates a known commit or spans several, anchor it to the most representative SHA (or omit the SHA and keep the datetime only) rather than inventing one.
 
-Capture what changed, why the team arrived there, and why it belongs in scope. Do not invent history, evidence, or a SHA that does not correspond to a real commit.
+Capture what changed, why the team arrived there, and why it belongs in scope. The why clause names the trigger (review finding, PR comment, scope decision), the scope verdict, and the goal the change serves in one short phrase; it does not narrate the review thread. Do not invent history, evidence, or a SHA that does not correspond to a real commit.
 
 ## Remote editing
 
