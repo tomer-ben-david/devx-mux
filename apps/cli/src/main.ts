@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt, type ReviewProgress, type ReviewProvider } from "@devx-mux/reviewer";
+import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt, buildVerificationPrompt, type ReviewProgress, type ReviewProvider } from "@devx-mux/reviewer";
 import { createParallelReviewDashboard, TerminalReporter, type ReviewPanelId } from "@devx-mux/terminal-ui";
 import { helpText, parseReviewArguments, resolveParallelReasoning, reviewHelpText, versionText } from "./arguments.js";
 import { resolveRepositoryPath } from "./git.js";
@@ -40,6 +40,8 @@ async function runBothProviders(
   codexReasoning: "low" | "medium" | "high" | "xhigh",
   grokReasoning: "low" | "medium" | "high",
   interactive: boolean,
+  verify: boolean,
+  request: Parameters<typeof buildVerificationPrompt>[0],
 ): Promise<number> {
   const providers = {
     codex: new CodexReviewProvider(codexReasoning),
@@ -99,8 +101,24 @@ async function runBothProviders(
   const grok = settled[1].status === "fulfilled" ? settled[1].value : undefined;
   if (codex === undefined || grok === undefined) return 1;
   const combined = await persistCombinedReview(repositoryPath, scopeKind, codex.reportPath, grok.reportPath, codex.markdown, grok.markdown);
+  let verifierPath: string | undefined;
+  if (verify) {
+    const verifier = new CodexReviewProvider("xhigh");
+    const execution = await verifier.review(
+      buildVerificationPrompt(request, [
+        { provider: "Codex", markdown: codex.markdown },
+        { provider: "Grok", markdown: grok.markdown },
+      ]),
+      repositoryPath,
+    );
+    if (execution.exitCode === 0 && execution.finalText.trim().length > 0) {
+      verifierPath = await persistRawReview(repositoryPath, scopeKind, "Verifier", execution.finalText);
+    } else {
+      process.stderr.write(`DevX Mux: verification pass failed; reports remain valid.\n${execution.error ?? `exited with status ${execution.exitCode}`}\n`);
+    }
+  }
   if (interactive) {
-    process.stdout.write(`\n✓ Both reviewers completed\nCodex report ${codex.reportPath}\nGrok report ${grok.reportPath}\nFull report ${combined.path}\n`);
+    process.stdout.write(`\n✓ Both reviewers completed\nCodex report ${codex.reportPath}\nGrok report ${grok.reportPath}\nFull report ${combined.path}\n${verifierPath === undefined ? "" : `Verifier report ${verifierPath}\n`}`);
   } else {
     process.stdout.write(`${combined.markdown}\n`);
   }
@@ -131,6 +149,9 @@ async function run(argv: readonly string[]): Promise<number> {
   }
   if (command === "multireview" && rawCommandArguments.includes("--provider")) {
     throw new Error("multireview already selects Codex and Grok; remove --provider.");
+  }
+  if (command === "review" && rawCommandArguments.includes("--verify")) {
+    throw new Error("--verify is only available on multireview.");
   }
   const commandArguments = command === "multireview"
     ? [...rawCommandArguments, "--provider", "both"]
@@ -180,6 +201,8 @@ async function run(argv: readonly string[]): Promise<number> {
       reasoning.codex,
       reasoning.grok,
       interactive,
+      options.verify,
+      request,
     );
   }
 

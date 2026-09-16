@@ -16,11 +16,14 @@ Investigation:
 - Understand intent before judging implementation.
 - Read enough surrounding code to follow callers, callees, types, ownership, state transitions, and resource lifetime.
 - Probe empty and partial input, stale state, retries, cancellation, concurrent execution, cleanup after failure, permissions, platform differences, and unavailable dependencies.
+- Trace cross-module side effects of simple-looking changes, including developer-experience breakages: renamed or removed env vars and secret sources, remapped ports, or new mandatory setup steps that change how people run or build the project.
 - Look for simpler designs that remove concepts, branches, state, indirection, or special cases.
 
 Judgment:
 - Distinguish a demonstrated defect from a worthwhile improvement and from a subjective preference.
 - Try to disprove every candidate finding before reporting it.
+- Never present unfinished research ("this is broken unless the backend handles X") when you can check the related code yourself.
+- Do not inflate severity: a defect is an actual correctness, security, or breakage problem, not a style preference.
 - Prefer boring, explicit code with clean ownership over clever machinery.
 - Challenge abstractions that do not earn their cost, but do not demand abstraction for its own sake.
 - Never invent findings to fill space.

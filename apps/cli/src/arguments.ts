@@ -10,6 +10,7 @@ export interface ReviewArguments {
   readonly grokReasoningEffort?: "low" | "medium" | "high";
   readonly instructions?: string;
   readonly outputFormat: "auto" | "tui" | "markdown";
+  readonly verify: boolean;
   readonly dryRun: boolean;
 }
 
@@ -84,7 +85,7 @@ ${providerDescription}  --instructions TEXT Add review focus or non-goals within
   --format FORMAT    Output format: auto, tui, or markdown. Default: auto.
   --base REF       Explicit branch comparison base. Without it, the reviewer determines the merge base with Git.
   --repo PATH      Repository to review. Default: current directory.
-  --dry-run        Print the composed prompt without invoking the provider.
+${command === "multireview" ? "  --verify          After both reports, run a fresh-context pass that tries to refute each finding (CONFIRMED/REFUTED/UNRESOLVED).\n" : ""}  --dry-run        Print the composed prompt without invoking the provider.
   -h, --help       Show this help.
 ${reasoningDefaults}
 `;
@@ -105,6 +106,7 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
       instructions: { type: "string" },
       format: { type: "string", default: "auto" },
       "dry-run": { type: "boolean", default: false },
+      verify: { type: "boolean", default: false },
     },
   });
 
@@ -187,6 +189,7 @@ export function parseReviewArguments(argv: readonly string[]): ReviewArguments {
     ...(grokReasoningEffort !== undefined ? { grokReasoningEffort: grokReasoningEffort as "low" | "medium" | "high" } : {}),
     ...(instructions === undefined ? {} : { instructions }),
     outputFormat,
+    verify: parsed.values.verify ?? false,
     dryRun: parsed.values["dry-run"] ?? false,
   };
 }

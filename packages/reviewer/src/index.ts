@@ -4,6 +4,6 @@ export { GrokReviewProvider, grokReviewArguments } from "./grok-provider.js";
 export { exactingEngineerPersona } from "./personas/exacting-engineer.js";
 export { deepCodeReviewProtocol } from "./protocols/deep-code-review.js";
 export { fullCodebaseAuditProtocol } from "./protocols/full-codebase-audit.js";
-export { buildReviewPrompt } from "./prompt.js";
+export { buildReviewPrompt, buildVerificationPrompt } from "./prompt.js";
 export { reviewerRole } from "./roles/reviewer.js";
 export type { ReviewExecutionResult, ReviewProgress, ReviewProvider, ReviewRequest, ReviewScope, ReviewUsage } from "./types.js";

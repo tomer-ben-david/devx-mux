@@ -47,6 +47,22 @@ ${instructions}
 `;
 }
 
+export function buildVerificationPrompt(request: ReviewRequest, reports: readonly { readonly provider: string; readonly markdown: string }[]): string {
+  return `# Role: finding verifier
+
+You are a fresh-context skeptic. Two independent reviewers produced the findings below. You did not write them and owe them nothing. For each actionable finding, check it against the repository yourself and return one verdict line: the finding (short), then CONFIRMED or REFUTED, then the file:line evidence that decided it. A finding you cannot decide from repository evidence is UNRESOLVED, not CONFIRMED. Do not add new findings, merge reports, or soften a verdict. End with a one-line count of each verdict.
+
+## Scope
+
+${scopeInstructions(request.scope)}
+${request.scope.kind === "codebase" ? "Existing issues are in scope." : "Do not report pre-existing issues outside that scope."}
+
+## Reviewer reports
+
+${reports.map((report) => `### ${report.provider}\n\n${report.markdown}`).join("\n\n")}
+`;
+}
+
 export function buildReviewPrompt(request: ReviewRequest): string {
   const protocol = request.scope.kind === "codebase" ? fullCodebaseAuditProtocol : deepCodeReviewProtocol;
   return `# Role: ${reviewerRole.id}
