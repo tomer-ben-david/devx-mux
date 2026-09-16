@@ -47,7 +47,7 @@ test("mux-director's multi-PR mode does not write the verdict on any one PR", ()
   // mode it does not write the verdict - that PR's own orchestrator role does.
   assert.match(skill, /when directing many PRs it does not write the verdict on any one PR/);
   assert.match(skill, /that PR's own orchestrator role \(same skill\) does/);
-  assert.match(skill, /Auto-approving, merging, deploying, or any remote mutation without explicit human confirmation/);
+  assert.match(skill, /any remote mutation outside the user's existing authorization/);
 });
 
 test("mux-director triages every finding independently and reports every class", () => {
@@ -61,10 +61,11 @@ test("mux-director triages every finding independently and reports every class",
   assert.match(reviewProtocol, /cut the machinery rather than patch the edge/);
 });
 
-test("mux-director routes decisions instead of making them", () => {
+test("mux-director routes unsettled decisions outside existing authority", () => {
   assert.match(skill, /The director does not make product decisions\. It routes them/);
   assert.match(skill, /surface to the human with the tradeoff, do not auto-resolve/);
-  assert.match(skill, /When product intent is unclear AND the human is available, ask the human/);
+  assert.match(skill, /If a consequential decision remains outside existing authority, pause only the dependent work/);
+  assert.match(skill, /Being away is not delegation/);
 });
 
 test("mux-director takes delegated product + architect authority when the human is away", () => {
@@ -211,16 +212,14 @@ test("mux-director relays suspicions to the agent as a consideration, not a dire
 });
 
 test("mux-director distinguishes justified deviation from real scope creep", () => {
-  // A stated non-goal is a default, not a straightjacket: drifting past scope to
-  // serve the work is good if justified (raise a doubt, allow pending human
-  // confirmation); drifting with no justification is real scope creep (flag it).
-  // Enforcing a set-in-stone non-goal that only hurts us is the failure mode.
+  // Evidence can justify reconsidering a boundary, but the proposal itself
+  // must not authorize dependent implementation before the scope decision.
   assert.match(skill, /Distinguish a \*justified deviation\* from \*real scope creep\*/);
-  assert.match(skill, /stated goal\/non-goal is a default, not a straightjacket/);
+  assert.match(skill, /A stated boundary can be reconsidered when evidence shows it prevents the goal/);
   assert.match(skill, /Justified deviation/);
   assert.match(skill, /raise it as a \*\*doubt/);
   assert.match(skill, /Real scope creep/);
-  assert.match(skill, /Never blindly enforce a non-goal that only constrains us/);
+  assert.match(skill, /Do not implement a proposed boundary change while awaiting confirmation/);
 });
 
 test("mux-director runs a quick review before declaring a PR done", () => {

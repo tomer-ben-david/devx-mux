@@ -1,6 +1,6 @@
 ---
 name: mux-director
-description: Orchestrate an implementor plus independent Codex/Grok/ChatGPT/@codex reviewers (fired in parallel, every push, no ranking), the director's own clearly-labeled DevX self-review, AND an Opus investigator panel (when provided) for deep codebase investigation and fact-checking/DB cross-checking of agents' claims - independently verified before any scope or implementation change. Orchestrate a single PR, OR oversee several parallel PRs with cross-PR smell-detection, one status view, and decision routing. Use when the user asks for mux-director, mux-orchestrate, a multi-review loop with an implementor, mux-aware panel discovery, repeated-patch or context-drift detection, codex-review or grok-review coordination, cross-PR oversight, scope-creep/over-engineering/whack-a-mole detection, independent reality checks against an agent's self-serving claims, reviewer-set parity, or older codex-orchestrate, cmux-review-loop, rex-review-loop, or staged review workflows. Use mux-multireview instead for read-only concurrent Codex and Grok review without implementation.
+description: Orchestrate an implementor, independent Codex/Grok/ChatGPT/@codex reviewers, the director's labeled DevX self-review, and an Opus investigator when provided. Coordinate one PR or several parallel PRs with evidence checks, decision routing, scope control, repair-loop detection, and integrated acceptance. Use for mux-director, mux-orchestrate, a multi-review implementation loop, mux panel discovery, codex-review or grok-review coordination, cross-PR oversight, scope creep, over-engineering, whack-a-mole or context-drift detection, independent reality checks of agents' claims, reviewer-set parity, or older codex-orchestrate, cmux-review-loop, rex-review-loop, or staged review workflows. Use mux-multireview for read-only concurrent Codex and Grok review without implementation.
 ---
 
 # Mux Director
@@ -29,6 +29,8 @@ user
 ```
 
 The director reasons with the user, routes work, verifies state, and relays findings. The implementor edits and validates. Reviewers independently inspect the selected scope. Never let a reviewer inherit the implementation discussion.
+
+`mux-ai-engineer-workflow` drives engineering stages within a task; the director coordinates their owners and checks the evidence between stages. When both are active, share the existing contract, decisions, and repair ledger. Do not create a second manager or duplicate task record. Read [references/engineering-lifecycle.md](references/engineering-lifecycle.md) when establishing substantial work, joining an ongoing task, or reassessing a disputed diagnosis or design.
 
 ## Start
 
@@ -90,6 +92,8 @@ Before implementation or review, establish:
 - Required outcome: the concrete state that must be true before the goal can close.
 - Acceptance evidence: the observations, checks, or artifacts that prove the required outcome.
 
+Reuse an established contract and enter at the current stage. Record behavior that must remain true, accepted decisions with their source, and unresolved assumptions in the existing live report. Preserve those decisions across handoffs; reopen one only when the user changes the requirement or new evidence contradicts its assumptions.
+
 Assign the scope contract one stable goal ID when it is established and keep that ID until the goal completes. Bind every repair-family entry and tombstone to it. Record a compact recoverable snapshot containing the goal, non-goals, review scope, mutation authority, required outcome, and acceptance evidence. Do not use a moving head SHA as the goal identity.
 
 Never assume `main` or `origin/main`. Ask Git for the base unless the user explicitly supplies one. Treat the PR body as context that can be stale, not as proof of the current diff.
@@ -102,13 +106,13 @@ The implementor is a capable peer, not a subordinate. Relay the **problem, the c
 
 **Match the direction's specificity to the implementor and the task.** "Leave the approach open" is the default for a strong autonomous implementor, but it is NOT universal. Some implementors are excellent executors of a clear plan but poor at resolving vague/open-ended direction — e.g. **Luna is a strong implementor but not good at getting a vague thing to do; give it a detailed implementation plan.** When handing work to such an implementor, do not leave the approach open: provide a concrete plan — the goal, the affected files/functions, the intended approach, the steps in order, and the required verification. Tailor by implementor + task: vague/open-ended task or a plan-needing implementor → detailed plan; clear, well-scoped task to an autonomous implementor → problem + constraints, approach open. When unsure which an implementor needs, lean toward more specificity, not less.
 
-1. Prove the user-visible problem or desired outcome before implementation when possible.
+1. Establish the work type and evidence before choosing a solution: reproduce a bug, define a feature's before/after behavior, preserve a refactor's behavior, or measure a performance bottleneck. Apply the engineering lifecycle reference at consequential design boundaries.
 2. Give the implementor the goal, constraints, relevant area, and required verification. For a plan-needing implementor (e.g. Luna) or a vague task, also give the concrete plan and steps. Otherwise leave the approach open.
 3. Prefer a structural root-cause fix over a second source of truth or layered guard.
 4. Choose verification by truthfulness, breadth, and readability rather than test category. Prefer a few broad API-style scenarios; when Testcontainers provides a clear real-dependency flow without a separately running server, prefer it over mock-heavy unit tests, including beyond database concurrency cases.
 5. During implementation, iterate on diagnostics scoped to the changed paths instead of repeatedly running a repository-wide TypeScript check. Reserve one full repository TypeScript pass for the pre-push gate, then report its baseline separately from diagnostics in the changed paths.
 6. Read the full implementor result and verify material claims against repository state or runtime evidence.
-7. Ask before any push, PR edit, bot trigger, thread resolution, deploy, or other remote mutation.
+7. Check mutation authority before remote actions. Proceed when the user has already authorized the action, including the standing draft-push and bot-trigger policies below; ask only for uncovered actions. Do not repeat an answered permission question.
 
 Keep implementation structurally ambitious and contractually scoped. Do not accept whack-a-mole convergence through accumulating guards, exceptions, retries, flags, or mirrored state. Allow a repair to cross adjacent layers when those changes establish the durable owner of the broken invariant and remove superseded patches; this is an in-scope long-term improvement when it directly serves the goal and acceptance evidence. Reject unrelated cleanup, speculative redesign, and opportunistic features as scope creep even when they are locally attractive.
 
@@ -142,6 +146,8 @@ Do not wait for the attempt threshold when context drift or patch layering is al
 4. Write a compact reset brief with the observed patch loop, proven facts, unknowns, state or component that should own the invariant, structural direction, patches that direction replaces, and user-visible verification needed.
 5. Ask the implementor to reassess from that brief and propose the root-cause solution before editing again. Keep the approach open enough for the implementor to improve it.
 
+Before another attempt in that family, require a new observation that distinguishes plausible causes or a revised decision grounded in the evidence. Another agent agreeing with the same explanation is not new evidence. Continue useful work on unrelated families while this one is paused.
+
 ## Guidance refresh
 
 Record an absolute ISO 8601 timestamp with a time-zone offset whenever the orchestration guidance is read. Carry that timestamp in every live report. During active orchestration, compare it with the current system time at every control boundary: implementor or reviewer update, poll, repair attempt, scope change, transport re-resolution, and completion check. If the timestamp is missing or cannot be trusted, refresh immediately and establish a new timestamp.
@@ -165,7 +171,7 @@ For every round:
 5. Triage every finding independently (see Triage reminder). Report every classification to the human. Never silently filter a finding.
 6. Send **only confirmed in-scope / real-and-required** findings to the implementor, without prescribing the patch. Never forward a finding that has not been classified.
 7. Validate fixes, then rerun every participating reviewer on the new head.
-8. Declare convergence only when all participating reviewers are clean on the same head.
+8. Apply the selected convergence gate to the same head: fast reviewers by default, the bounded severity rule on large diffs, or stricter participation when the user requested it. Report pending async reviews separately. Review convergence alone does not establish task completion; apply the final sanity check.
 
 Use `mux multireview` when the user wants provider-neutral concurrent Codex and Grok review without managing persistent panes. Do not silently replace named mux panels with `mux multireview`; tell the user which execution model is active.
 
@@ -182,7 +188,7 @@ Ask of each finding: is it **required for the goal**, or an edge case in **optio
 | Class | Meaning | Action |
 | --- | --- | --- |
 | **real / in-scope / real-and-required** | Broken invariant on the intended main path; required for the stated goal | Fix (implementor) |
-| **pre-existing** | Already true on the base; not introduced by this PR — unless it is tightly related to what we are doing, then fix it | Report; do not block. Fix only when tightly related |
+| **pre-existing** | Already true on the base; not introduced by this PR | Report separately. If it prevents acceptance, prove the dependency and resolve scope before assigning a fix; proximity alone is not authorization |
 | **scope creep** | Extra product the goal did not ask for | Do not implement; report |
 | **product decision** | Intent unclear or a product expansion | Ask the human |
 | **over-engineering / whack-a-mole** | More machinery, guards, or one-more-case patches than the goal needs | Reject with reasoning. Cut the machinery; do not patch the edge |
@@ -203,7 +209,7 @@ Same rule as the Triage reminder: GitHub `@codex` over-scopes. Typical examples:
 
 ### P1-bounded convergence (use on large diffs)
 
-Two thorough reviewers on xhigh/high will essentially always find a suggestion-tier nit on a 4000+ line diff, so "loop until literally nothing actionable" can run forever and breeds fix-then-re-find churn. Default to a severity-bounded stop: **loop until every reviewer returns ZERO P1/bug findings on the same HEAD.** Fix scope each round = in-scope P1/bugs always fixed (`@codex` P1 badges still go through the Triage reminder above before they count as in-scope); P2/suggestions/nits are triaged case-by-case by the implementer - fix the ones that are real and worth it, push back on / defer (one-line "deferred: <reason>") the ones that aren't important or are over-cautious reviewer noise. P2-and-below do NOT block stopping. This is achievable and keeps the diff from bloating into more findings. Only insist on strict all-clean when the diff is small or the user asks for it. This complements (does not replace) the convergence/loop-detection rules below.
+Two thorough reviewers on xhigh/high can keep finding suggestion-tier nits on a 4000+ line diff, so "loop until literally nothing actionable" can breed fix-then-re-find churn. Default to a severity-bounded stop: **loop until every gating reviewer returns ZERO P1/bug findings on the same HEAD.** This does not turn pending async reviewers into gates. Fix scope each round = in-scope P1/bugs always fixed (`@codex` P1 badges still go through the Triage reminder above before they count as in-scope); P2/suggestions/nits are triaged case-by-case by the implementer - fix the ones that are real and worth it, push back on / defer (one-line "deferred: <reason>") the ones that aren't important or are over-cautious reviewer noise. P2-and-below do NOT block stopping. This is achievable and keeps the diff from bloating into more findings. Only insist on strict all-clean when the diff is small or the user asks for it. An unmet acceptance criterion still blocks task completion regardless of a reviewer's severity label. This complements (does not replace) the convergence/loop-detection rules below.
 
 ### Director self-review (DevX diff read) every cycle
 
@@ -290,7 +296,7 @@ One smell != a real defect, but each is worth one independent look.
 
 ### Loop detection (convergence, not commit count)
 
-At the 2nd finding in one file family, demand an exhaustive edge-case sweep up front - enumerate and test every input shape in one batch (review is a serial gap-finder; the sweep makes it parallel). A loop is confirmed only when BOTH hold across 2+ cycles: **3+ fix-commits in one subsystem AND the funnel is not narrowing** (a one-cycle bump is noise, not a loop; many commits + narrowing funnel is a converging deepening sweep, not a loop). When confirmed, tell the orchestrator with evidence - it can't see the across-cycle shape - and challenge: is the funnel closing, or should the under-built subsystem split into its own follow-up PR so the feature PR merges on its proven merits?
+At the 2nd finding in one file family, demand an exhaustive edge-case sweep within the demonstrated contract - enumerate supported input shapes and relevant negative cases in one batch, without inventing hypothetical callers or compatibility requirements. A loop is confirmed only when BOTH hold across 2+ cycles: **3+ fix-commits in one subsystem AND the funnel is not narrowing** (a one-cycle bump is noise, not a loop; many commits + narrowing funnel is a converging deepening sweep, not a loop). This cross-cycle signal supplements the earlier structural-reset triggers; it does not delay them. When confirmed, tell the orchestrator with evidence - it can't see the across-cycle shape - and challenge: is the funnel closing, or should the under-built subsystem split into its own follow-up PR so the feature PR merges on its proven merits?
 
 **Scope-spiral guard:** when a review family keeps producing findings inside machinery that exceeds the user's stated goal, do not keep patching - stop and offer to cut the machinery to the simplest safe behavior. Aggressively triage each new finding against the goal: a finding in an optional subsystem is a signal to remove the subsystem, not to fix the edge case. Default rule when the goal is simple: never auto-delete on weak evidence; publish correct links, block destructive lifecycle behavior, and let the review surface collapse.
 
@@ -340,14 +346,14 @@ The why is what lets a fresh reader reconstruct why the diff is the way it is wi
 
 The director does not make product decisions. It routes them - UNLESS the human has delegated product-decision authority (e.g. overnight, "act as PM while I sleep, don't block on me"). Under delegation, the director MAKES product/scope decisions per the known goals and tells the agent; it does not block waiting for the human. See "Delegated product authority" below.
 
-- **Product decision (human available):** surface to the human with the tradeoff, do not auto-resolve.
-- **Product decision (human delegated / away):** decide it yourself per the agreed goal/non-goal, tell the agent the decision as steering (not a request), and log it for the human to review later.
+- **Unresolved consequential decision:** surface to the human with the tradeoff, do not auto-resolve. Prepare the concrete choice, checked evidence, defensible options, and recommendation before asking. Product semantics, data ownership/lifecycle, compatibility, security, migrations, and correctness/performance tradeoffs qualify when unsettled; routine use of an agreed design does not.
+- **Explicitly delegated decision:** decide within the granted authority and agreed goal/non-goal, tell the agent the decision as steering (not a request), and log it for the human to review later. Being away is not delegation.
 - **Real in-scope bug:** let the task's agent handle it; intervene only if it becomes a 3rd-in-family smell.
 - **`@codex` over-scope:** typical examples are old V1 support, re-upload of files, re-extraction. Not a bug unless it is required for the stated goal. See Triage reminder.
 - **Pre-existing / scope creep / over-engineering / reviewer error:** classify and report to the human; do not forward to an implementor.
-- **Structural vs patch:** prefer the structural fix (project top rule), but if it crosses a human-set scope boundary AND the human is available, ask first. If the human is delegated/away, make the structural-vs-scope call yourself per the goals.
+- **Structural vs patch:** prefer the structural fix within scope. If evidence shows a human-set boundary prevents acceptance, prepare the smallest scope decision needed; do not silently cross it because a structural design seems better.
 
-When product intent is unclear AND the human is available, ask the human. When the human is away and intent is genuinely ambiguous (not derivable from the stated goals), make the most conservative choice that preserves the stated goal and non-goals, document the assumption, and proceed - never stall silently.
+Proceed with settled decisions and routine choices supported by repository patterns. If a consequential decision remains outside existing authority, pause only the dependent work and continue useful independent work. Silence is not approval. Carry the answer forward instead of asking again at each review round.
 
 ## Delegated product authority (overnight / away mode)
 
@@ -357,7 +363,7 @@ When the human says "act as PM while I'm away / decide for them / take it to gre
 - **Auto-approve routine permissions.** The agents will hit permission prompts (builds, tests, lint, type-checks, local codegen, temp-file cleanup, `git add`, `git commit`, draft-PR `git push`, `gh pr create --draft`, and `gh pr comment ... "@codex review"`). There is NO production/staging deployment in play (no cell to prod), so these are safe - release them directly without asking the human. The "Release stuck agents with judgment" rule applies: routine local gates and draft-PR publication you clear yourself; only force-push/merge/deploy/destructive ops/touching main stay human-gated.
 - **Answer questions, don't stall.** If an agent surfaces a question to the human (waits on you), answer it. Common-sense defaults: prefer the structural fix, hold the stated scope, reject scope creep, accept a reviewer's in-scope bug, push back on a reviewer's over-engineering/pre-existing/whack-a-mole finding with reasoning. Never leave an agent blocked on a question you can answer from the goals.
 - **Stay inside the goal/non-goal.** The authority is bounded by the stated goal and non-goals. Decisions must serve the goal and respect the non-goals; you are not free to expand scope or change the product direction. If a request would require changing the goal itself, that one stays for the human - park it, document it, move on.
-- **Push toward green.** The objective is: each PR scoped correctly, passing its reviews, honest DoD, clean to merge (still never MERGE without the human - only the human merges to main). Unblock review loops (interrupt stalled ChatGPT reviews, re-request on exact head, triage findings with evidence), enforce stacked-PR sync, hold scope boundaries, and make the structural-vs-patch + reuse-vs-rebuild call yourself.
+- **Push toward green.** The objective is: each PR scoped correctly, passing its reviews, honest DoD, clean to merge (still never MERGE without the human - only the human merges to main). Unblock review loops using the session-monitoring evidence rules, preserve working ChatGPT conversations, triage findings, enforce stacked-PR sync, hold scope boundaries, and make the structural-vs-patch + reuse-vs-rebuild call yourself. Elapsed time alone is not evidence that a review is stuck.
 - **Escalate only the truly human-only.** Merge to main, deploy/release, changing the goal itself, or genuinely destructive ops - these wait for the human. Everything else, you handle.
 - **Morning handoff.** By the time the human wakes, leave a Discord summary: what you decided, what each PR's state is, what's clean vs still open, and anything that needs their override.
 
@@ -366,10 +372,10 @@ When the human says "act as PM while I'm away / decide for them / take it to gre
 A suspicion (scope creep, oversized rewrite, duplication, off-goal drift, a smell that isn't yet a confirmed defect) is a two-way signal: surface it to the human AND relay it to the agent that owns the work - as a **consideration for it to weigh itself**, never as an instruction to change. This turns the director's cross-PR view into a self-improvement loop: the agent re-examines its own work with the new angle and decides, by its own judgment, whether the concern is real.
 
 - **Frame it as a question/observation, not a command.** "Worth checking: X seems to duplicate logic in Y - is that intentional, or is there a shared path?" - NOT "deduplicate X." The agent owns the verdict; the director supplies the angle. Telling the agent what to do defeats the point and oversteps the director role.
-- **Distinguish a *justified deviation* from *real scope creep* - they get opposite tones.** A stated goal/non-goal is a default, not a straightjacket: straying from it to serve the work is good if justified, and enforcing a set-in-stone boundary that only hurts us is the real failure. So when the agent drifts past a stated scope, first ask *why*:
-  - **Justified deviation** (the drift serves the goal - e.g. a "non-goal" turned out to be a prerequisite, or staying in-scope forces a worse design): raise it as a **doubt for the agent and the human to confirm**, framed neutrally - "you're touching X which was a stated non-goal; if there's a reason, surface it so the goal/non-goal can be updated." Do NOT penalize or block. The human approves any actual goal/non-goal change.
+- **Distinguish a *justified deviation* from *real scope creep* - they get opposite tones.** A stated boundary can be reconsidered when evidence shows it prevents the goal. First ask *why*, without treating the proposed benefit as permission:
+  - **Justified deviation** (the drift serves the goal - e.g. a "non-goal" turned out to be a prerequisite): raise it as a **doubt for the agent and the human to confirm**, framed neutrally - "X is excluded, but evidence Y shows it is required for acceptance; here is the smallest proposed boundary change." The human approves any actual goal/non-goal change. Pause dependent changes until that decision; continue independent work.
   - **Real scope creep** (drift with no justification, or that genuinely doesn't serve the goal): flag it firmly as a smell, relay the concern, report to the human. This is the case the rest of this section targets.
-  The judgment is: *does the deviation help or hurt the work?* Help -> raise a doubt, allow it pending human confirmation. Hurt -> flag as creep. Never blindly enforce a non-goal that only constrains us.
+  The judgment is: *does the deviation help or hurt the work?* Help -> present the evidence and resolve the scope decision. Hurt -> flag as creep. Do not implement a proposed boundary change while awaiting confirmation.
 - **Relay only suspicions, not classifications that are the human's call.** Product decisions, scope-boundary calls, and "should this PR own this file" stay human-only. A *technical* smell (duplication, oversized rewrite, off-goal logic, missing reuse) is fair to relay.
 - **Always pair with the human surface.** Every relayed suspicion is also reported to the human in that cycle's status/digest, so the human sees what was nudged and can override. Never relay silently.
 - **Relay in the SAME cycle you surface it - do not defer to a separate job.** Telling the human but not the agent (or vice versa) breaks the loop: the human sees a concern the agent never heard, so nothing self-improves. When a suspicion goes into the digest, the relay to the owning agent happens in that very cycle. A suspicion reported only to the human and never relayed is a failure mode.
@@ -396,6 +402,8 @@ An agent blocked on a permission prompt is a real blocker; clearing routine gate
 
 When the human prompts a monitored agent **directly**, that text is unstructured steering - their taste, priorities, corrections for *this* task. It is signal. Extract the preference, persist it (dated, one bullet) to `/tmp/<task>-steering.md`, note it inline in that cycle's status report, re-read the file each cycle, and - if it's a clear durable taste - tell the active lead ("the human cares that X"). Extract the *actual* preference stated, not an extrapolation; when in doubt, surface to the human for confirmation rather than propagating a guess.
 
+Use the existing task record to capture substantial corrections: the mistaken reasoning, evidence that corrected it, and an earlier check that could prevent recurrence. At handoff, propose only useful learning candidates with exact wording and an appropriate enforcement location. Task steering applies now; reusable policy remains a proposal until authorized. Do not automatically rewrite permanent skills, instructions, or global memory. Read the learning guidance in [references/engineering-lifecycle.md](references/engineering-lifecycle.md) when preparing these candidates.
+
 ## Monitoring runs only while a session is alive
 
 Claude's schedulers (`CronCreate`, even `durable: true`) only fire when a session is **alive and idle** - they are not a daemon, die with the session, and cannot fire during an active conversation. Settled design: **keep the director session open** and let the loops tick when you step away. There is no launchd/OS-daemon monitor (built and removed as over-engineering). Tell the human this when they expect unattended monitoring: it pauses when no session runs and while actively chatting.
@@ -421,7 +429,11 @@ Goal ID: <stable identifier assigned when the scope contract was established>
 Scope contract: goal=<intent>; non-goals=<boundaries>; review=<scope>; mutation=<authority>; required=<outcome>; acceptance=<evidence>
 Scope: <exact comparison>
 Head: <sha>
-State: implementing | reviewing | fixing | clean | blocked
+State: investigating | deciding | implementing | reviewing | fixing | verifying acceptance | complete | blocked
+Must preserve: <behavior or invariant>
+Decisions: <accepted choice and source; pending decision or none>
+Evidence: <confirmed/inferred/unknown with exact revision/runtime and source refs>
+Acceptance: <proven criteria; remaining checks, integration or human acceptance gaps>
 Open repair families:
 - id=<stable family identity>; attempts=<count or unknown>; invariant=<owner>; evidence=<finding, review, head, or artifact refs>; last direction=<structural approach or none>
 Closed repair families:
@@ -438,6 +450,10 @@ Next: <one action>
 
 Before declaring a PR merge-ready, do a quick review of the diff: does it actually achieve what the PR set out to do? Not a deep bug hunt (reviewers own that) - just confirm the changes match the stated goal and read as one coherent change. Size alone isn't failure if every line serves the goal. Remember: an agent claiming "clean to merge" with `reviewDecision` empty is NOT a formal approval - no merge without the human's explicit "merge-it", never push to `main`.
 
+Check completion against the original user intent and must-preserve behavior, with evidence at the claimed boundary (UI, reload/persistence, API, integration, or measured performance). In multi-PR work, verify the combined behavior and dependencies across slices; individually clean PRs do not prove the capability works together. Name the exact tested revision/environment and remaining acceptance gaps. Keep current-data repair, code validation, and deployed verification distinct; do not perform an unauthorized deployment to close a gap.
+
+Give the human a short reading guide for consequential changes: the mental model, critical files/functions and their invariants, and assumptions or tradeoffs to inspect. Evidence should make their code reading more focused. Report review convergence and task acceptance separately; do not call the goal complete while required acceptance remains unproven.
+
 ## Self-refresh (hourly)
 
 Re-read this skill in full every hour and audit recent monitoring against it: idle-vs-working from markers (not the footer); each task's shape detected (not orchestrator-always); confirmed concerns told to the active lead directly; bounded waiters over blind-poll; relay mid-turn via `cmux send "<text>"` + SEPARATE `cmux send-key enter` (verify `↳` marker = queued; do NOT defer to idle); convergence across cycles (not commit count); stuck agents released with judgment; **busy-but-off-track judged by content, not just frozen/blocked caught by screen-diff**; direct-human steering captured and propagated; **technical suspicions relayed to the owning agent as a consideration (not a command) and always paired with the human surface**; every classification reported honestly; monitoring only runs while a session is alive-and-idle. Name any drift and correct it going forward. Self-audit, not a status read.
@@ -446,4 +462,4 @@ Re-read this skill in full every hour and audit recent monitoring against it: id
 
 - Writing/editing product code locally when managing a separate implementor (the implementor owns that); the single-PR orchestrator role relays, it does not hand-write the patch.
 - When directing many PRs, writing the verdict on any one PR - that PR's own orchestrator role (same skill) does.
-- Auto-approving, merging, deploying, or any remote mutation without explicit human confirmation.
+- Auto-approving, merging, deploying, or any remote mutation outside the user's existing authorization and the stated standing policies. Ask only when the action is not already covered.

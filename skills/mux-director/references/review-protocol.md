@@ -20,6 +20,8 @@ Before every PR review round, each reviewer independently reads the live title, 
 
 Session freshness is not required for an independent review. Preserve each user-selected reviewer session across rereviews unless the user explicitly requests a fresh session; do not send `/clear`, `/new`, or another reset command as a rereview prerequisite. Give reviewers the goal, non-goals, exact scope, and current head. Keep rereview prompts neutral and do not enumerate earlier findings or fixes, which biases the reviewer toward confirming the prior result.
 
+Include the original acceptance criteria, behavior to preserve, and accepted decisions when relevant to the selected scope. Link raw evidence and identify unverified assumptions without supplying the implementor's persuasive narrative or expected verdict. Ask whether the change is correct and whether it fulfills its intended slice; the director separately verifies integrated acceptance across slices. Agreement between agents does not replace checked evidence.
+
 `mux-chatgpt-review` has its own explicit independent-confirmation workflow. Its first working-chat and independent-confirmation prompts contain only the repository and PR number. Fix rereviews retain the working conversation and use only `Updated. Re-review everything.` The focused skill's provenance and exact-head gates still apply to every result.
 
 Use the reviewer's native review command when available. Preserve provider output verbatim. Do not reject, repair, or reshape a completed report because its Markdown differs from an expected schema.
@@ -39,7 +41,7 @@ Triage every finding independently against the PR's stated goal before any actio
 | Class | Action |
 | --- | --- |
 | Real / in-scope / real-and-required | Relay to implementor, fix, validate, rereview |
-| Pre-existing | Report; do not block unless tightly related to this PR's work, then fix |
+| Pre-existing | Report separately; if it prevents acceptance, prove the dependency and resolve scope before assigning a fix. Proximity alone is not authorization |
 | Scope creep | Report as out of scope; do not implement |
 | Product decision | Ask the user |
 | Over-engineering / whack-a-mole | Reject with reasoning; cut machinery, do not patch the edge |
@@ -50,6 +52,8 @@ The orchestrator's classification is advice, not a filter. The implementor and u
 
 ## Convergence
 
-Track reviewer verdicts by head SHA. A clean result on an older head does not count after a fix. The loop converges only when every participating reviewer reports no actionable in-scope findings on the same head and the orchestrator has independently run the relevant checks.
+Track reviewer verdicts by head SHA. A clean result on an older head does not count after a fix. Apply the gate selected in the main skill: fast reviewers by default, its severity-bounded rule on large diffs, or the user's stricter requirement. Every gating result must cover the same current head, and the orchestrator must independently run the relevant checks. List pending async reviews and deferred findings explicitly; do not describe them as clean.
+
+Review convergence does not prove task acceptance. Before closing the goal, verify the original contract at the required boundary, including combined behavior across PRs when applicable. Do not start another unchanged review round just to seek more suggestions after the selected gate and acceptance checks are satisfied; new code, evidence, or a material validation gap can justify further review.
 
 If a review was interrupted before its final result, record it as incomplete and rerun it. Never infer clean from partial output.
