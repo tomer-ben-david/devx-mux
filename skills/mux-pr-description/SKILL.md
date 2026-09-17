@@ -7,6 +7,14 @@ description: "Write or rewrite a GitHub PR title and reviewer-neutral descriptio
 
 Write for a fresh reviewer. Lead with the single sentence anyone could repeat after closing the tab. Then explain the problem, scope, mechanics, and evidence - without arguing for the implementation or directing the review.
 
+## Initial cuts and evolving specs
+
+For first-pass feature PRs and companion specs or design documents, put a short initial-cut note near the top, before `Context`. Treat the proposed design as a starting point for iteration unless the user explicitly fixes it. Adapt this wording to the actual work:
+
+> **Initial cut — nothing here is frozen.** This is a first pass at [goal]. Expect the approach, the division of responsibilities, and the user experience to evolve as we build and use it. This document is a starting point for iteration; open questions are listed at the end.
+
+Include the last clause only when there are real open questions; list them near the end, before any Changelog. Keep explicit user requirements and constraints distinct from provisional design choices. Agents should revise those choices when evidence or user feedback supports a better approach, rather than follow an early spec literally. Keep the spec and PR description aligned with the current direction, and distinguish proposed behavior from what the diff actually implements and verifies. Omit the initial-cut note for settled work or a design the user has explicitly frozen.
+
 ## The one-line invariant (lead with it)
 
 Before any section, any diagram, any symptom, find the sentence that makes the whole PR click. It is usually an invariant the change enforces: the relationship that must hold, stated so plainly a non-author can repeat it.

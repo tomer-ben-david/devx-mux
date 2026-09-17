@@ -56,6 +56,10 @@ Carry the user's answer forward. Reopen it only when new evidence invalidates an
 
 ## Design for the demonstrated requirement
 
+Treat a first-pass spec or design as a starting point for iteration unless the user explicitly fixes it. When writing one, add a short note near the top such as: **Initial cut — nothing here is frozen.** This is a first pass; expect the approach, division of responsibilities, and user experience to evolve as we build and use it. List genuine open questions at the end.
+
+Distinguish explicit user requirements and constraints from provisional design choices. Do not turn an agent-written proposal, example layout, or implementation sketch into a locked user decision. Improve routine design choices within authorized scope as evidence and feedback arrive, and update the existing spec to match. Route unresolved consequential changes through the decision guidance above; an evolving spec does not silently expand scope or waive acceptance criteria.
+
 Find the existing owner and precedent before introducing a concept. Choose the smallest coherent design establishing the invariant at its owner. Fewer changed lines do not justify a permanent workaround or second source of truth. Long-term quality does not justify a speculative platform.
 
 For proposed persistence, identify owner, lifecycle, readers, writers, and why existing facts cannot represent or derive the required behavior. Apply similar scrutiny to new services, types, caches, compatibility paths, and abstractions for hypothetical callers. These are evidence questions, not a blanket ban on new structure.
