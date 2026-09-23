@@ -283,6 +283,9 @@ async function waitSession(
       await sleep(intervalSeconds);
     }
   }
+  // The cursor already consumed these messages. Return them even on timeout;
+  // the non-zero exit still means completion has not been established.
+  for (const text of finalTexts) process.stdout.write(`${text}\n`);
   fail(`incomplete: no idle final assistant message after ${maxSeconds}s on ${provider} session`, 1);
 }
 

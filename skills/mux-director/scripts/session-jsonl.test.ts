@@ -134,3 +134,15 @@ test("wait does not fire on a still-growing transcript (no false completion mid-
   assert.notEqual(result.status, 0);
   grow.kill();
 });
+
+
+test("wait preserves consumed messages when the deadline prevents completion", () => {
+  const { repository, transcript, cursor, env } = setupCodexWaitSession();
+  appendFileSync(transcript, `${codexAssistant("partial evidence")}\n`);
+  const result = runResult(
+    ["wait", "codex", repository, "wait-1", "--cursor", cursor, "--max", "1", "--interval", "1"], env,
+  );
+  assert.notEqual(result.status, 0);
+  assert.equal(result.stdout.trim(), "partial evidence");
+  assert.equal(run(["read", "codex", transcript, cursor], env), "");
+});

@@ -177,6 +177,18 @@ Use `mux multireview` when the user wants provider-neutral concurrent Codex and 
 
 For persistent Codex and Grok panels, prefer their JSONL session files over terminal scrollback once the session is matched to the exact target and repository. Use pane reads only for discovery, readiness, and fallback.
 
+### Queued work and review ownership
+
+Keep new steering in the existing task record with a stable task ID, owner, dependency, next action and completion evidence. A queued request supplements current work unless the user replaces it. Finish the current bounded step before unrelated renames or edits; do not lose earlier tasks in repeated chat messages.
+
+Review latency need not serialize independent work. While a small base PR is reviewed, continue authorized dependent experiments against a pinned base or independent queued work. Preserve local-only versus publishable branch boundaries. Keep file ownership separate and serialize shared Git/index operations. Do not invent work merely to keep an agent busy.
+
+Use subagents when independent work can finish sooner after handoff overhead. Supply existing evidence and a bounded deliverable; reuse context instead of restarting discovery. If the implementor is idle waiting for a small advisory task, obtain the partial result and finish locally rather than extending the investigation. Naming consultations should yield one consolidated mapping before editing.
+
+Honor the user's named triage owners. When director and a second reviewer own triage, the implementor receives agreed fixes and does not independently dismiss or implement online findings. Consensus requires evidence, not agreement alone. With authorization to manage threads, reply with the verified fix and commit before resolving accepted findings; explain the evidence for rejected findings before resolving them. Leave disputed findings open. Resolve means disposition, not proof the current head is clean.
+
+Readiness is scoped to the PR: verify its current head, agreed changes, tests and thread dispositions, and report pending reviews or absent CI honestly. Unfinished downstream experiments do not automatically block a small infrastructure PR.
+
 ### Triage reminder
 
 Triage every finding independently. Do not blindly trust reviewers, the implementor, the PR description, or tests — classify against evidence and the PR's stated goal **before any action**. If product intent is unclear, ask the human.
@@ -199,7 +211,7 @@ Ask of each finding: is it **required for the goal**, or an edge case in **optio
 
 `@codex` and ChatGPT browser are **free + async** reviewers. Their latency is free parallelism, not a cost: **fire both eagerly on every push**, in parallel with the fast panels, so their reviews land while the fast reviewers are still running. Do not wait for them before starting the fast reviewers, and do not hold a cycle open for them.
 
-`gh pr comment <PR> --body "@codex review"` triggers the `chatgpt-codex-connector` bot, which takes several minutes. Fire it immediately after every draft-PR push. Do not ask first. Do NOT treat its silence as failure or poll it every 2 min. The standing policy lives in [references/review-protocol.md](references/review-protocol.md). Every cycle, also tell the implementer to check the PR for new review comments itself - `gh api repos/<org>/<repo>/pulls/<N>/comments`, filtered to the new batch - because some reviewers (notably `@codex`, sometimes grok) post findings as inline PR comments. Tag each finding's source: `[codex-reviewer tab]` / `[@codex bot]` / `[grok-review tab]` / `[ChatGPT browser]` / `[DevX self-review]`.
+`gh pr comment <PR> --body "@codex review"` triggers the `chatgpt-codex-connector` bot, which takes several minutes. Use only that neutral comment when requesting review. If an automatic review is already running for the same head, do not post a duplicate trigger. Fire it immediately after every draft-PR push when no same-head review is already running and that reviewer is authorized. Do not ask first. Do NOT treat its silence as failure or poll it every 2 min. The standing policy lives in [references/review-protocol.md](references/review-protocol.md). Every cycle, also tell the implementer to check the PR for new review comments itself - `gh api repos/<org>/<repo>/pulls/<N>/comments`, filtered to the new batch - because some reviewers (notably `@codex`, sometimes grok) post findings as inline PR comments. Tag each finding's source: `[codex-reviewer tab]` / `[@codex bot]` / `[grok-review tab]` / `[ChatGPT browser]` / `[DevX self-review]`.
 
 **Convergence blocks on the FAST reviewers only** (codex-review + grok-review clean on the same HEAD). A late result from a free-async reviewer does NOT block the current cycle: if it surfaces a P1, reopen the affected repair family and fold the fix into the next cycle. Never silently drop a late finding - it just doesn't gate the cycle it arrived in.
 
@@ -209,7 +221,7 @@ Same rule as the Triage reminder: GitHub `@codex` over-scopes. Typical examples:
 
 ### P1-bounded convergence (use on large diffs)
 
-Two thorough reviewers on xhigh/high can keep finding suggestion-tier nits on a 4000+ line diff, so "loop until literally nothing actionable" can breed fix-then-re-find churn. Default to a severity-bounded stop: **loop until every gating reviewer returns ZERO P1/bug findings on the same HEAD.** This does not turn pending async reviewers into gates. Fix scope each round = in-scope P1/bugs always fixed (`@codex` P1 badges still go through the Triage reminder above before they count as in-scope); P2/suggestions/nits are triaged case-by-case by the implementer - fix the ones that are real and worth it, push back on / defer (one-line "deferred: <reason>") the ones that aren't important or are over-cautious reviewer noise. P2-and-below do NOT block stopping. This is achievable and keeps the diff from bloating into more findings. Only insist on strict all-clean when the diff is small or the user asks for it. An unmet acceptance criterion still blocks task completion regardless of a reviewer's severity label. This complements (does not replace) the convergence/loop-detection rules below.
+Two thorough reviewers on xhigh/high can keep finding suggestion-tier nits on a 4000+ line diff, so "loop until literally nothing actionable" can breed fix-then-re-find churn. Default to a severity-bounded stop: **loop until every gating reviewer returns ZERO P1/bug findings on the same HEAD.** This does not turn pending async reviewers into gates. Fix scope each round = in-scope P1/bugs always fixed (`@codex` P1 badges still go through the Triage reminder above before they count as in-scope); P2/suggestions/nits are triaged case-by-case by the assigned triage owner - fix the ones that are real and worth it, push back on / defer (one-line "deferred: <reason>") the ones that aren't important or are over-cautious reviewer noise. P2-and-below do NOT block stopping. This is achievable and keeps the diff from bloating into more findings. Only insist on strict all-clean when the diff is small or the user asks for it. An unmet acceptance criterion still blocks task completion regardless of a reviewer's severity label. This complements (does not replace) the convergence/loop-detection rules below.
 
 ### Director self-review (DevX diff read) every cycle
 

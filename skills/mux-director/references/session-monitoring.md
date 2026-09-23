@@ -77,7 +77,7 @@ $SKILL/scripts/session-jsonl.ts wait codex "$PWD" <session-id> \
   --cursor /tmp/mux-wait.cursor --max 600 --interval 15 && echo "target idle"
 ```
 
-The quiescence check is the JSONL's best proxy for "final message + target idle". It cannot prove the target is truly idle if it emits final text and then keeps doing tool-only work that writes no assistant rows; bounded by `--interval`, that is at most one poll late, never a correctness error.
+The quiescence check is a proxy for "assistant output + no recent transcript growth". A paused tool or background agent can remain active without writing rows, so exit 0 is a signal to inspect the result, not proof of task completion.
 
 `--max` is the only timeout bound - do not wrap `wait` in `timeout(1)`, which macOS does not ship. `wait` self-terminates at `--max` (verified by test) and exits non-zero with `incomplete`, so it never hangs. Pass a `--cursor` file so repeated waits only observe new content.
 
@@ -104,3 +104,14 @@ If the provider cannot identify a usable session file, read through the active t
 - Rex: use the socket `tail` command for terminal reviewers and the shared semantic browser HTML transport for ChatGPT.
 
 Re-resolve the target before each fallback read. Treat pane and surface IDs as ephemeral, and read enough scrollback to include the complete report rather than only its verdict tail.
+
+
+## Compact task status and scheduled checks
+
+For a multi-task queue, an optional small status file per stable task ID can project the existing handoff: owner, running/blocked/done, updated time, result commit or artifact, test evidence, and blocker. Write atomically; retain the result rather than deleting the file. File disappearance, an idle prompt, and an agent's done flag are signals, not acceptance evidence.
+
+Read these compact records before transcripts. On a relevant transition, verify only the necessary artifact, exact PR head or test result. If unchanged, avoid repeated full transcript and GitHub reads. A stale status record or independently observed completion warrants one targeted reconciliation; do not let a missing update hide a finished or stalled task indefinitely.
+
+When the user requests later notification, use the host's supported scheduler. A periodic heartbeat is not a filesystem-event wakeup, and a foreground file waiter cannot promise to wake an ended conversation. Stay quiet on unchanged state; notify meaningful completion, failure or needed user action. Use an event watcher only when the host actually supports that delivery path; do not build a second orchestration service for status tracking.
+
+The session waiter returns consumed assistant messages on timeout as well as success. A non-zero exit still means incomplete: keep the partial evidence and inspect the target before claiming completion. Transcript quiescence is only a transport heuristic, never proof that queued tasks or background agents finished.

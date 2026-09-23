@@ -9,6 +9,9 @@ Write for a fresh reviewer. Lead with the single sentence anyone could repeat af
 
 ## Initial cuts and evolving specs
 
+When the user requests durable specifications alongside PRs, keep a concise versioned spec in the repository and link it from the PR. Follow the repository/user path convention (for example `docs/specs/<date>/<feature-name>/`); do not impose it on unrelated repositories. Keep intent, acceptance, provisional approach and open questions in the spec; keep current diff and verification in the PR. Reuse the shared base spec for stacked work and describe each layer's delta rather than copying every description.
+
+
 For first-pass feature PRs and companion specs or design documents, put a short initial-cut note near the top, before `Context`. Treat the proposed design as a starting point for iteration unless the user explicitly fixes it. Adapt this wording to the actual work:
 
 > **Initial cut — nothing here is frozen.** This is a first pass at [goal]. Expect the approach, the division of responsibilities, and the user experience to evolve as we build and use it. This document is a starting point for iteration; open questions are listed at the end.
