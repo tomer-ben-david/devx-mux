@@ -5,6 +5,14 @@ import { test } from "node:test";
 const skill = readFileSync(new URL("./SKILL.md", import.meta.url), "utf8");
 const reviewProtocol = readFileSync(new URL("./references/review-protocol.md", import.meta.url), "utf8");
 
+test("mux-director routes blocked lanes to a Codex Desktop Root through the notify script", () => {
+  const transports = readFileSync(new URL("./references/transports.md", import.meta.url), "utf8");
+  assert.match(skill, /Blocked lane -> Codex Desktop Root/);
+  assert.match(skill, /scripts\/codex-desktop-notify\.ts blocker/);
+  assert.match(skill, /never resend after a queued or uncertain result/);
+  assert.match(transports, /## Codex Desktop Root notification/);
+});
+
 test("mux-director refreshes active guidance after 60 minutes", () => {
   assert.match(skill, /When 60 minutes have elapsed, reread this entire skill/);
 });

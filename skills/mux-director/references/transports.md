@@ -33,6 +33,31 @@ Prefer targets inside the active/origin task. Use a pane name only after confirm
 
 The resolver accepts `REX_SOCKET_PATH` as an explicit override. During the rename transition, it uses the legacy `rexide/rexide.sock` path only when the canonical Rex socket is absent.
 
+## Codex Desktop Root notification
+
+Read the Root thread UUID, title, and project directory from Codex Desktop or the Root's handoff; never guess them. An agent lane (for example Claude or Grok Bot) that is genuinely blocked can notify its manager ("Root") in an existing Codex Desktop (ChatGPT app) conversation without the user relaying. Use it only for a blocker that needs Root's decision; never for progress, polling, or status.
+
+```bash
+N="$SKILL/scripts/codex-desktop-notify.ts"
+ROOT=(--thread <root-thread-uuid>
+      --expect-name "<exact Root task title>"
+      --expect-cwd <Root project directory>)
+
+node "$N" check "${ROOT[@]}"          # read-only preflight; sends nothing
+node "$N" blocker "${ROOT[@]}" --from "Claude lane-a" \
+  --blocker "Integration fixture is missing" \
+  --evidence "tests/example.test.ts:41 ENOENT fixtures/example.json" \
+  --decision "Regenerate the fixture, or drop that case from the suite?"
+```
+
+Other lanes use the same command with their own `--from` label, for example `--from "Grok Bot"`. Each message is labelled as an AI-agent notification with its sender and a unique `ref`. It is never user authorization; Root judges it like any other agent input.
+
+Transport: the first-party `codex queue --thread <uuid> --message` command from the running Desktop's own bundle. It only calls app-server `thread/queue/add` on the shared durable queue. The Desktop's app-server picks up externally queued items within about 10 seconds and starts one when Root is idle, or after Root's running turn completes. It never steers into or stops a running turn, and it does not touch the composer draft, the clipboard, or session files. Nothing resumes the thread in a second server.
+
+Before sending, the script requires the exact thread UUID, the expected Desktop title (unique among active threads), the expected project directory, a rollout transcript belonging to that thread, and a running Desktop app-server. It refuses without sending when Root's last turn was interrupted (Codex does not drain the queue until the user continues) or when an earlier agent notification is still queued.
+
+Delivery is reported only from Root's rollout transcript: a user message containing the `ref` plus the `task_started` event of the turn it started. Exit codes: `0` delivered, `3` refused before sending, `4` queued behind Root's active turn, `5` uncertain. The script sends once and never retries. After `4` or `5`, do not resend; check later with `verify "${ROOT[@]}" --ref <ref> --since-byte <sinceByte>` from the printed report.
+
 ## Unknown mux
 
 Treat a new mux as an adapter with four operations:
