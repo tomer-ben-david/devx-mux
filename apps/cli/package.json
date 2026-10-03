@@ -1,7 +1,7 @@
 {
   "name": "devx-mux",
   "version": "0.1.0",
-  "description": "DevX Mux command-line interface",
+  "description": "DevX Mux CLI: scoped, read-only AI code review through Codex and Grok, with parallel independent review and a finding verification pass",
   "license": "MIT",
   "repository": {
     "type": "git",

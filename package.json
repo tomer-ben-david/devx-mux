@@ -2,7 +2,7 @@
   "name": "devx-mux-monorepo",
   "private": true,
   "version": "0.1.0",
-  "description": "Multiplex independent AI implementation and review workflows.",
+  "description": "Multiplex independent AI implementation and review workflows: provider-neutral Codex and Grok code review, orchestrated multi-agent delivery, and portable agent skills.",
   "license": "MIT",
   "type": "module",
   "workspaces": [
