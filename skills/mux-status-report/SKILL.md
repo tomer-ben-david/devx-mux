@@ -42,6 +42,7 @@ Keep a compact working ledger: workstream, outcome, event date, present status, 
 - Judge completion against the actual task: code intended for main is not delivered while its PR is unmerged; a verified manual repair, investigation, or evaluation can be complete without a merge. Report those outcomes separately from any unfinished permanent fix or feature.
 - Resolve conflicting checkpoints by task/version/environment and event time. Do not combine metrics from one run with code or publication state from another. Preserve explicit pause instructions over older “ready” or “active” labels.
 - Attribute contributions accurately: coordinating a test, repairing data, implementing a fix, and developing the underlying feature are different work. Account authorship or an integration-created issue alone does not establish personal credit.
+- Reconcile explicit task lists in notes against the draft report before delivery. Keep a requested review of another person's PR distinct from related feature work; include outstanding commitments with an honest status rather than silently omitting them.
 - Attach denominators, coverage, and essential exclusions to numbers. Distinguish measured runtime from estimates and total spend from reservations. A high benchmark agreement score is not automatically accuracy or end-to-end success; keep a critical usability gap visible beside good results.
 - Classify each item as completed, in progress, newly reported/opened, pending a dependency or decision, paused, or unverified. Identify the actual next action for pending items. Old timestamps or an idle coordinator alone do not prove a stall.
 - Expose unresolved contradictions instead of choosing the more flattering story. If evidence is unavailable, use “reported complete” or “not verified” where material, rather than claiming failure or success.
@@ -52,24 +53,33 @@ Stop when the requested sources are checked or their limits recorded and the mat
 
 For a brief daily Slack or Heynote update, aim for **4–6 short bullets, roughly 100–180 words**, unless the user requests another length. Use their language and tone, with concrete outcomes instead of agent activity or internal review chronology. A reader should grasp the status of each bullet in a few seconds.
 
-For a broader manager report covering multiple days or all workstreams, lead with a **2–3 sentence executive summary**, then use **bold topic labels with bullets for the individual tasks**. Within each topic, distinguish separate complaints or requests: the concrete problem, what was repaired or tested and its result, current PR/operational status, and the next action. Do not call an entire topic “done” because one experiment or repair finished. Do not erase implementation, investigation, data repair, or testing contributions just to meet the short-draft word target. Describe their concrete results; do not infer hours worked from transcript volume, commits, or test counts.
+For a broader manager report, default to **bold topic headings** and a flat list under each topic: **one task and one sentence per bullet, with no nested bullets**. Begin each bullet with `**STATUS · Specific task:**`, using a **single uppercase word** for the status. Choose the most informative state, such as `MERGED`, `DEPLOYED`, `FIXED`, `TESTED`, `DIAGNOSED`, `REVIEWED`, `DRAFT`, `ONGOING`, `PENDING`, `BLOCKED`, `PAUSED`, or `DEFERRED`; avoid compound labels such as `DRAFT / TESTED`. State other material milestones and limitations in the sentence, so `REVIEWED` does not imply merged and `TESTED` does not imply shipped.
+
+Each sentence should identify the concrete complaint or task, the action and useful result, and what remains when unfinished. Do not call an entire topic “done” because one experiment or repair finished. Add an executive summary only when requested; preserve the requested formatting when adapting the report. Do not erase implementation, investigation, data repair, or testing contributions just to meet the short-draft word target, and do not infer hours worked from transcript volume, commits, or test counts.
 
 Name the actual task or user-visible problem, not just a category such as “reliability improvements.” Add a short before/after example where it makes the work understandable. Make the next action specific, and distinguish the user's decisions from remaining engineering work. When the user wants to choose what to include, separate recent work from earlier days in the requested window rather than silently dropping either group.
 
 When asked what has not been approached, reconcile outstanding notes and commitments with later evidence. List confirmed untouched/deferred tasks separately; label stale notes “status not verified” instead of assuming they remain open or counting them as this period's work.
 
-Use status labels or group by completed, in progress, and pending/next. Include newly opened work and paused items only when meaningful. A compact table is appropriate when requested; do not force a table into a Slack message. Omit empty categories and avoid repeating the same work in several sections.
+Group by subject rather than by status unless the user requests otherwise. Include newly opened work and paused items when meaningful. Use a table only when requested or clearly better suited to the destination. Omit empty categories and avoid repeating the same work in several sections.
 
 An adaptable shape:
 
-```text
+```markdown
 Update — [date range]
 
-- Completed: [outcome and impact; one useful number if verified].
-- In progress: [current result, important remaining gap, next action].
-- Newly open: [newly reported work and current disposition].
-- Pending: [specific dependency or decision and who needs to act].
-- Next: [the immediate priorities].
+**Search**
+
+- **FIXED · Missing results:** Repaired the affected records and verified the reported search now returns results.
+- **DRAFT · Duplicate results:** Added duplicate prevention and passed database tests; browser acceptance and merge remain pending.
+
+**Deployments**
+
+- **TESTED · Migration rehearsal:** Verified deployment from the destination repository; the actual transfer remains pending.
+
+**Models**
+
+- **PENDING · Model upgrade:** Review and test the proposed model-default changes before deciding whether to merge.
 ```
 
 Put critical limitations in the relevant bullet, not only in an appendix. Prefer a few recognizable links over hashes, session IDs, local paths, or a PR inventory. Technical evidence belongs outside the copyable message.
