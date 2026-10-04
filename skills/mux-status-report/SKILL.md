@@ -63,10 +63,12 @@ When asked what has not been approached, reconcile outstanding notes and commitm
 
 Group by subject rather than by status unless the user requests otherwise. Include newly opened work and paused items when meaningful. Use a table only when requested or clearly better suited to the destination. Omit empty categories and avoid repeating the same work in several sections.
 
+When the user supplies a status message they actually sent and approves its format, preserve that structure: a short title, topic sections, and `STATUS · Specific task: result; remaining work` entries. Markdown emphasis and bullet markers may be omitted for plain-text pasting without changing the content or status distinctions. Derive topics from the user's actual work rather than prescribing a company-specific category list.
+
 An adaptable shape:
 
 ```markdown
-Update — [date range]
+My Status — [date range]
 
 **Search**
 
@@ -86,4 +88,6 @@ Put critical limitations in the relevant bullet, not only in an appendix. Prefer
 
 For broad source reviews, add a brief separate coverage note: sources checked, date scope, and material unavailable sources. Offer or link the detailed evidence only when useful; do not repeat the full investigation beneath every daily draft. Describe sampled or searched records honestly, without claiming every line of every chat was read.
 
-Research and drafting are read-only against source systems. Do not post to Slack, overwrite notes, edit tickets, notify people, or schedule reporting without explicit authorization for that action. Keep private source content and user-specific configuration out of this public skill and its examples.
+Research and drafting are read-only against source systems. Do not post to Slack, overwrite notes, edit tickets, notify people, or schedule reporting without explicit authorization for that action.
+
+Keep the public skill, examples, fixtures, and PR descriptions generic. Public platform and tool names such as Slack, Heynote, GitHub, Codex, Claude, Cursor, Azure, and OpenAI are appropriate; do not copy real people's names, customer/company/project names, private repository links, identifiers, local paths, or actual run metrics from a user's report into these public materials. Use generic examples rather than an anonymized copy that still reveals a recognizable private project. This publishing boundary does not require removing relevant facts from the user's own authorized status draft: tailor that draft to its intended audience and keep secrets out.
