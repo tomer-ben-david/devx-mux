@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mux Status Report"
+  short_description: "Draft concise work updates from verified evidence"
+  default_prompt: "Use $mux-status-report to draft a brief work update from my accessible notes, agent chats, Slack, and GitHub activity for the requested period."

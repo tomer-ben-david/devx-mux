@@ -10,6 +10,7 @@ export const PUBLIC_SKILL_NAMES = [
   "mux-multireview",
   "mux-pr-description",
   "mux-staged-review",
+  "mux-status-report",
   "mux-task",
 ] as const;
 

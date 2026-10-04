@@ -15,6 +15,7 @@ const publicSkills = [
   "mux-multireview",
   "mux-pr-description",
   "mux-staged-review",
+  "mux-status-report",
 ];
 const legacySkills = ["devx-mux", "pr-title-description", "staged-pr-review"];
 

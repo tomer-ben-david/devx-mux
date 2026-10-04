@@ -7,7 +7,7 @@ DevX Mux is an open-source toolkit for reviewing, validating, and shipping softw
 | Layer | What it provides |
 | --- | --- |
 | Review CLI | `mux review` and `mux multireview`: scoped, evidence-driven, read-only code review through Codex and Grok, with an optional fresh-context verification pass that tries to refute every finding |
-| Agent skills | Seven public `mux-*` skills covering the end-to-end engineering workflow, multi-agent orchestration, parallel independent review, PR descriptions, staged review gates, and task-context save/restore |
+| Agent skills | Eight public `mux-*` skills covering the end-to-end engineering workflow, multi-agent orchestration, parallel independent review, PR descriptions, staged review gates, task-context save/restore, and concise work status reports |
 | Agent config | Version-controlled global instruction files for Codex and Claude, linked deterministically into each agent's home by `mux setup` |
 
 ## Why
@@ -160,6 +160,13 @@ DevX Mux is the canonical public home for reusable agent workflows. Each skill i
 | `mux-staged-review` | Run commit, branch, standards, and final full-PR review gates sequentially, advancing only after each stage is clean |
 | `mux-pr-description` | Draft reviewer-neutral PR titles and descriptions with explicit Context, Goals, Non-goals, Solution, and Verification |
 | `mux-task` | Save, order, and restore the working context of parallel tasks — branch, folder, PR, agent sessions, notes pointers — in a personal journal, so switching tasks works like `git switch` |
+| `mux-status-report` | Draft a short daily, weekly, or monthly update from notes, agent transcripts, Slack, and GitHub evidence, separating completed work from pending, paused, and unverified items |
+
+### Work status reports
+
+Ask an agent to use `$mux-status-report` for an update to copy into Slack or Heynote. It checks the requested reporting window across accessible notes, Codex/Claude/Cursor transcripts, messages, and repository activity, then reconciles claims against merge, deployment, or execution evidence. Daily updates use 4–6 short bullets; broader manager reports add compact workstream details below an executive summary so completed work, testing, bugs found, and remaining work are visible. Source-coverage limits stay separate from the copyable message.
+
+Source locations come from the user's context or existing `devx-mux-task-config.md` settings. The skill contains no company or project configuration and does not post messages, change notes, or resume paused work.
 
 ### Task context journal
 
@@ -193,7 +200,7 @@ Global agent instruction files are version-controlled in this repository under `
 apps/cli              command parsing, provider dispatch, process boundary
 packages/reviewer     review scope, prompt contract, provider interface
 packages/terminal-ui  OpenTUI dashboard and terminal reporting
-skills/               the seven public mux-* agent workflows
+skills/               the eight public mux-* agent workflows
 agent-config/         version-controlled Codex and Claude instruction files
 scripts/              thin launchers, packaging, and release verification
 tests/                end-to-end npm installation test
@@ -234,7 +241,7 @@ Use the local runner for the complete development workflow:
 
 Run `./mux.sh check` before committing so tests, type checking, and the globally linked CLI build are current. The project intentionally uses local verification instead of consuming hosted CI minutes.
 
-The npm release is built from a clean CLI bundle and includes the seven public `mux-*` skills. Verify the exact consumer installation path locally with:
+The npm release is built from a clean CLI bundle and includes the eight public `mux-*` skills. Verify the exact consumer installation path locally with:
 
 ```bash
 npm run test:install
