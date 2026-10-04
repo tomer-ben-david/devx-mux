@@ -166,7 +166,7 @@ DevX Mux is the canonical public home for reusable agent workflows. Each skill i
 
 Ask an agent to use `$mux-status-report` for an update to copy into Slack or Heynote. It checks the requested reporting window across accessible notes, Codex/Claude/Cursor transcripts, messages, and repository activity, then reconciles claims against merge, deployment, or execution evidence. Daily updates use 4–6 short bullets; broader manager reports group one-sentence task bullets under bold topic headings, each starting with a one-word status and specific task label. Each item makes the result and remaining work clear; an executive summary is added when requested. Source-coverage limits stay separate from the copyable message.
 
-Source locations come from the user's context or existing `devx-mux-task-config.md` settings. The skill preserves a user's approved report structure while keeping public examples generic: platform names are fine, but private people, customers, projects, and run data stay out of the published skill. It contains no company or project configuration and does not post messages, change notes, or resume paused work.
+Source locations come from the user's context or existing `devx-mux-task-config.md` settings. The skill preserves a user's approved report structure while keeping public examples generic: platform names are fine, but private people, customers, projects, and run data stay out of the published skill. Research and drafting are read-only; an explicit request can save a dated entry to the user's configured Markdown journal or notes while preserving prior content. Personal journal paths stay in private settings. The skill does not post messages or resume paused work without separate authorization.
 
 ### Task context journal
 

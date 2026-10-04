@@ -15,7 +15,7 @@ Turn scattered work records into a short, accurate account of what changed, what
 
 ## Discover sources locally
 
-Use the user's requested repositories and checkouts, current conversation, journal, and existing source settings. If available, read `$MUX_TASK_SETTINGS` or `devx-mux-task-config.md` in the working directory or its parents up to the user's home. Reuse its journal, checkout pool, extra notes, agent homes, and source pointers without invoking task save/switch/refresh operations or editing the journal.
+Use the user's requested repositories and checkouts, current conversation, journal, and existing source settings. If available, read `$MUX_TASK_SETTINGS` or `devx-mux-task-config.md` in the working directory or its parents up to the user's home. Reuse its journal, checkout pool, extra notes, agent homes, and source pointers. Reading this configuration does not itself authorize task save/switch operations or journal edits.
 
 No settings file is required. Discover accessible sources and report material gaps. Ask only when an unresolved identity, date range, or repository ambiguity would change the result. Do not scan unrelated home-directory content just because access is available.
 
@@ -89,5 +89,11 @@ Put critical limitations in the relevant bullet, not only in an appendix. Prefer
 For broad source reviews, add a brief separate coverage note: sources checked, date scope, and material unavailable sources. Offer or link the detailed evidence only when useful; do not repeat the full investigation beneath every daily draft. Describe sampled or searched records honestly, without claiming every line of every chat was read.
 
 Research and drafting are read-only against source systems. Do not post to Slack, overwrite notes, edit tickets, notify people, or schedule reporting without explicit authorization for that action.
+
+## Save to the user's notes when requested
+
+If the user asks to save the report or handoff and has an existing Markdown journal, use the journal they identify or the `journal` path in their private settings. Add or update a dated entry in its established format, preserving earlier content and linking the relevant sessions and evidence; do not copy raw transcripts into the journal. Update Heynote or another destination only when requested, and verify the saved result. If the destination is ambiguous, ask for it rather than inventing a personal journal path.
+
+A reusable setup tip is to configure `journal: /path/to/your/journal.md` in the user's own settings file. Keep that actual path and personal source mapping outside the public skill. A notes-only save does not authorize parking, committing, or switching unrelated code work; use `mux-task` for a requested task-context handoff when available, within the user's stated scope.
 
 Keep the public skill, examples, fixtures, and PR descriptions generic. Public platform and tool names such as Slack, Heynote, GitHub, Codex, Claude, Cursor, Azure, and OpenAI are appropriate; do not copy real people's names, customer/company/project names, private repository links, identifiers, local paths, or actual run metrics from a user's report into these public materials. Use generic examples rather than an anonymized copy that still reveals a recognizable private project. This publishing boundary does not require removing relevant facts from the user's own authorized status draft: tailor that draft to its intended audience and keep secrets out.
