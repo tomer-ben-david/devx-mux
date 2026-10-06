@@ -10,11 +10,17 @@ export const PUBLIC_SKILL_NAMES = [
   "mux-multireview",
   "mux-pr-description",
   "mux-staged-review",
-  "mux-status-report",
-  "mux-task",
+  "mux-journal",
 ] as const;
 
-const LEGACY_PUBLIC_SKILL_NAMES = ["devx-mux", "mux-orchestrate", "pr-title-description", "staged-pr-review"] as const;
+const LEGACY_PUBLIC_SKILL_NAMES = [
+  "devx-mux",
+  "mux-orchestrate",
+  "mux-status-report",
+  "mux-task",
+  "pr-title-description",
+  "staged-pr-review",
+] as const;
 
 /**
  * Global agent instruction files live in `agent-config/` and are symlinked into

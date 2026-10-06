@@ -15,9 +15,9 @@ const publicSkills = [
   "mux-multireview",
   "mux-pr-description",
   "mux-staged-review",
-  "mux-status-report",
+  "mux-journal",
 ];
-const legacySkills = ["devx-mux", "pr-title-description", "staged-pr-review"];
+const legacySkills = ["devx-mux", "mux-status-report", "mux-task", "pr-title-description", "staged-pr-review"];
 
 interface CommandResult {
   readonly stdout: string;

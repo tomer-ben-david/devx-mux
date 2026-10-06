@@ -159,26 +159,21 @@ DevX Mux is the canonical public home for reusable agent workflows. Each skill i
 | `mux-chatgpt-review` | Loop a pull request through a user-selected ChatGPT browser surface until the exact head is reported clean |
 | `mux-staged-review` | Run commit, branch, standards, and final full-PR review gates sequentially, advancing only after each stage is clean |
 | `mux-pr-description` | Draft reviewer-neutral PR titles and descriptions with explicit Context, Goals, Non-goals, Solution, and Verification |
-| `mux-task` | Save, order, and restore the working context of parallel tasks — branch, folder, PR, agent sessions, notes pointers — in a personal journal, so switching tasks works like `git switch` |
-| `mux-status-report` | Draft a short daily, weekly, or monthly update from notes, agent transcripts, Slack, and GitHub evidence, separating completed work from pending, paused, and unverified items |
+| `mux-journal` | One skill for your work log: draft daily, weekly, or monthly status reports from notes, agent transcripts, Slack, and GitHub evidence; save them to your journal; and save, order, and restore the working context of parallel tasks so switching works like `git switch` |
 
-### Work status reports
+### Work journal (`mux-journal`)
 
-Ask an agent to use `$mux-status-report` for an update to copy into Slack or Heynote. It checks the requested reporting window across accessible notes, Codex/Claude/Cursor transcripts, messages, and repository activity, then reconciles claims against merge, deployment, or execution evidence. Daily updates use 4–6 short bullets; broader manager reports group one-sentence task bullets under bold topic headings, each starting with a one-word status and specific task label. Each item makes the result and remaining work clear; an executive summary is added when requested. Source-coverage limits stay separate from the copyable message.
+`$mux-journal` is one front door for status reports, journal updates, and task context. It picks a mode from the request, and every mode shares the same settings file (`devx-mux-task-config.md`) and source list.
 
-Source locations come from the user's context or existing `devx-mux-task-config.md` settings. The skill preserves a user's approved report structure while keeping public examples generic: platform names are fine, but private people, customers, projects, and run data stay out of the published skill. Research and drafting are read-only; an explicit request can save a dated entry to the user's configured Markdown journal or notes while preserving prior content. Personal journal paths stay in private settings. The skill does not post messages or resume paused work without separate authorization.
+- **Report** (read-only): an update to copy into Slack or Heynote. It checks the requested window across accessible notes, Codex/Claude/Cursor transcripts, messages, and repository activity, then reconciles claims against merge, deployment, or execution evidence. Daily updates use 4–6 short bullets; broader manager reports group one-sentence `STATUS · Task` bullets under bold topic headings. Source-coverage limits stay separate from the copyable message. It never posts messages or resumes paused work.
+- **Report + save**: the same report, then a dated entry in your configured Markdown journal, preserving prior content. No commits or branch switches.
+- **Task** (`save`, `load`, `switch`, `next`, `queue`, `add`, `move`, `refresh`, `done`, `list`, `status`): one journal entry per task with name, date, PR, branch, folder, agents used, session links, and notes pointers.
+  - **Refresh first.** Every save, load, or switch re-verifies GitHub, branches and commits, agent session stores, transcript link scans, Heynote, Google Drive, Slack, ChatGPT exports, cmux state, and the codebases, ending with a coverage table.
+  - **An explicit queue.** A single ordered line in the journal ranks current work; `switch` and `next` follow it, `done` retires from it.
+  - **Safe parking.** Saving commits tracked changes as `wip(mux-task): ...` on non-protected branches only, pushes only when an upstream exists, stashes on protected branches, and never force-pushes or discards changes.
+  - **Links, never contents.** Entries store paths, permalinks, and session ids, never pasted transcripts, message bodies, file contents, or secrets.
 
-### Task context journal
-
-`mux-task` solves a specific failure mode: work spread across reusable checkout folders, GitHub PRs and issues, several coding agents, and personal notes, with no single place that says where a task stands.
-
-- **One journal entry per task,** holding the task name, date, PR, branch, folder, which coding agents were used, transcript and session file links, and notes pointers. The journal is an append/update log, not a task manager.
-- **Refresh first.** Pointers rot, so every operation that saves, loads, or switches a task first re-verifies every source it can reach: GitHub, branches and commits, agent session stores (Claude, Codex, Cursor), transcript link scans, Heynote, Google Drive, Slack, ChatGPT exports, cmux state, and the codebases themselves — each reported in a coverage table that shows what was searched and what is new.
-- **An explicit queue.** A single ordered line in the journal ranks current work; `switch` and `next` follow it, `done` retires from it.
-- **Safe parking.** Saving a task commits tracked changes as `wip(mux-task): ...` on non-protected branches only, pushes only when an upstream exists, stashes instead of committing on protected branches, and never force-pushes or discards changes.
-- **Links, never contents.** Entries store pointers — paths, permalinks, session ids — not pasted chat transcripts, message bodies, or file contents, and never secrets.
-
-All paths, repositories, and note locations come from the user's own `devx-mux-task-config.md` settings file; the skill ships with no personal paths baked in.
+Existing `mux-task:<slug>` journal markers keep working. All paths, repositories, and note locations come from the user's own settings file; the skill ships with no personal paths. `mux-journal` replaces the former `mux-task` and `mux-status-report` skills.
 
 ### Skill installation
 

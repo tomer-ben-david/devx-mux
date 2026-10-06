@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mux Journal"
+  short_description: "Status reports, journal updates and resumable task context"
+  default_prompt: "Use $mux-journal to draft a brief work update from my accessible notes, agent chats, Slack, and GitHub activity for the requested period, or to save/switch/resume a task."
