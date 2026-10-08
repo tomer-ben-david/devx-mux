@@ -1,4 +1,4 @@
 interface:
   display_name: "Mux PR Description"
-  short_description: "Write PR context, scope, and solution"
-  default_prompt: "Use $mux-pr-description to draft or rewrite this PR title and description with a concrete solution summary for a fresh reviewer."
+  short_description: "Explain a PR's purpose, solution, and evidence"
+  default_prompt: "Use $mux-pr-description to draft or rewrite this PR title and description so a fresh reviewer understands its purpose, scope, solution, and evidence. Choose a concise structure suited to the change."

@@ -158,7 +158,7 @@ DevX Mux is the canonical public home for reusable agent workflows. Each skill i
 | `mux-multireview` | Run the same exact read-only review scope concurrently through independent Codex and Grok reviewers |
 | `mux-chatgpt-review` | Loop a pull request through a user-selected ChatGPT browser surface until the exact head is reported clean |
 | `mux-staged-review` | Run commit, branch, standards, and final full-PR review gates sequentially, advancing only after each stage is clean |
-| `mux-pr-description` | Draft reviewer-neutral PR titles and descriptions with explicit Context, Goals, Non-goals, Solution, and Verification |
+| `mux-pr-description` | Write concise, reviewer-neutral PR titles and descriptions that explain the intended outcome, scope, implemented solution, and evidence, with a structure suited to the change |
 | `mux-journal` | One skill for your work log: draft daily, weekly, or monthly status reports from notes, agent transcripts, Slack, and GitHub evidence; save them to your journal; and save, order, and restore the working context of parallel tasks so switching works like `git switch` |
 
 ### Work journal (`mux-journal`)
