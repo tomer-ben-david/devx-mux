@@ -10,14 +10,15 @@ Help a fresh reviewer understand why the PR exists, what it aims to achieve, wha
 ## Desired result
 
 - **Title:** communicates the intended outcome in recognizable terms. Prefer what the change achieves over a list of technical edits; name a component when it clarifies the outcome.
-- **Context:** makes the problem and its consequence understandable without recent chat history. Lead with the central idea; use an invariant when it helps explain the change.
+- **Context:** makes the problem and its consequence understandable without recent chat history. Prefer a memorable invariant as the lead: the rule or relationship the change establishes or preserves, stated in plain language. If no single invariant fits, lead with the intended outcome rather than inventing one.
 - **Scope:** makes the goals and meaningful non-goals explicit. Keep `Goals` and `Non-goals` named when the repository's review workflow relies on those labels.
 - **Solution:** explains how the actual implementation achieves the goals, including the important mechanisms and resulting behavior. Give enough detail to understand the approach without reconstructing it from the diff.
+- **Visual clarity:** makes important quantities, before/after behavior, and relationships easy to grasp. Use grounded numbers, comparisons, tables, or diagrams wherever they communicate better than prose.
 - **Evidence:** states what verification actually ran, its results, and meaningful gaps. Keep code readiness, deployment, and live acceptance distinct when relevant.
 
 ## Writing judgment
 
-Aim for the shortest description that preserves understanding. A small change may need only a few sentences; a complex change may need distinct areas, a concrete before/after example, or a compact diagram or table. Use these when they clarify the change, without fixed counts or a prescribed layout.
+Optimize for reviewer understanding with concise wording. Remove repetition while preserving a useful invariant, concrete context, quantitative comparisons, visuals, mechanism explanations, and relevant trade-offs. A longer description is worthwhile when that detail makes the change easier to understand. Choose what helps this PR, without fixed counts, a word limit, or a prescribed layout.
 
 Use plain language and concrete details. File, function, field, and command names are useful when they explain a mechanism, but should not replace that explanation. Describe failure behavior and safety guarantees when they matter to this change.
 
