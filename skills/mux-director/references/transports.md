@@ -16,7 +16,21 @@ cmux send-key --surface surface:N enter
 
 Resolve exact tab titles for terminal roles. A terminal titled `codex-review` is not interchangeable with `codex`. For browser review, resolve ChatGPT by URL within the caller's workspace because page titles drift.
 
-After every terminal send, submit with Enter and verify that the target started working. A successful `cmux send` only proves text delivery.
+After every terminal send, submit with Enter and verify that the target started working. A successful `cmux send` only proves text delivery; a queued prompt does not prove it was consumed.
+
+### Cursor CLI: queue, then steer
+
+On a busy Cursor CLI surface, the first `send-key ... enter` adds the prompt to its follow-up queue. If the UI shows `enter steer`, send a **second, separate Enter** to activate steering and consume the queued instruction during the current task:
+
+```bash
+cmux send --workspace workspace:N --surface surface:N --paste "<prompt>"
+cmux send-key --workspace workspace:N --surface surface:N enter  # queue
+cmux read-screen --workspace workspace:N --surface surface:N --lines 24
+cmux send-key --workspace workspace:N --surface surface:N enter  # steer when the UI says enter steer
+cmux read-screen --workspace workspace:N --surface surface:N --lines 24
+```
+
+Verify that the follow-up queue is consumed and Cursor acknowledges the instruction. This extra Enter is specific to the verified Cursor CLI UI, not a general terminal rule. Preserve any queued human input; do not steer a different message or send Enter to a test process or shell. Do not assume typing the word `steering` activates the UI action.
 
 ## DevX Rex
 

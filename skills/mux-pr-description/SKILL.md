@@ -5,14 +5,14 @@ description: "Write or rewrite GitHub PR titles and descriptions so a fresh revi
 
 # PR title and description
 
-Help a fresh reviewer understand why the PR exists, what it aims to achieve, what the current diff does, and what the evidence proves. Choose the structure, length, wording, and visuals that best communicate this change. Follow the user's preferred format and repository conventions.
+Write for someone returning a day later without the conversation. The title and opening should make clear why the change was needed, what approach was chosen, and how the diff implements it. Keep the explanation concise and natural. Follow the user's preferred format and repository conventions.
 
 ## Desired result
 
 - **Title:** communicates the intended outcome in recognizable terms. Prefer what the change achieves over a list of technical edits; name a component when it clarifies the outcome.
-- **Context:** makes the problem and its consequence understandable without recent chat history. Prefer a memorable invariant as the lead: the rule or relationship the change establishes or preserves, stated in plain language. If no single invariant fits, lead with the intended outcome rather than inventing one.
+- **Context:** explains the concrete need or failure and its user or operational consequence. A short before/after example can make the change recognizable without internal terminology.
 - **Scope:** makes the goals and meaningful non-goals explicit. Keep `Goals` and `Non-goals` named when the repository's review workflow relies on those labels.
-- **Solution:** explains how the actual implementation achieves the goals, including the important mechanisms and resulting behavior. Give enough detail to understand the approach without reconstructing it from the diff.
+- **Solution:** states the chosen approach and explains the mechanisms that make it work. Include a decision's rationale when it helps the reader understand the implementation; omit the conversation and abandoned approaches.
 - **Visual clarity:** makes important quantities, before/after behavior, and relationships easy to grasp. Use grounded numbers, comparisons, tables, or diagrams wherever they communicate better than prose.
 - **Evidence:** states what verification actually ran, its results, and meaningful gaps. Keep code readiness, deployment, and live acceptance distinct when relevant.
 
@@ -20,9 +20,11 @@ Help a fresh reviewer understand why the PR exists, what it aims to achieve, wha
 
 Optimize for reviewer understanding with concise wording. Remove repetition while preserving a useful invariant, concrete context, quantitative comparisons, visuals, mechanism explanations, and relevant trade-offs. A longer description is worthwhile when that detail makes the change easier to understand. Choose what helps this PR, without fixed counts, a word limit, or a prescribed layout.
 
-Use plain language and concrete details. File, function, field, and command names are useful when they explain a mechanism, but should not replace that explanation. Describe failure behavior and safety guarantees when they matter to this change.
+Use plain language and concrete details. Explain what an internal term means before relying on labels such as "legacy", "publication" or "generation". File, function, field, and command names should support the explanation. Avoid forced slogans, ceremonial language and inflated claims. Put detailed test and policy evidence after the explanation of the change.
 
 Give reviewers facts they can judge independently. Avoid advocacy, expected review conclusions, instructions about what to review, and a recap of implementation debates. Keep open questions separate from established facts.
+
+Before publishing, read just the title and opening without the chat context: can a reader explain the need, the decision and how it works? Rewrite them if the answer depends on remembering the task or decoding unexplained jargon. This is a readability check, not a required set of headings or a longer template.
 
 ## Grounding
 
