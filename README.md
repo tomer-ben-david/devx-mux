@@ -147,6 +147,19 @@ mux review codebase --provider grok                           # entire repositor
 
 Because agent-captured stdout is non-interactive, the final response is already Markdown suitable for rendering or relaying, and the same report is persisted to the artifact path printed on stderr. Agents whose terminal wrapper allocates a pseudo-TTY can pass `--format markdown` explicitly. Use `--dry-run` when the task is to inspect the generated review instructions without invoking a provider.
 
+## Codex sign-in switch
+
+`mux codex-auth` switches Codex between ChatGPT-subscription and API-key sign-in by swapping only `$CODEX_HOME/auth.json` (default `~/.codex/auth.json`). `config.toml` is never touched, so there is no configuration to duplicate.
+
+```bash
+mux codex-auth status          # active mode and which modes are saved
+mux codex-auth api             # switch to API-key sign-in
+mux codex-auth subscription    # switch back (alias: sub)
+mux codex-auth save            # save the active sign-in so it can be switched back to
+```
+
+One auth file per mode is kept in `$CODEX_HOME/auth-profiles/` with owner-only permissions. Every switch first writes the active file back to its own slot, so tokens Codex refreshed in the meantime are never lost. To create the first profile for a mode, sign in with Codex in that mode and run `mux codex-auth save`. Unrecognized or malformed auth files fail loudly instead of falling back. Restart the Codex app and any running Codex sessions after a switch.
+
 ## Agent skills
 
 DevX Mux is the canonical public home for reusable agent workflows. Each skill is packaged with the npm release and linked under a `mux-*` invocation name by `mux setup`.

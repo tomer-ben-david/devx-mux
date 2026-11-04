@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { CodexReviewProvider, GrokReviewProvider, buildReviewPrompt, buildVerificationPrompt, type ReviewProgress, type ReviewProvider } from "@devx-mux/reviewer";
 import { createParallelReviewDashboard, TerminalReporter, type ReviewPanelId } from "@devx-mux/terminal-ui";
 import { helpText, parseReviewArguments, resolveParallelReasoning, reviewHelpText, versionText } from "./arguments.js";
+import { codexHomeDirectory, runCodexAuth } from "./codex-auth.js";
 import { resolveRepositoryPath } from "./git.js";
 import { persistCombinedReview, persistRawReview, type ProviderIdentity } from "./review-artifacts.js";
 import { installPublicSkills } from "./skill-installer.js";
@@ -138,6 +139,10 @@ async function run(argv: readonly string[]): Promise<number> {
   if (command === "setup") {
     if (rawCommandArguments.length > 0) throw new Error("mux setup does not accept arguments.");
     installPublicSkills();
+    return 0;
+  }
+  if (command === "codex-auth") {
+    process.stdout.write(runCodexAuth(rawCommandArguments, codexHomeDirectory()));
     return 0;
   }
   if (command !== "review" && command !== "multireview") {
