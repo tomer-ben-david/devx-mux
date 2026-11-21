@@ -213,7 +213,7 @@ test("mux-director relays suspicions to the agent as a consideration, not a dire
   assert.match(skill, /Transport \(verified\):.\* TWO commands, in order/);
   assert.match(skill, /SEPARATE .cmux send-key.* enter.* to actually submit/);
   assert.match(skill, /trailing .\\n. inside .cmux send. does NOT reliably submit/);
-  assert.match(skill, /The .↳. marker is the only proof of delivery/);
+  assert.match(skill, /The .↳. marker proves queued delivery, not consumption/);
   assert.match(skill, /A suspicion reported only to the human and never relayed is a failure mode/);
   assert.match(skill, /Re-relay until the loop actually closes - persistence is NOT nagging/);
   assert.match(skill, /Stop re-relaying only when/);
