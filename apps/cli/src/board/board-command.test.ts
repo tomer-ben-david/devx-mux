@@ -31,6 +31,8 @@ class FakeGitHubProject implements GraphqlTransport {
   private nextId = 1;
 
   async request(query: string, variables: GraphqlVariables): Promise<JsonValue> {
+    // Real GitHub answers a by-name lookup of a field the project lacks with NOT_FOUND instead of null.
+    if (/\bfield(ValueByName)?\(name:/.test(query)) throw new Error("Could not resolve to a Unions::ProjectV2FieldConfiguration with the name …");
     const argument = new JsonReader({ ...variables }, "variables");
     if (query.includes("updateProjectV2ItemFieldValue")) {
       const item = this.item(argument.field("item").string());
@@ -60,29 +62,35 @@ class FakeGitHubProject implements GraphqlTransport {
     }
     if (query.includes("node(id")) {
       const item = this.item(argument.field("item").string());
-      return { node: { time: item.minutes === null ? null : { number: item.minutes } } };
+      return { node: { fieldValues: { nodes: this.fieldValues(item) } } };
     }
     if (argument.field("owner").string() !== "acme" || argument.field("number").number() !== 1) return { repositoryOwner: { projectV2: null } };
-    const statusField = argument.field("statusField").string();
-    const timeField = argument.field("timeField").string();
-    const header = {
-      id: "PVT_1",
-      title: "Work",
-      url: "https://github.com/users/acme/projects/1",
-      status: statusField === "Status" ? { id: "status-field", name: "Status", dataType: "SINGLE_SELECT", options: this.columns } : null,
-      time: this.timeField === null || timeField !== this.timeField.name ? null : { ...this.timeField, dataType: "NUMBER" },
-    };
+    const fields: JsonValue[] = [
+      { id: "title-field", name: "Title", dataType: "TITLE" },
+      { id: "status-field", name: "Status", dataType: "SINGLE_SELECT", options: this.columns },
+      {},
+      ...(this.timeField === null ? [] : [{ ...this.timeField, dataType: "NUMBER" }]),
+    ];
+    const header = { id: "PVT_1", title: "Work", url: "https://github.com/users/acme/projects/1", fields: { nodes: fields } };
     if (!query.includes("items(first")) return { repositoryOwner: { projectV2: header } };
     const nodes = this.items.map((item) => ({
       id: item.id,
       type: item.type,
       isArchived: false,
       updatedAt: "2026-01-01T00:00:00Z",
-      status: item.status === null ? null : { name: item.status },
-      time: item.minutes === null ? null : { number: item.minutes },
+      fieldValues: { nodes: this.fieldValues(item) },
       content: this.content(item),
     }));
     return { repositoryOwner: { projectV2: { ...header, items: { pageInfo: { hasNextPage: false, endCursor: null }, nodes } } } };
+  }
+
+  /** Values as GitHub lists them: one per set field, kinds the query does not select come back empty. */
+  private fieldValues(item: FakeItem): JsonValue[] {
+    return [
+      {},
+      ...(item.status === null ? [] : [{ name: item.status, field: { id: "status-field" } }]),
+      ...(item.minutes === null || this.timeField === null ? [] : [{ number: item.minutes, field: { id: this.timeField.id } }]),
+    ];
   }
 
   private content(item: FakeItem): JsonValue {

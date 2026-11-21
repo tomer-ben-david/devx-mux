@@ -81,27 +81,41 @@ export function assertAllowedOperation(query: string): void {
   }
 }
 
+/**
+ * Fields are listed and picked by name in code, never looked up with `field(name:)` / `fieldValueByName`: GitHub
+ * answers a by-name lookup of a field the project does not have with a NOT_FOUND error, not null, so a missing
+ * focus-time field would fail every read instead of reaching `setup`. A project has at most 50 fields.
+ */
 const PROJECT_HEADER_FIELDS = `
   id title url
-  status: field(name: $statusField) {
-    ... on ProjectV2SingleSelectField { id name dataType options { id name } }
-    ... on ProjectV2Field { id name dataType }
+  fields(first: 100) {
+    nodes {
+      ... on ProjectV2SingleSelectField { id name dataType options { id name } }
+      ... on ProjectV2Field { id name dataType }
+      ... on ProjectV2IterationField { id name dataType }
+    }
   }
-  time: field(name: $timeField) {
-    ... on ProjectV2Field { id name dataType }
-    ... on ProjectV2SingleSelectField { id name dataType }
+`;
+
+/** An item's values, matched to the project's fields by id. An item has at most one value per field. */
+const ITEM_FIELD_VALUES = `
+  fieldValues(first: 100) {
+    nodes {
+      ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { id } } }
+      ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2FieldCommon { id } } }
+    }
   }
 `;
 
 const PROJECT_HEADER_QUERY = `
-query($owner: String!, $number: Int!, $statusField: String!, $timeField: String!) {
+query($owner: String!, $number: Int!) {
   repositoryOwner(login: $owner) {
     ... on ProjectV2Owner { projectV2(number: $number) { ${PROJECT_HEADER_FIELDS} } }
   }
 }`;
 
 const PROJECT_ITEMS_QUERY = `
-query($owner: String!, $number: Int!, $statusField: String!, $timeField: String!, $cursor: String) {
+query($owner: String!, $number: Int!, $cursor: String) {
   repositoryOwner(login: $owner) {
     ... on ProjectV2Owner {
       projectV2(number: $number) {
@@ -110,8 +124,7 @@ query($owner: String!, $number: Int!, $statusField: String!, $timeField: String!
           pageInfo { hasNextPage endCursor }
           nodes {
             id type isArchived updatedAt
-            status: fieldValueByName(name: $statusField) { ... on ProjectV2ItemFieldSingleSelectValue { name } }
-            time: fieldValueByName(name: $timeField) { ... on ProjectV2ItemFieldNumberValue { number } }
+            ${ITEM_FIELD_VALUES}
             content {
               ... on DraftIssue { title body }
               ... on Issue { title number url state repository { nameWithOwner } }
@@ -155,7 +168,7 @@ export class GitHubProjectsClient {
       project ??= resolveProject(raw, ref, fields);
       const page = raw.field("items");
       for (const node of page.field("nodes").array()) {
-        if (!node.field("isArchived").boolean()) items.push(toBoardItem(node));
+        if (!node.field("isArchived").boolean()) items.push(toBoardItem(node, project));
       }
       const pageInfo = page.field("pageInfo");
       cursor = pageInfo.field("hasNextPage").boolean() ? pageInfo.field("endCursor").string() : null;
@@ -189,12 +202,12 @@ mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
   async addFocusMinutes(project: ResolvedProject, itemId: string, minutes: number): Promise<number> {
     const timeField = requireTimeField(project);
     const data = await this.request(`
-query($item: ID!, $field: String!) {
-  node(id: $item) { ... on ProjectV2Item { time: fieldValueByName(name: $field) { ... on ProjectV2ItemFieldNumberValue { number } } } }
-}`, { item: itemId, field: timeField.name });
+query($item: ID!) {
+  node(id: $item) { ... on ProjectV2Item { ${ITEM_FIELD_VALUES} } }
+}`, { item: itemId });
     const node = data.optionalField("node");
     if (node === null) throw new Error(`Project item ${itemId} does not exist.`);
-    const total = (node.optionalField("time")?.optionalField("number")?.number() ?? 0) + minutes;
+    const total = (fieldValueOf(node, timeField.id)?.optionalField("number")?.number() ?? 0) + minutes;
     await this.setFocusMinutes(project, itemId, total);
     return total;
   }
@@ -255,7 +268,7 @@ mutation($project: ID!, $name: String!) {
   }
 
   private async project(query: string, ref: ProjectRef, fields: BoardFieldNames, cursor: string | null): Promise<JsonReader> {
-    const data = await this.request(query, { owner: ref.owner, number: ref.number, statusField: fields.status, timeField: fields.time, cursor });
+    const data = await this.request(query, { owner: ref.owner, number: ref.number, cursor });
     const owner = data.optionalField("repositoryOwner");
     if (owner === null) throw new Error(`GitHub user or organization "${ref.owner}" does not exist.`);
     const project = owner.optionalField("projectV2");
@@ -265,9 +278,11 @@ mutation($project: ID!, $name: String!) {
 }
 
 function resolveProject(raw: JsonReader, ref: ProjectRef, fields: BoardFieldNames): ResolvedProject {
-  const status = raw.optionalField("status");
-  const statusId = status?.optionalField("id");
-  if (status === null || statusId === null || statusId === undefined) {
+  // Unsupported field kinds come back as empty objects (no id); they can never be the status or time field.
+  const projectFields = raw.field("fields").field("nodes").array().filter((field) => field.optionalField("id") !== null);
+  const named = (name: string): JsonReader | undefined => projectFields.find((field) => field.field("name").string() === name);
+  const status = named(fields.status);
+  if (status === undefined) {
     throw new Error(`Project ${ref.owner}/${ref.number} has no field named "${fields.status}". Pass --status-field with its column field.`);
   }
   const statusName = status.field("name").string();
@@ -275,9 +290,8 @@ function resolveProject(raw: JsonReader, ref: ProjectRef, fields: BoardFieldName
   if (statusType !== "SINGLE_SELECT") {
     throw new Error(`Field "${statusName}" in project ${ref.owner}/${ref.number} is ${statusType}, not a single-select column field.`);
   }
-  const time = raw.optionalField("time");
-  const timeId = time?.optionalField("id");
-  if (time !== null && timeId !== null && timeId !== undefined && time.field("dataType").string() !== "NUMBER") {
+  const time = named(fields.time);
+  if (time !== undefined && time.field("dataType").string() !== "NUMBER") {
     throw new Error(`Field "${time.field("name").string()}" in project ${ref.owner}/${ref.number} is ${time.field("dataType").string()}, not a number field.`);
   }
   return {
@@ -285,12 +299,18 @@ function resolveProject(raw: JsonReader, ref: ProjectRef, fields: BoardFieldName
     title: raw.field("title").string(),
     url: raw.field("url").string(),
     statusField: {
-      id: statusId.string(),
+      id: status.field("id").string(),
       name: statusName,
       columns: status.field("options").array().map((option) => ({ optionId: option.field("id").string(), name: option.field("name").string() })),
     },
-    timeField: time === null || timeId === null || timeId === undefined ? null : { id: timeId.string(), name: time.field("name").string() },
+    timeField: time === undefined ? null : { id: time.field("id").string(), name: time.field("name").string() },
   };
+}
+
+/** The item's value for the field with this id, or null when the item has none (or the value kind is not read). */
+function fieldValueOf(item: JsonReader, fieldId: string): JsonReader | null {
+  return item.field("fieldValues").field("nodes").array()
+    .find((value) => value.optionalField("field")?.optionalField("id")?.string() === fieldId) ?? null;
 }
 
 function requireTimeField(project: ResolvedProject): { readonly id: string; readonly name: string } {
@@ -298,11 +318,11 @@ function requireTimeField(project: ResolvedProject): { readonly id: string; read
   return project.timeField;
 }
 
-function toBoardItem(node: JsonReader): BoardItem {
+function toBoardItem(node: JsonReader, project: ResolvedProject): BoardItem {
   return {
     id: node.field("id").string(),
-    column: node.optionalField("status")?.optionalField("name")?.string() ?? null,
-    focusMinutes: node.optionalField("time")?.optionalField("number")?.number() ?? null,
+    column: fieldValueOf(node, project.statusField.id)?.optionalField("name")?.string() ?? null,
+    focusMinutes: project.timeField === null ? null : fieldValueOf(node, project.timeField.id)?.optionalField("number")?.number() ?? null,
     updatedAt: node.field("updatedAt").string(),
     content: toContent(node.field("type").string(), node.optionalField("content")),
   };
