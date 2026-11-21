@@ -1,29 +1,23 @@
 import { parseArgs } from "node:util";
 import type { GitHubProjectsClient, ResolvedProject } from "./github-projects.js";
 import type { KanbanFlowTask } from "./kanbanflow.js";
-import { parsePointer, type BoardLinkStore } from "./link-store.js";
 import { BOARD_SCHEMA_VERSION, type BoardFieldNames, type BoardItem, type BoardSnapshot, type ProjectRef } from "./models.js";
 
 const DEFAULT_COLUMNS = ["To-do", "Do today", "In progress", "Done"];
 const DEFAULT_FIELDS: BoardFieldNames = { status: "Status", time: "Focus minutes" };
-const KANBANFLOW_POINTER = "kanbanflow-task";
 
 export interface BoardCommandDependencies {
   readonly projects: GitHubProjectsClient;
-  readonly links: BoardLinkStore;
   /** Reads the tasks of the KanbanFlow board whose API token is in the named environment variable. */
   readonly kanbanFlowTasks: (tokenEnvironmentVariable: string) => Promise<readonly KanbanFlowTask[]>;
   readonly environment: NodeJS.ProcessEnv;
-  readonly now: () => Date;
 }
 
 export function boardHelpText(): string {
   return `DevX Mux board
 
 Track work on a GitHub Projects board: one card per task, a column field for
-its state, and a number field for focus time. Pointers from cards to local work
-(terminal sessions, agent conversations, folders) stay on this machine in
-$MUX_HOME/board-links.json (default ~/.devx-mux).
+its state, and a number field for focus time.
 
 Usage:
   mux board setup  [--columns "A,B,C"]          Create the focus-time field; report missing columns
@@ -32,9 +26,6 @@ Usage:
   mux board add    --url ISSUE_OR_PR_URL [--column NAME] [--json]
   mux board move   ITEM --column NAME
   mux board time   ITEM --add MINUTES [--json]  Add focus minutes to a card
-  mux board link   ITEM --pointer KIND:VALUE [--label TEXT] [--json]
-  mux board unlink ITEM --pointer KIND:VALUE
-  mux board links  [ITEM] [--json]              Pointers of one card, or of all cards
   mux board import kanbanflow --token-env NAME [--map "FROM=TO"]... [--skip-column NAME]... [--dry-run]
 
 Options:
@@ -73,8 +64,6 @@ export async function runBoardCommand(argv: readonly string[], dependencies: Boa
       body: { type: "string" },
       url: { type: "string" },
       add: { type: "string" },
-      pointer: { type: "string" },
-      label: { type: "string" },
       "token-env": { type: "string" },
       map: { type: "string", multiple: true },
       "skip-column": { type: "string", multiple: true },
@@ -86,7 +75,7 @@ export async function runBoardCommand(argv: readonly string[], dependencies: Boa
   const fields: BoardFieldNames = { status: values["status-field"] ?? DEFAULT_FIELDS.status, time: values["time-field"] ?? DEFAULT_FIELDS.time };
   const project = (): ProjectRef => parseProjectRef(values.project ?? dependencies.environment["MUX_BOARD_PROJECT"]);
   const positionals = parsed.positionals;
-  const { projects, links } = dependencies;
+  const { projects } = dependencies;
 
   switch (subcommand) {
     case "setup": {
@@ -130,30 +119,6 @@ export async function runBoardCommand(argv: readonly string[], dependencies: Boa
       const total = await projects.addFocusMinutes(await projects.resolve(project(), fields), itemId, minutes);
       return json ? `${JSON.stringify({ schema: BOARD_SCHEMA_VERSION, itemId, focusMinutes: total })}\n` : `${itemId}: ${formatMinutes(total)}\n`;
     }
-    case "link": {
-      const itemId = singleItem(positionals, "link");
-      const pointer = parsePointer(requirePointer(values.pointer), values.label, dependencies.now().toISOString());
-      const pointers = links.link(itemId, pointer);
-      return json ? `${JSON.stringify({ schema: BOARD_SCHEMA_VERSION, itemId, pointers })}\n` : `linked ${pointer.kind}:${pointer.value} to ${itemId}\n`;
-    }
-    case "unlink": {
-      const itemId = singleItem(positionals, "unlink");
-      const pointer = parsePointer(requirePointer(values.pointer), undefined, dependencies.now().toISOString());
-      links.unlink(itemId, pointer);
-      return `unlinked ${pointer.kind}:${pointer.value} from ${itemId}\n`;
-    }
-    case "links": {
-      if (positionals.length > 1) throw new Error(`Unexpected arguments: ${positionals.slice(1).join(" ")}`);
-      const all = links.read();
-      const itemId = positionals[0];
-      const items = itemId === undefined ? all.items : { [itemId]: all.items[itemId] ?? [] };
-      if (json) return `${JSON.stringify({ schema: BOARD_SCHEMA_VERSION, items })}\n`;
-      const lines = Object.entries(items).flatMap(([id, pointers]) => [
-        id,
-        ...(pointers.length === 0 ? ["  (no pointers)"] : pointers.map((pointer) => `  ${pointer.kind}:${pointer.value}${pointer.label === undefined ? "" : `  ${pointer.label}`}`)),
-      ]);
-      return lines.length === 0 ? "No cards have pointers.\n" : `${lines.join("\n")}\n`;
-    }
     case "import": {
       const [source, ...unexpected] = positionals;
       if (source !== "kanbanflow" || unexpected.length > 0) throw new Error("Usage: mux board import kanbanflow --token-env NAME");
@@ -185,15 +150,22 @@ interface ImportOptions {
 }
 
 async function importKanbanFlow(dependencies: BoardCommandDependencies, ref: ProjectRef, fields: BoardFieldNames, options: ImportOptions): Promise<string> {
-  const { projects, links } = dependencies;
-  const [tasks, resolved] = await Promise.all([dependencies.kanbanFlowTasks(options.tokenEnvironmentVariable), projects.resolve(ref, fields)]);
-  const imported = new Set(Object.values(links.read().items).flatMap((pointers) =>
-    pointers.filter((pointer) => pointer.kind === KANBANFLOW_POINTER).map((pointer) => pointer.value)));
-  const pending = tasks.filter((task) => !options.skippedColumns.includes(task.column.toLowerCase()) && !imported.has(task.id));
-  const plan = pending.map((task) => ({ task, column: targetColumn(task.column, options.columnMap, resolved) }));
-  const unmapped = [...new Set(plan.filter((entry) => entry.column === undefined).map((entry) => entry.task.column))];
+  const { projects } = dependencies;
+  const [tasks, resolved, snapshot] = await Promise.all([
+    dependencies.kanbanFlowTasks(options.tokenEnvironmentVariable),
+    projects.resolve(ref, fields),
+    projects.snapshot(ref, fields),
+  ]);
+  // The board itself says what was imported: a task whose title is already a draft card is skipped.
+  const existingDrafts = new Set(snapshot.items.flatMap((item) => item.content.kind === "draft" ? [item.content.title.trim()] : []));
+  const pending = tasks.filter((task) => !options.skippedColumns.includes(task.column.toLowerCase()) && !existingDrafts.has(task.name.trim()));
+  const plan = pending.flatMap((task) => {
+    const column = targetColumn(task.column, options.columnMap, resolved);
+    return column === undefined ? [] : [{ task, column }];
+  });
+  const unmapped = [...new Set(pending.filter((task) => targetColumn(task.column, options.columnMap, resolved) === undefined).map((task) => task.column))];
   if (unmapped.length > 0) {
-    throw new Error(`KanbanFlow column${unmapped.length === 1 ? "" : "s"} ${unmapped.map((name) => `"${name}"`).join(", ")} match no board column (${resolved.statusField.options.map((option) => option.name).join(", ")}). Pass --map "FROM=TO" or --skip-column NAME.`);
+    throw new Error(`KanbanFlow column${unmapped.length === 1 ? "" : "s"} ${unmapped.map((name) => `"${name}"`).join(", ")} match no board column (${resolved.statusField.columns.map((column) => column.name).join(", ")}). Pass --map "FROM=TO" or --skip-column NAME.`);
   }
   const minutesOf = (task: KanbanFlowTask): number => Math.round(task.secondsSpent / 60);
   if (plan.some((entry) => minutesOf(entry.task) > 0) && resolved.timeField === null) {
@@ -203,18 +175,17 @@ async function importKanbanFlow(dependencies: BoardCommandDependencies, ref: Pro
   const lines = plan.map((entry) => `${options.dryRun ? "would add" : "added"} "${entry.task.name}" -> ${entry.column}${minutesOf(entry.task) > 0 ? ` (${formatMinutes(minutesOf(entry.task))})` : ""}`);
   if (!options.dryRun) {
     for (const entry of plan) {
-      const itemId = await projects.addDraft(resolved, entry.task.name, entry.task.description);
-      links.link(itemId, { kind: KANBANFLOW_POINTER, value: entry.task.id, addedAt: dependencies.now().toISOString() });
-      await projects.move(resolved, itemId, entry.column ?? "");
+      const itemId = await projects.addDraft(resolved, entry.task.name.trim(), entry.task.description);
+      await projects.move(resolved, itemId, entry.column);
       if (minutesOf(entry.task) > 0) await projects.setFocusMinutes(resolved, itemId, minutesOf(entry.task));
     }
   }
-  return `${[...lines, `${plan.length} ${options.dryRun ? "to import" : "imported"}, ${skippedAlready} skipped (already imported or in a skipped column).`].join("\n")}\n`;
+  return `${[...lines, `${plan.length} ${options.dryRun ? "to import" : "imported"}, ${skippedAlready} skipped (already a card with that title, or in a skipped column).`].join("\n")}\n`;
 }
 
 function targetColumn(source: string, columnMap: ReadonlyMap<string, string>, project: ResolvedProject): string | undefined {
   const wanted = columnMap.get(source.toLowerCase()) ?? source;
-  return project.statusField.options.find((option) => option.name.toLowerCase() === wanted.toLowerCase())?.name;
+  return project.statusField.columns.find((column) => column.name.toLowerCase() === wanted.toLowerCase())?.name;
 }
 
 function parseColumnMap(entries: readonly string[]): ReadonlyMap<string, string> {
@@ -286,10 +257,5 @@ function requireUrl(value: string | undefined): string {
   if (value === undefined || !/^https:\/\/github\.com\/[^/]+\/[^/]+\/(issues|pull)\/[0-9]+\/?$/.test(value)) {
     throw new Error(`--url must be a GitHub issue or pull request URL, got "${value ?? ""}".`);
   }
-  return value;
-}
-
-function requirePointer(value: string | undefined): string {
-  if (value === undefined) throw new Error("This command needs --pointer KIND:VALUE.");
   return value;
 }

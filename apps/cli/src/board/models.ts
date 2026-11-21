@@ -1,4 +1,4 @@
-/** Version of every JSON document `mux board` prints or stores. Consumers must reject other versions. */
+/** Version of every JSON document `mux board` prints. Consumers must reject other versions. */
 export const BOARD_SCHEMA_VERSION = 1;
 
 /** A GitHub Projects (v2) board owned by a user or an organization. */
@@ -36,6 +36,8 @@ export type BoardItemContent =
     readonly state: "OPEN" | "CLOSED" | "MERGED";
     readonly isDraft: boolean;
     readonly repository: string;
+    /** The pull request's head branch, so a checkout on that branch can be matched to its card. */
+    readonly headRefName: string;
   }
   /** An item whose content the viewer cannot read (GitHub reports it as REDACTED). */
   | { readonly kind: "redacted" };
@@ -59,22 +61,4 @@ export interface BoardSnapshot {
   readonly columns: readonly BoardColumn[];
   readonly timeField: { readonly id: string; readonly name: string } | null;
   readonly items: readonly BoardItem[];
-}
-
-/**
- * A machine-local reference from a board item to something that belongs to it: a terminal session, an agent
- * conversation, a folder, a branch. `kind` is chosen by the tool that records it (for example `claude`,
- * `codex`, `folder`, `branch`, or an editor's own session kind); `value` is opaque to `mux board`.
- */
-export interface BoardPointer {
-  readonly kind: string;
-  readonly value: string;
-  readonly label?: string;
-  readonly addedAt: string;
-}
-
-export interface BoardLinks {
-  readonly schema: typeof BOARD_SCHEMA_VERSION;
-  /** Pointers keyed by project item node id. */
-  readonly items: Readonly<Record<string, readonly BoardPointer[]>>;
 }

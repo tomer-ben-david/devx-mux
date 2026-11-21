@@ -1,88 +1,105 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import test from "node:test";
 import { parseProjectRef, runBoardCommand, type BoardCommandDependencies } from "./board-command.js";
-import { assertAllowedOperation, GitHubProjectsClient, type GraphqlTransport } from "./github-projects.js";
+import { assertAllowedOperation, GitHubProjectsClient, graphqlData, type GraphqlTransport, type GraphqlVariables } from "./github-projects.js";
+import { JsonReader, type JsonValue } from "./json-reader.js";
 import { KanbanFlowClient, type HttpFetch, type KanbanFlowTask } from "./kanbanflow.js";
-import { BoardLinkStore } from "./link-store.js";
 import type { BoardSnapshot } from "./models.js";
 
-interface FakeOption { id: string; name: string; color: string; description: string }
-interface FakeItem { id: string; type: "DRAFT_ISSUE" | "ISSUE"; title: string; body: string; status: string | null; minutes: number | null; issueUrl?: string }
+type FakeColumn = { id: string; name: string };
+interface FakeItem {
+  id: string;
+  type: "DRAFT_ISSUE" | "ISSUE" | "PULL_REQUEST";
+  title: string;
+  body: string;
+  status: string | null;
+  minutes: number | null;
+  url: string | null;
+}
+
+const ISSUE_URL = "https://github.com/acme/app/issues/7";
+const PULL_REQUEST_URL = "https://github.com/acme/app/pull/8";
 
 /** An in-memory GitHub project that answers the GraphQL operations GitHubProjectsClient sends. */
 class FakeGitHubProject implements GraphqlTransport {
-  options: FakeOption[] = [{ id: "opt-todo", name: "Todo", color: "GREEN", description: "kept" }];
+  columns: FakeColumn[] = [{ id: "opt-todo", name: "Todo" }];
   timeField: { id: string; name: string } | null = null;
+  /** When set, item content is returned without this member, as a changed GitHub response would. */
+  dropContentMember: string | null = null;
   readonly items: FakeItem[] = [];
-  readonly issues = new Map<string, string>([["https://github.com/acme/app/issues/7", "ISSUE_7"]]);
+  private readonly contentIds = new Map<string, string>([[ISSUE_URL, "ISSUE_7"], [PULL_REQUEST_URL, "PR_8"]]);
   private nextId = 1;
 
-  async request(query: string, variables: Readonly<Record<string, unknown>>): Promise<unknown> {
-    const v = (key: string): never => variables[key] as never;
+  async request(query: string, variables: GraphqlVariables): Promise<JsonValue> {
+    const argument = new JsonReader({ ...variables }, "variables");
     if (query.includes("updateProjectV2ItemFieldValue")) {
-      const item = this.item(v("item"));
-      if (v("option") !== undefined) item.status = this.options.find((option) => option.id === v("option"))?.name ?? null;
-      else item.minutes = v("number");
+      const item = this.item(argument.field("item").string());
+      const option = argument.optionalField("option")?.string();
+      if (option === undefined) item.minutes = argument.field("number").number();
+      else item.status = this.columns.find((column) => column.id === option)?.name ?? null;
       return { updateProjectV2ItemFieldValue: { projectV2Item: { id: item.id } } };
     }
     if (query.includes("addProjectV2DraftIssue")) {
-      const id = `PVTI_${this.nextId++}`;
-      this.items.push({ id, type: "DRAFT_ISSUE", title: v("title"), body: v("body"), status: null, minutes: null });
+      const id = this.add("DRAFT_ISSUE", argument.field("title").string(), argument.field("body").string(), null);
       return { addProjectV2DraftIssue: { projectItem: { id } } };
     }
     if (query.includes("resource(url")) {
-      const id = this.issues.get(v("url"));
+      const id = this.contentIds.get(argument.field("url").string());
       return { resource: id === undefined ? null : { __typename: "Issue", id } };
     }
     if (query.includes("addProjectV2ItemById")) {
-      const url = [...this.issues].find(([, id]) => id === v("content"))?.[0] ?? "";
-      const existing = this.items.find((item) => item.issueUrl === url);
-      if (existing !== undefined) return { addProjectV2ItemById: { item: { id: existing.id } } };
-      const id = `PVTI_${this.nextId++}`;
-      this.items.push({ id, type: "ISSUE", title: "Fix login", body: "", status: null, minutes: null, issueUrl: url });
+      const contentId = argument.field("content").string();
+      const url = [...this.contentIds].find(([, id]) => id === contentId)?.[0] ?? "";
+      const existing = this.items.find((item) => item.url === url);
+      const id = existing?.id ?? (url === ISSUE_URL ? this.add("ISSUE", "Fix login", "", url) : this.add("PULL_REQUEST", "Speed up", "", url));
       return { addProjectV2ItemById: { item: { id } } };
     }
     if (query.includes("createProjectV2Field")) {
-      this.timeField = { id: "time-field", name: v("name") };
+      this.timeField = { id: "time-field", name: argument.field("name").string() };
       return { createProjectV2Field: { projectV2Field: { id: "time-field" } } };
     }
     if (query.includes("node(id")) {
-      const item = this.item(v("item"));
+      const item = this.item(argument.field("item").string());
       return { node: { time: item.minutes === null ? null : { number: item.minutes } } };
     }
-    if (v("owner") !== "acme" || v("number") !== 1) return { repositoryOwner: { projectV2: null } };
+    if (argument.field("owner").string() !== "acme" || argument.field("number").number() !== 1) return { repositoryOwner: { projectV2: null } };
+    const statusField = argument.field("statusField").string();
+    const timeField = argument.field("timeField").string();
     const header = {
       id: "PVT_1",
       title: "Work",
       url: "https://github.com/users/acme/projects/1",
-      status: v("statusField") === "Status" ? { id: "status-field", name: "Status", dataType: "SINGLE_SELECT", options: this.options } : null,
-      time: this.timeField === null || v("timeField") !== this.timeField.name ? null : { ...this.timeField, dataType: "NUMBER" },
+      status: statusField === "Status" ? { id: "status-field", name: "Status", dataType: "SINGLE_SELECT", options: this.columns } : null,
+      time: this.timeField === null || timeField !== this.timeField.name ? null : { ...this.timeField, dataType: "NUMBER" },
     };
     if (!query.includes("items(first")) return { repositoryOwner: { projectV2: header } };
-    return {
-      repositoryOwner: {
-        projectV2: {
-          ...header,
-          items: {
-            pageInfo: { hasNextPage: false, endCursor: null },
-            nodes: this.items.map((item) => ({
-              id: item.id,
-              type: item.type,
-              isArchived: false,
-              updatedAt: "2026-01-01T00:00:00Z",
-              status: item.status === null ? null : { name: item.status },
-              time: item.minutes === null ? null : { number: item.minutes },
-              content: item.type === "DRAFT_ISSUE"
-                ? { title: item.title, body: item.body }
-                : { title: item.title, number: 7, url: item.issueUrl, state: "OPEN", repository: { nameWithOwner: "acme/app" } },
-            })),
-          },
-        },
-      },
-    };
+    const nodes = this.items.map((item) => ({
+      id: item.id,
+      type: item.type,
+      isArchived: false,
+      updatedAt: "2026-01-01T00:00:00Z",
+      status: item.status === null ? null : { name: item.status },
+      time: item.minutes === null ? null : { number: item.minutes },
+      content: this.content(item),
+    }));
+    return { repositoryOwner: { projectV2: { ...header, items: { pageInfo: { hasNextPage: false, endCursor: null }, nodes } } } };
+  }
+
+  private content(item: FakeItem): JsonValue {
+    const repository = { nameWithOwner: "acme/app" };
+    const content: Record<string, JsonValue> = item.type === "DRAFT_ISSUE"
+      ? { title: item.title, body: item.body }
+      : item.type === "ISSUE"
+        ? { title: item.title, number: 7, url: item.url, state: "OPEN", repository }
+        : { title: item.title, number: 8, url: item.url, state: "OPEN", isDraft: false, headRefName: "speed-up", repository };
+    if (this.dropContentMember !== null) delete content[this.dropContentMember];
+    return content;
+  }
+
+  private add(type: FakeItem["type"], title: string, body: string, url: string | null): string {
+    const id = `PVTI_${this.nextId++}`;
+    this.items.push({ id, type, title, body, status: null, minutes: null, url });
+    return id;
   }
 
   private item(id: string): FakeItem {
@@ -92,29 +109,27 @@ class FakeGitHubProject implements GraphqlTransport {
   }
 }
 
-function withBoard(run: (board: (...argv: string[]) => Promise<string>, github: FakeGitHubProject, linksFile: string, kanbanFlow: KanbanFlowTask[]) => Promise<void>): Promise<void> {
-  const home = mkdtempSync(path.join(tmpdir(), "devx-mux-board-"));
+async function withBoard(run: (board: (...argv: string[]) => Promise<string>, github: FakeGitHubProject, kanbanFlow: KanbanFlowTask[]) => Promise<void>): Promise<void> {
   const github = new FakeGitHubProject();
-  const linksFile = path.join(home, "board-links.json");
   const kanbanFlow: KanbanFlowTask[] = [];
   const dependencies: BoardCommandDependencies = {
     projects: new GitHubProjectsClient(github),
-    links: new BoardLinkStore(linksFile),
     kanbanFlowTasks: async () => kanbanFlow,
     environment: { MUX_BOARD_PROJECT: "acme/1" },
-    now: () => new Date("2026-02-03T04:05:06Z"),
   };
-  return run((...argv) => runBoardCommand(argv, dependencies), github, linksFile, kanbanFlow)
-    .finally(() => rmSync(home, { recursive: true, force: true }));
+  await run((...argv) => runBoardCommand(argv, dependencies), github, kanbanFlow);
 }
 
-const snapshotOf = async (board: (...argv: string[]) => Promise<string>): Promise<BoardSnapshot> => JSON.parse(await board("list", "--json"));
+const snapshotOf = async (board: (...argv: string[]) => Promise<string>): Promise<BoardSnapshot> => {
+  const snapshot: BoardSnapshot = JSON.parse(await board("list", "--json"));
+  return snapshot;
+};
 
 test("setup creates the focus field, reports missing columns with where to add them, and never edits columns", () => withBoard(async (board, github) => {
   assert.equal(await board("setup", "--columns", "todo, Doing"),
     "created number field \"Focus minutes\"\nStatus is missing \"Doing\". Add it as options of the Status field at https://github.com/users/acme/projects/1/settings\n");
-  assert.deepEqual(github.options, [{ id: "opt-todo", name: "Todo", color: "GREEN", description: "kept" }], "columns are untouched");
-  github.options.push({ id: "opt-doing", name: "Doing", color: "GRAY", description: "" });
+  assert.deepEqual(github.columns, [{ id: "opt-todo", name: "Todo" }], "columns are untouched");
+  github.columns.push({ id: "opt-doing", name: "Doing" });
   assert.equal(await board("setup", "--columns", "Todo,Doing"), "number field \"Focus minutes\" exists\nStatus has every column\n");
 }));
 
@@ -126,32 +141,40 @@ test("only additive GitHub mutations can be sent; deletes, archives and column r
   for (const refused of ["deleteProjectV2Item", "archiveProjectV2Item", "deleteProjectV2Field", "updateProjectV2Field", "deleteProjectV2", "deleteIssue", "closeIssue"]) {
     assert.throws(() => assertAllowedOperation(`mutation { ${refused}(input: { id: "x" }) { clientMutationId } }`), new RegExp(`Refusing GitHub mutation ${refused}`));
   }
-  assert.throws(() => assertAllowedOperation(`mutation { a: addProjectV2DraftIssue(input: {}) { clientMutationId } b: deleteProjectV2Item(input: {}) { clientMutationId } }`),
+  assert.throws(() => assertAllowedOperation("mutation { a: addProjectV2DraftIssue(input: {}) { clientMutationId } b: deleteProjectV2Item(input: {}) { clientMutationId } }"),
     /Refusing GitHub mutation deleteProjectV2Item/);
-  assert.throws(() => assertAllowedOperation("mutation { deleteProjectV2Item(input:{itemId:\"x\"}) { deletedItemId } }"), /Refusing/);
+  assert.throws(() => assertAllowedOperation("mutation { deleteProjectV2Item(id: \"x\") { deletedItemId } }"), /Refusing GitHub mutation \(unrecognized\)/);
   assert.throws(() => assertAllowedOperation("query { x } mutation { deleteProjectV2Item(input: {}) { deletedItemId } }"), /mixes a mutation/);
 });
 
 test("cards are added, moved between columns and accumulate focus minutes", () => withBoard(async (board, github) => {
-  github.options.push({ id: "opt-doing", name: "Doing", color: "GRAY", description: "" }, { id: "opt-done", name: "Done", color: "GRAY", description: "" });
+  github.columns.push({ id: "opt-doing", name: "Doing" }, { id: "opt-done", name: "Done" });
   await board("setup");
-  const draft = JSON.parse(await board("add", "--draft", "  Write release notes ", "--body", "for v2", "--column", "todo", "--json")).itemId as string;
-  const issue = (await board("add", "--url", "https://github.com/acme/app/issues/7")).trim();
-  assert.equal((await board("add", "--url", "https://github.com/acme/app/issues/7")).trim(), issue, "adding an issue twice returns the same card");
+  const created: { readonly itemId: string } = JSON.parse(await board("add", "--draft", "  Write release notes ", "--body", "for v2", "--column", "todo", "--json"));
+  const issue = (await board("add", "--url", ISSUE_URL)).trim();
+  assert.equal((await board("add", "--url", ISSUE_URL)).trim(), issue, "adding an issue twice returns the same card");
+  await board("add", "--url", PULL_REQUEST_URL, "--column", "Doing");
 
   await board("move", issue, "--column", "Doing");
-  await board("time", draft, "--add", "25");
-  assert.equal(await board("time", draft, "--add", "50"), `${draft}: 1h 15m\n`);
+  await board("time", created.itemId, "--add", "25");
+  assert.equal(await board("time", created.itemId, "--add", "50"), `${created.itemId}: 1h 15m\n`);
 
   const snapshot = await snapshotOf(board);
   assert.equal(snapshot.schema, 1);
   assert.deepEqual(snapshot.columns.map((column) => column.name), ["Todo", "Doing", "Done"]);
   assert.deepEqual(snapshot.items.map((item) => [item.column, item.focusMinutes, item.content]), [
     ["Todo", 75, { kind: "draft", title: "Write release notes", body: "for v2" }],
-    ["Doing", null, { kind: "issue", title: "Fix login", number: 7, url: "https://github.com/acme/app/issues/7", state: "OPEN", repository: "acme/app" }],
+    ["Doing", null, { kind: "issue", title: "Fix login", number: 7, url: ISSUE_URL, state: "OPEN", repository: "acme/app" }],
+    ["Doing", null, { kind: "pull-request", title: "Speed up", number: 8, url: PULL_REQUEST_URL, state: "OPEN", isDraft: false, headRefName: "speed-up", repository: "acme/app" }],
   ]);
   assert.match(await board("list"), /Todo \(1\)\n {2}Write release notes \[1h 15m\]/);
-  await assert.rejects(board("move", draft, "--column", "Blocked"), /Column "Blocked" does not exist. Columns: Todo, Doing, Done/);
+  await assert.rejects(board("move", created.itemId, "--column", "Blocked"), /Column "Blocked" does not exist. Columns: Todo, Doing, Done/);
+}));
+
+test("an unexpected GitHub response fails with the path of the missing value", () => withBoard(async (board, github) => {
+  await board("add", "--url", ISSUE_URL);
+  github.dropContentMember = "repository";
+  await assert.rejects(board("list"), /GitHub: expected member "repository" at \$\.repositoryOwner\.projectV2\.items\.nodes\[0\]\.content, found nothing\./);
 }));
 
 test("focus time needs the focus field and fails loudly without it", () => withBoard(async (board) => {
@@ -159,36 +182,18 @@ test("focus time needs the focus field and fails loudly without it", () => withB
   await assert.rejects(board("time", draft, "--add", "25"), /no focus-time number field. Run: mux board setup/);
 }));
 
-test("pointers link local work to cards, deduplicate, and survive in the links file", () => withBoard(async (board, _github, linksFile) => {
-  await board("link", "PVTI_9", "--pointer", "folder:/work/app", "--label", "checkout");
-  await board("link", "PVTI_9", "--pointer", "claude:abc:def");
-  await board("link", "PVTI_9", "--pointer", "folder:/work/app", "--label", "main checkout");
-  const links = JSON.parse(await board("links", "PVTI_9", "--json"));
-  assert.deepEqual(links.items.PVTI_9, [
-    { kind: "folder", value: "/work/app", label: "main checkout", addedAt: "2026-02-03T04:05:06.000Z" },
-    { kind: "claude", value: "abc:def", addedAt: "2026-02-03T04:05:06.000Z" },
-  ]);
-  assert.equal(JSON.parse(readFileSync(linksFile, "utf8")).schema, 1);
-
-  await board("unlink", "PVTI_9", "--pointer", "claude:abc:def");
-  await board("unlink", "PVTI_9", "--pointer", "folder:/work/app");
-  assert.equal(await board("links"), "No cards have pointers.\n");
-  await assert.rejects(board("unlink", "PVTI_9", "--pointer", "folder:/work/app"), /has no pointer folder:\/work\/app/);
-  await assert.rejects(board("link", "PVTI_9", "--pointer", "no-kind"), /must look like KIND:VALUE/);
-}));
-
-test("KanbanFlow import maps columns, carries tracked time, skips chosen columns, and never imports a task twice", () => withBoard(async (board, github, _linksFile, kanbanFlow) => {
-  github.options.push({ id: "opt-doing", name: "Doing", color: "GRAY", description: "" }, { id: "opt-done", name: "Done", color: "GRAY", description: "" });
+test("KanbanFlow import maps columns, carries tracked time, skips chosen columns, and skips titles already on the board", () => withBoard(async (board, github, kanbanFlow) => {
+  github.columns.push({ id: "opt-doing", name: "Doing" }, { id: "opt-done", name: "Done" });
   await board("setup");
   kanbanFlow.push(
     { id: "k1", name: "Reply to review", description: "", column: "To-do", secondsSpent: 0 },
-    { id: "k2", name: "Ship search", description: "details", column: "In progress", secondsSpent: 1_800 },
+    { id: "k2", name: "Ship search ", description: "details", column: "In progress", secondsSpent: 1_800 },
     { id: "k3", name: "Old work", description: "", column: "Done", secondsSpent: 60 },
   );
   await assert.rejects(board("import", "kanbanflow", "--token-env", "T"), /"To-do", "In progress" match no board column/);
 
   const options = ["--token-env", "T", "--map", "To-do=Todo", "--map", "in progress=Doing", "--skip-column", "done"];
-  assert.match(await board("import", "kanbanflow", ...options, "--dry-run"), /would add "Ship search" -> Doing \(30m\)\n2 to import, 1 skipped/);
+  assert.match(await board("import", "kanbanflow", ...options, "--dry-run"), /would add "Ship search " -> Doing \(30m\)\n2 to import, 1 skipped/);
   assert.equal(github.items.length, 0, "dry run changes nothing");
 
   assert.match(await board("import", "kanbanflow", ...options), /2 imported, 1 skipped/);
@@ -210,9 +215,19 @@ test("project selection is explicit and validated", async () => {
   });
 });
 
+test("gh responses: data passes through, GraphQL errors are deduplicated, a missing scope says how to grant it", () => {
+  assert.deepEqual(graphqlData(null, JSON.stringify({ data: { viewer: { login: "a" } } })), { viewer: { login: "a" } });
+  const scope = { type: "INSUFFICIENT_SCOPES", message: "needs read:project" };
+  assert.throws(() => graphqlData("exit 1", JSON.stringify({ errors: [scope, scope, scope] })),
+    (error: Error) => error.message === "needs read:project\nGitHub Projects need the `project` token scope. Run: gh auth refresh -s project");
+  assert.throws(() => graphqlData("exit 1", JSON.stringify({ errors: [{ message: "bad" }, { message: "bad" }] })), (error: Error) => error.message === "bad");
+  assert.throws(() => graphqlData("could not connect", ""), /gh api graphql failed: could not connect/);
+  assert.throws(() => graphqlData(null, "{}"), /returned no data/);
+});
+
 test("KanbanFlow client follows every column's pages and sends the API token", async () => {
   const requests: string[] = [];
-  const responses = new Map<string, unknown>([
+  const responses = new Map<string, JsonValue>([
     ["/board", { columns: [{ uniqueId: "c1", name: "To-do" }, { uniqueId: "c2", name: "Done" }] }],
     ["/tasks?columnId=c1&limit=100", [{ columnId: "c1", tasksLimited: true, nextTaskId: "t2", tasks: [{ _id: "t1", name: "A", totalSecondsSpent: 120 }] }]],
     ["/tasks?columnId=c1&limit=100&startTaskId=t2", [{ columnId: "c1", tasksLimited: false, tasks: [{ _id: "t2", name: "B", description: "b" }] }]],

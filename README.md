@@ -179,20 +179,7 @@ mux board time PVTI_xxx --add 25                             # log a focus sessi
 
 **Safety.** `mux board` can only add cards, set a card's column or focus minutes, and create the focus-time field. Every GitHub request passes an allowlist of those mutations before it is sent; anything else (deleting or archiving cards, editing or deleting fields and columns, deleting boards, closing issues) is refused, so a bug cannot destroy board data. Removing or restructuring stays a manual action on github.com.
 
-Several boards (a work board in an organization and a personal one, say) need no extra configuration: every command takes `--project`, and pointers are keyed by card id, which is unique across boards.
-
-### Pointers from cards to local work
-
-A card can point at the machine-local things that belong to it, so a tool can take you back to them: a terminal session, an agent conversation, a checkout folder, a branch. Pointers are `KIND:VALUE` pairs whose meaning belongs to the tool that writes them; `mux board` only stores them.
-
-```bash
-mux board link PVTI_xxx --pointer folder:/work/app-issue-42 --label "worktree"
-mux board link PVTI_xxx --pointer claude:<session id>
-mux board links PVTI_xxx --json
-mux board unlink PVTI_xxx --pointer claude:<session id>
-```
-
-Pointers live in `$MUX_HOME/board-links.json` (default `~/.devx-mux`), never on GitHub: they are meaningless on another machine and would clutter the board. Writes are locked and atomic, so an editor and an agent can record pointers at the same time.
+Several boards (a work board in an organization and a personal one, say) need no extra configuration: every command takes `--project`. `mux board` keeps no local state; the board on GitHub is the only source of truth, and `list --json` gives tools (such as an editor matching its sessions to cards by branch) everything they need, including each pull request's head branch.
 
 ### Importing from KanbanFlow
 
@@ -202,7 +189,7 @@ mux board import kanbanflow --token-env KANBANFLOW_TOKEN --skip-column Done --dr
 mux board import kanbanflow --token-env KANBANFLOW_TOKEN --skip-column Done
 ```
 
-Each task becomes a draft card in the column of the same name (use `--map "FROM=TO"` when names differ) with its tracked time as focus minutes. Imported tasks are remembered as `kanbanflow-task` pointers, so running the import again adds only new tasks.
+Each task becomes a draft card in the column of the same name (use `--map "FROM=TO"` when names differ) with its tracked time as focus minutes. A task whose title is already a draft card on the board is skipped, so running the import again adds only new tasks.
 
 ## Agent skills
 

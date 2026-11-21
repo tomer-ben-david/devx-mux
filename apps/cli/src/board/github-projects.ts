@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { JsonReader, parseJson, type JsonValue } from "./json-reader.js";
 import {
   BOARD_SCHEMA_VERSION,
   type BoardColumn,
@@ -9,80 +10,81 @@ import {
   type ProjectRef,
 } from "./models.js";
 
+export type GraphqlVariables = Readonly<Record<string, JsonValue>>;
+
 /** Sends one GraphQL request to GitHub and returns its `data` object, throwing on any GraphQL or transport error. */
 export interface GraphqlTransport {
-  request(query: string, variables: Readonly<Record<string, unknown>>): Promise<unknown>;
+  request(query: string, variables: GraphqlVariables): Promise<JsonValue>;
 }
 
 const PROJECT_SCOPE_HINT = "GitHub Projects need the `project` token scope. Run: gh auth refresh -s project";
 
 /** Runs GraphQL through the authenticated GitHub CLI, so `mux board` uses the same login as `gh`. */
 export class GhCliGraphqlTransport implements GraphqlTransport {
-  request(query: string, variables: Readonly<Record<string, unknown>>): Promise<unknown> {
+  request(query: string, variables: GraphqlVariables): Promise<JsonValue> {
     return new Promise((resolve, reject) => {
       const child = execFile("gh", ["api", "graphql", "--input", "-"], { maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => {
-        let body: { readonly data?: unknown; readonly errors?: readonly { readonly type?: string; readonly message?: string }[] } | undefined;
         try {
-          body = stdout.trim().length === 0 ? undefined : JSON.parse(stdout);
-        } catch {
-          body = undefined;
+          resolve(graphqlData(error === null ? null : stderr.trim() || error.message, stdout));
+        } catch (failure) {
+          reject(failure);
         }
-        if (body?.errors !== undefined && body.errors.length > 0) {
-          // GitHub reports a missing scope once per requested field; the first report says everything.
-          const scopeError = body.errors.find((entry) => entry.type === "INSUFFICIENT_SCOPES");
-          reject(new Error(scopeError === undefined
-            ? [...new Set(body.errors.map((entry) => entry.message ?? JSON.stringify(entry)))].join("\n")
-            : `${scopeError.message ?? "Missing token scope."}\n${PROJECT_SCOPE_HINT}`));
-          return;
-        }
-        if (error !== null) {
-          const detail = stderr.trim() || error.message;
-          reject(new Error(/required scopes/i.test(detail) ? `${detail}\n${PROJECT_SCOPE_HINT}` : `gh api graphql failed: ${detail}`));
-          return;
-        }
-        if (body?.data === undefined) {
-          reject(new Error(`gh api graphql returned no data: ${stdout.slice(0, 500)}`));
-          return;
-        }
-        resolve(body.data);
       });
       child.stdin?.end(JSON.stringify({ query, variables }));
     });
   }
 }
 
-interface RawOption { readonly id: string; readonly name: string; readonly color: string; readonly description: string }
-interface RawStatusField { readonly id?: string; readonly name?: string; readonly dataType?: string; readonly options?: readonly RawOption[] }
-interface RawTimeField { readonly id?: string; readonly name?: string; readonly dataType?: string }
-interface RawProjectHeader {
-  readonly id: string;
-  readonly title: string;
-  readonly url: string;
-  readonly status: RawStatusField | null;
-  readonly time: RawTimeField | null;
+/** The `data` of a `gh api graphql` response; GraphQL errors and process failures become one readable error. */
+export function graphqlData(processFailure: string | null, stdout: string): JsonValue {
+  const body = stdout.trim().length === 0 ? null : new JsonReader(parseJson(stdout, "gh api graphql"), "gh api graphql");
+  const errors = body?.optionalField("errors")?.array() ?? [];
+  if (errors.length > 0) {
+    const reported = errors.map((entry) => ({ type: entry.optionalField("type")?.string(), message: entry.field("message").string() }));
+    // GitHub reports a missing scope once per requested field; the first report says everything.
+    const scopeError = reported.find((entry) => entry.type === "INSUFFICIENT_SCOPES");
+    throw new Error(scopeError === undefined ? [...new Set(reported.map((entry) => entry.message))].join("\n") : `${scopeError.message}\n${PROJECT_SCOPE_HINT}`);
+  }
+  if (processFailure !== null) {
+    throw new Error(/required scopes/i.test(processFailure) ? `${processFailure}\n${PROJECT_SCOPE_HINT}` : `gh api graphql failed: ${processFailure}`);
+  }
+  if (body === null) throw new Error("gh api graphql printed nothing.");
+  const data = body.optionalField("data");
+  if (data === null) throw new Error(`gh api graphql returned no data: ${stdout.slice(0, 500)}`);
+  return data.raw();
 }
-interface RawItem {
-  readonly id: string;
-  readonly type: "DRAFT_ISSUE" | "ISSUE" | "PULL_REQUEST" | "REDACTED";
-  readonly isArchived: boolean;
-  readonly updatedAt: string;
-  readonly status: { readonly name?: string } | null;
-  readonly time: { readonly number?: number } | null;
-  readonly content: {
-    readonly title?: string;
-    readonly body?: string;
-    readonly number?: number;
-    readonly url?: string;
-    readonly state?: string;
-    readonly isDraft?: boolean;
-    readonly repository?: { readonly nameWithOwner: string };
-  } | null;
+
+/**
+ * The only GitHub changes `mux board` may make. Each one adds something or sets a card's field; none deletes,
+ * archives, removes, or rewrites a board's structure. Anything else is refused before it reaches GitHub, so a
+ * bug cannot destroy data: removing cards, columns or boards stays a manual action on github.com.
+ */
+export const ALLOWED_MUTATIONS: ReadonlySet<string> = new Set([
+  "addProjectV2DraftIssue",
+  "addProjectV2ItemById",
+  "updateProjectV2ItemFieldValue",
+  "createProjectV2Field",
+]);
+
+/** Throws unless [query] is a read, or a mutation made only of [ALLOWED_MUTATIONS]. */
+export function assertAllowedOperation(query: string): void {
+  const operation = query.replace(/#[^\n]*/g, "").trim();
+  if (!/^mutation\b/i.test(operation)) {
+    if (/\bmutation\b/i.test(operation)) throw new Error("Refusing a GitHub request that mixes a mutation into a query.");
+    return;
+  }
+  const body = operation.slice(operation.indexOf("{") + 1);
+  const fields = [...body.matchAll(/(?:^|[{\s])([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*input\s*:/g)].map((match) => match[1] ?? "");
+  const refused = fields.filter((field) => !ALLOWED_MUTATIONS.has(field));
+  if (fields.length === 0 || refused.length > 0) {
+    throw new Error(`Refusing GitHub mutation ${refused.join(", ") || "(unrecognized)"}: mux board only adds cards and sets card fields. Delete or restructure boards on github.com.`);
+  }
 }
 
 const PROJECT_HEADER_FIELDS = `
   id title url
   status: field(name: $statusField) {
-    ... on ProjectV2SingleSelectField { id name dataType options { id name color description } }
+    ... on ProjectV2SingleSelectField { id name dataType options { id name } }
     ... on ProjectV2Field { id name dataType }
   }
   time: field(name: $timeField) {
@@ -113,7 +115,7 @@ query($owner: String!, $number: Int!, $statusField: String!, $timeField: String!
             content {
               ... on DraftIssue { title body }
               ... on Issue { title number url state repository { nameWithOwner } }
-              ... on PullRequest { title number url state isDraft repository { nameWithOwner } }
+              ... on PullRequest { title number url state isDraft headRefName repository { nameWithOwner } }
             }
           }
         }
@@ -127,86 +129,60 @@ export interface ResolvedProject {
   readonly id: string;
   readonly title: string;
   readonly url: string;
-  readonly statusField: { readonly id: string; readonly name: string; readonly options: readonly RawOption[] };
+  readonly statusField: { readonly id: string; readonly name: string; readonly columns: readonly BoardColumn[] };
   readonly timeField: { readonly id: string; readonly name: string } | null;
 }
 
-/**
- * The only GitHub changes `mux board` may make. Each one adds something or sets a card's field; none deletes,
- * archives, removes, or rewrites a board's structure. Anything else is refused before it reaches GitHub, so a
- * bug cannot destroy data: removing cards, columns or boards stays a manual action on github.com.
- */
-export const ALLOWED_MUTATIONS: ReadonlySet<string> = new Set([
-  "addProjectV2DraftIssue",
-  "addProjectV2ItemById",
-  "updateProjectV2ItemFieldValue",
-  "createProjectV2Field",
-]);
-
-/** Throws unless [query] is a read, or a mutation made only of [ALLOWED_MUTATIONS]. */
-export function assertAllowedOperation(query: string): void {
-  const operation = query.replace(/#[^\n]*/g, "").trim();
-  if (!/^mutation\b/i.test(operation)) {
-    if (/\bmutation\b/i.test(operation)) throw new Error("Refusing a GitHub request that mixes a mutation into a query.");
-    return;
-  }
-  const body = operation.slice(operation.indexOf("{") + 1);
-  const fields = [...body.matchAll(/(?:^|[{\s])([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*input\s*:/g)].map((match) => match[1] ?? "");
-  const refused = fields.filter((field) => !ALLOWED_MUTATIONS.has(field));
-  if (fields.length === 0 || refused.length > 0) {
-    throw new Error(`Refusing GitHub mutation ${refused.join(", ") || "(unrecognized)"}: mux board only adds cards and sets card fields. Delete or restructure boards on github.com.`);
-  }
+/** What `setup` did and what it leaves to the user. */
+export interface LayoutReport {
+  readonly createdTimeField: boolean;
+  readonly missingColumns: readonly string[];
+  readonly statusField: string;
+  /** Where the user adds missing columns themselves. */
+  readonly settingsUrl: string;
 }
 
 /** Reads and edits one GitHub Projects (v2) board. All writes go through GraphQL mutations; nothing is cached. */
 export class GitHubProjectsClient {
   constructor(private readonly transport: GraphqlTransport) {}
 
-  /** Every GitHub request goes through here, so the mutation allowlist cannot be bypassed. */
-  private request(query: string, variables: Readonly<Record<string, unknown>>): Promise<unknown> {
-    assertAllowedOperation(query);
-    return this.transport.request(query, variables);
-  }
-
   async snapshot(ref: ProjectRef, fields: BoardFieldNames): Promise<BoardSnapshot> {
     const items: BoardItem[] = [];
     let cursor: string | null = null;
     let project: ResolvedProject | undefined;
     do {
-      const data = await this.request(PROJECT_ITEMS_QUERY, { ...variables(ref, fields), cursor });
-      const raw = projectFrom(data, ref) as RawProjectHeader & {
-        readonly items: { readonly pageInfo: { readonly hasNextPage: boolean; readonly endCursor: string | null }; readonly nodes: readonly RawItem[] };
-      };
+      const raw = await this.project(PROJECT_ITEMS_QUERY, ref, fields, cursor);
       project ??= resolveProject(raw, ref, fields);
-      for (const node of raw.items.nodes) {
-        if (!node.isArchived) items.push(toBoardItem(node));
+      const page = raw.field("items");
+      for (const node of page.field("nodes").array()) {
+        if (!node.field("isArchived").boolean()) items.push(toBoardItem(node));
       }
-      cursor = raw.items.pageInfo.hasNextPage ? raw.items.pageInfo.endCursor : null;
+      const pageInfo = page.field("pageInfo");
+      cursor = pageInfo.field("hasNextPage").boolean() ? pageInfo.field("endCursor").string() : null;
     } while (cursor !== null);
     return {
       schema: BOARD_SCHEMA_VERSION,
       project: { id: project.id, title: project.title, url: project.url, owner: ref.owner, number: ref.number },
       statusField: { id: project.statusField.id, name: project.statusField.name },
-      columns: project.statusField.options.map((option): BoardColumn => ({ optionId: option.id, name: option.name })),
+      columns: project.statusField.columns,
       timeField: project.timeField,
       items,
     };
   }
 
   async resolve(ref: ProjectRef, fields: BoardFieldNames): Promise<ResolvedProject> {
-    const data = await this.request(PROJECT_HEADER_QUERY, variables(ref, fields));
-    return resolveProject(projectFrom(data, ref) as RawProjectHeader, ref, fields);
+    return resolveProject(await this.project(PROJECT_HEADER_QUERY, ref, fields, null), ref, fields);
   }
 
   async move(project: ResolvedProject, itemId: string, column: string): Promise<void> {
-    const option = project.statusField.options.find((candidate) => candidate.name.toLowerCase() === column.toLowerCase());
+    const option = project.statusField.columns.find((candidate) => candidate.name.toLowerCase() === column.toLowerCase());
     if (option === undefined) {
-      throw new Error(`Column "${column}" does not exist. Columns: ${project.statusField.options.map((candidate) => candidate.name).join(", ")}.`);
+      throw new Error(`Column "${column}" does not exist. Columns: ${project.statusField.columns.map((candidate) => candidate.name).join(", ")}.`);
     }
     await this.request(`
 mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
   updateProjectV2ItemFieldValue(input: { projectId: $project, itemId: $item, fieldId: $field, value: { singleSelectOptionId: $option } }) { projectV2Item { id } }
-}`, { project: project.id, item: itemId, field: project.statusField.id, option: option.id });
+}`, { project: project.id, item: itemId, field: project.statusField.id, option: option.optionId });
   }
 
   /** Adds minutes to an item's focus-time field and returns the new total. */
@@ -215,9 +191,10 @@ mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
     const data = await this.request(`
 query($item: ID!, $field: String!) {
   node(id: $item) { ... on ProjectV2Item { time: fieldValueByName(name: $field) { ... on ProjectV2ItemFieldNumberValue { number } } } }
-}`, { item: itemId, field: timeField.name }) as { readonly node: { readonly time?: { readonly number?: number } | null } | null };
-    if (data.node === null) throw new Error(`Project item ${itemId} does not exist.`);
-    const total = (data.node.time?.number ?? 0) + minutes;
+}`, { item: itemId, field: timeField.name });
+    const node = data.optionalField("node");
+    if (node === null) throw new Error(`Project item ${itemId} does not exist.`);
+    const total = (node.optionalField("time")?.optionalField("number")?.number() ?? 0) + minutes;
     await this.setFocusMinutes(project, itemId, total);
     return total;
   }
@@ -235,24 +212,23 @@ mutation($project: ID!, $item: ID!, $field: ID!, $number: Float!) {
     const data = await this.request(`
 mutation($project: ID!, $title: String!, $body: String!) {
   addProjectV2DraftIssue(input: { projectId: $project, title: $title, body: $body }) { projectItem { id } }
-}`, { project: project.id, title, body }) as { readonly addProjectV2DraftIssue: { readonly projectItem: { readonly id: string } } };
-    return data.addProjectV2DraftIssue.projectItem.id;
+}`, { project: project.id, title, body });
+    return data.field("addProjectV2DraftIssue").field("projectItem").field("id").string();
   }
 
   /** Adds an existing issue or pull request by URL and returns its item id. Adding one already on the board returns the existing item. */
   async addByUrl(project: ResolvedProject, url: string): Promise<string> {
-    const resource = await this.request(`
-query($url: URI!) { resource(url: $url) { __typename ... on Issue { id } ... on PullRequest { id } } }`, { url }) as {
-      readonly resource: { readonly __typename: string; readonly id?: string } | null;
-    };
-    if (resource.resource?.id === undefined) {
-      throw new Error(`${url} is not an issue or pull request you can access${resource.resource === null ? "" : ` (found ${resource.resource.__typename})`}.`);
+    const resource = (await this.request(`
+query($url: URI!) { resource(url: $url) { __typename ... on Issue { id } ... on PullRequest { id } } }`, { url })).optionalField("resource");
+    const contentId = resource?.optionalField("id")?.string();
+    if (resource === null || contentId === undefined) {
+      throw new Error(`${url} is not an issue or pull request you can access${resource === null ? "" : ` (found ${resource.field("__typename").string()})`}.`);
     }
     const data = await this.request(`
 mutation($project: ID!, $content: ID!) {
   addProjectV2ItemById(input: { projectId: $project, contentId: $content }) { item { id } }
-}`, { project: project.id, content: resource.resource.id }) as { readonly addProjectV2ItemById: { readonly item: { readonly id: string } } };
-    return data.addProjectV2ItemById.item.id;
+}`, { project: project.id, content: contentId });
+    return data.field("addProjectV2ItemById").field("item").field("id").string();
   }
 
   /**
@@ -262,56 +238,58 @@ mutation($project: ID!, $content: ID!) {
    */
   async ensureLayout(ref: ProjectRef, fields: BoardFieldNames, columns: readonly string[]): Promise<LayoutReport> {
     const project = await this.resolve(ref, fields);
-    const missingColumns = columns.filter((column) => !project.statusField.options.some((option) => option.name.toLowerCase() === column.toLowerCase()));
-    let createdTimeField = false;
+    const missingColumns = columns.filter((column) => !project.statusField.columns.some((option) => option.name.toLowerCase() === column.toLowerCase()));
     if (project.timeField === null) {
       await this.request(`
 mutation($project: ID!, $name: String!) {
   createProjectV2Field(input: { projectId: $project, dataType: NUMBER, name: $name }) { projectV2Field { ... on ProjectV2Field { id } } }
 }`, { project: project.id, name: fields.time });
-      createdTimeField = true;
     }
-    return { createdTimeField, missingColumns, statusField: project.statusField.name, settingsUrl: `${project.url}/settings` };
+    return { createdTimeField: project.timeField === null, missingColumns, statusField: project.statusField.name, settingsUrl: `${project.url}/settings` };
+  }
+
+  /** Every GitHub request goes through here, so the mutation allowlist cannot be bypassed. */
+  private async request(query: string, variables: GraphqlVariables): Promise<JsonReader> {
+    assertAllowedOperation(query);
+    return new JsonReader(await this.transport.request(query, variables), "GitHub");
+  }
+
+  private async project(query: string, ref: ProjectRef, fields: BoardFieldNames, cursor: string | null): Promise<JsonReader> {
+    const data = await this.request(query, { owner: ref.owner, number: ref.number, statusField: fields.status, timeField: fields.time, cursor });
+    const owner = data.optionalField("repositoryOwner");
+    if (owner === null) throw new Error(`GitHub user or organization "${ref.owner}" does not exist.`);
+    const project = owner.optionalField("projectV2");
+    if (project === null) throw new Error(`Project ${ref.owner}/${ref.number} does not exist or you cannot access it.`);
+    return project;
   }
 }
 
-export interface LayoutReport {
-  readonly createdTimeField: boolean;
-  readonly missingColumns: readonly string[];
-  readonly statusField: string;
-  /** Where the user adds missing columns themselves. */
-  readonly settingsUrl: string;
-}
-
-function variables(ref: ProjectRef, fields: BoardFieldNames): Record<string, unknown> {
-  return { owner: ref.owner, number: ref.number, statusField: fields.status, timeField: fields.time };
-}
-
-function projectFrom(data: unknown, ref: ProjectRef): unknown {
-  const owner = (data as { readonly repositoryOwner: { readonly projectV2?: unknown } | null }).repositoryOwner;
-  if (owner === null) throw new Error(`GitHub user or organization "${ref.owner}" does not exist.`);
-  if (owner.projectV2 === undefined || owner.projectV2 === null) throw new Error(`Project ${ref.owner}/${ref.number} does not exist or you cannot access it.`);
-  return owner.projectV2;
-}
-
-function resolveProject(raw: RawProjectHeader, ref: ProjectRef, fields: BoardFieldNames): ResolvedProject {
-  const status = raw.status;
-  if (status?.id === undefined || status.name === undefined) {
+function resolveProject(raw: JsonReader, ref: ProjectRef, fields: BoardFieldNames): ResolvedProject {
+  const status = raw.optionalField("status");
+  const statusId = status?.optionalField("id");
+  if (status === null || statusId === null || statusId === undefined) {
     throw new Error(`Project ${ref.owner}/${ref.number} has no field named "${fields.status}". Pass --status-field with its column field.`);
   }
-  if (status.dataType !== "SINGLE_SELECT" || status.options === undefined) {
-    throw new Error(`Field "${status.name}" in project ${ref.owner}/${ref.number} is ${status.dataType ?? "not a field"}, not a single-select column field.`);
+  const statusName = status.field("name").string();
+  const statusType = status.field("dataType").string();
+  if (statusType !== "SINGLE_SELECT") {
+    throw new Error(`Field "${statusName}" in project ${ref.owner}/${ref.number} is ${statusType}, not a single-select column field.`);
   }
-  const time = raw.time;
-  if (time?.id !== undefined && time.dataType !== "NUMBER") {
-    throw new Error(`Field "${time.name ?? fields.time}" in project ${ref.owner}/${ref.number} is ${time.dataType ?? "unknown"}, not a number field.`);
+  const time = raw.optionalField("time");
+  const timeId = time?.optionalField("id");
+  if (time !== null && timeId !== null && timeId !== undefined && time.field("dataType").string() !== "NUMBER") {
+    throw new Error(`Field "${time.field("name").string()}" in project ${ref.owner}/${ref.number} is ${time.field("dataType").string()}, not a number field.`);
   }
   return {
-    id: raw.id,
-    title: raw.title,
-    url: raw.url,
-    statusField: { id: status.id, name: status.name, options: status.options },
-    timeField: time?.id === undefined ? null : { id: time.id, name: time.name ?? fields.time },
+    id: raw.field("id").string(),
+    title: raw.field("title").string(),
+    url: raw.field("url").string(),
+    statusField: {
+      id: statusId.string(),
+      name: statusName,
+      columns: status.field("options").array().map((option) => ({ optionId: option.field("id").string(), name: option.field("name").string() })),
+    },
+    timeField: time === null || timeId === null || timeId === undefined ? null : { id: timeId.string(), name: time.field("name").string() },
   };
 }
 
@@ -320,48 +298,48 @@ function requireTimeField(project: ResolvedProject): { readonly id: string; read
   return project.timeField;
 }
 
-function toBoardItem(node: RawItem): BoardItem {
+function toBoardItem(node: JsonReader): BoardItem {
   return {
-    id: node.id,
-    column: node.status?.name ?? null,
-    focusMinutes: node.time?.number ?? null,
-    updatedAt: node.updatedAt,
-    content: toContent(node),
+    id: node.field("id").string(),
+    column: node.optionalField("status")?.optionalField("name")?.string() ?? null,
+    focusMinutes: node.optionalField("time")?.optionalField("number")?.number() ?? null,
+    updatedAt: node.field("updatedAt").string(),
+    content: toContent(node.field("type").string(), node.optionalField("content")),
   };
 }
 
-function toContent(node: RawItem): BoardItemContent {
-  const content = node.content;
-  switch (node.type) {
+function toContent(type: string, content: JsonReader | null): BoardItemContent {
+  if (type === "REDACTED") return { kind: "redacted" };
+  if (content === null) throw new Error(`GitHub returned a ${type} item without content.`);
+  switch (type) {
     case "DRAFT_ISSUE":
-      return { kind: "draft", title: content?.title ?? "", body: content?.body ?? "" };
+      return { kind: "draft", title: content.field("title").string(), body: content.field("body").string() };
     case "ISSUE":
       return {
         kind: "issue",
-        title: required(content?.title, node, "title"),
-        number: required(content?.number, node, "number"),
-        url: required(content?.url, node, "url"),
-        state: required(content?.state, node, "state") === "CLOSED" ? "CLOSED" : "OPEN",
-        repository: required(content?.repository?.nameWithOwner, node, "repository"),
+        title: content.field("title").string(),
+        number: content.field("number").number(),
+        url: content.field("url").string(),
+        state: content.field("state").string() === "CLOSED" ? "CLOSED" : "OPEN",
+        repository: content.field("repository").field("nameWithOwner").string(),
       };
-    case "PULL_REQUEST": {
-      const state = required(content?.state, node, "state");
+    case "PULL_REQUEST":
       return {
         kind: "pull-request",
-        title: required(content?.title, node, "title"),
-        number: required(content?.number, node, "number"),
-        url: required(content?.url, node, "url"),
-        state: state === "MERGED" ? "MERGED" : state === "CLOSED" ? "CLOSED" : "OPEN",
-        isDraft: content?.isDraft ?? false,
-        repository: required(content?.repository?.nameWithOwner, node, "repository"),
+        title: content.field("title").string(),
+        number: content.field("number").number(),
+        url: content.field("url").string(),
+        state: pullRequestState(content.field("state").string()),
+        isDraft: content.field("isDraft").boolean(),
+        headRefName: content.field("headRefName").string(),
+        repository: content.field("repository").field("nameWithOwner").string(),
       };
-    }
-    case "REDACTED":
-      return { kind: "redacted" };
+    default:
+      throw new Error(`GitHub returned a project item of unknown type ${type}.`);
   }
 }
 
-function required<T>(value: T | undefined, node: RawItem, field: string): T {
-  if (value === undefined) throw new Error(`GitHub returned ${node.type} item ${node.id} without ${field}.`);
-  return value;
+function pullRequestState(state: string): "OPEN" | "CLOSED" | "MERGED" {
+  if (state === "OPEN" || state === "CLOSED" || state === "MERGED") return state;
+  throw new Error(`GitHub returned unknown pull request state ${state}.`);
 }

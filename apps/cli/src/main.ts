@@ -10,7 +10,6 @@ import { helpText, parseReviewArguments, resolveParallelReasoning, reviewHelpTex
 import { runBoardCommand } from "./board/board-command.js";
 import { GhCliGraphqlTransport, GitHubProjectsClient } from "./board/github-projects.js";
 import { KanbanFlowClient } from "./board/kanbanflow.js";
-import { BoardLinkStore, muxHomeDirectory } from "./board/link-store.js";
 import { codexHomeDirectory, runCodexAuth } from "./codex-auth.js";
 import { resolveRepositoryPath } from "./git.js";
 import { persistCombinedReview, persistRawReview, type ProviderIdentity } from "./review-artifacts.js";
@@ -152,14 +151,12 @@ async function run(argv: readonly string[]): Promise<number> {
   if (command === "board") {
     process.stdout.write(await runBoardCommand(rawCommandArguments, {
       projects: new GitHubProjectsClient(new GhCliGraphqlTransport()),
-      links: new BoardLinkStore(path.join(muxHomeDirectory(process.env), "board-links.json")),
       kanbanFlowTasks: (tokenEnvironmentVariable) => {
         const token = process.env[tokenEnvironmentVariable];
         if (token === undefined || token === "") throw new Error(`Environment variable ${tokenEnvironmentVariable} is empty; set it to the KanbanFlow board's API token.`);
         return new KanbanFlowClient(fetch, token).tasks();
       },
       environment: process.env,
-      now: () => new Date(),
     }));
     return 0;
   }
