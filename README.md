@@ -160,6 +160,48 @@ mux codex-auth save            # save the active sign-in so it can be switched b
 
 One auth file per mode is kept in `$CODEX_HOME/auth-profiles/` with owner-only permissions. Every switch first writes the active file back to its own slot, so tokens Codex refreshed in the meantime are never lost. To create the first profile for a mode, sign in with Codex in that mode and run `mux codex-auth save`. Unrecognized or malformed auth files fail loudly instead of falling back. Restart the Codex app and any running Codex sessions after a switch.
 
+## Task board
+
+`mux board` keeps your work on a [GitHub Projects](https://docs.github.com/en/issues/planning-and-tracking-with-projects) board: one card per task, a single-select column field for its state, and a number field for focus time. Cards are real issues and pull requests from any repository, or draft items for work that has no issue (a reply, a meeting follow-up). A pull request that closes an issue moves its card to the done column through the project's built-in workflow.
+
+```bash
+gh auth refresh -s project                                   # once: let gh read and edit projects
+export MUX_BOARD_PROJECT=acme/3                              # or pass --project OWNER/NUMBER
+mux board setup                                              # add missing columns and the "Focus minutes" field
+mux board list                                               # cards by column (--json for tools)
+mux board add --draft "Reply about the rollout" --column "Do today"
+mux board add --url https://github.com/acme/app/issues/42 --column "To-do"
+mux board move PVTI_xxx --column "In progress"
+mux board time PVTI_xxx --add 25                             # log a focus session
+```
+
+`setup` defaults to the columns To-do, Do today, In progress and Done. It only adds what is missing; existing columns keep their ids, so no card loses its column. `--status-field` and `--time-field` select differently named fields.
+
+Several boards (a work board in an organization and a personal one, say) need no extra configuration: every command takes `--project`, and pointers are keyed by card id, which is unique across boards.
+
+### Pointers from cards to local work
+
+A card can point at the machine-local things that belong to it, so a tool can take you back to them: a terminal session, an agent conversation, a checkout folder, a branch. Pointers are `KIND:VALUE` pairs whose meaning belongs to the tool that writes them; `mux board` only stores them.
+
+```bash
+mux board link PVTI_xxx --pointer folder:/work/app-issue-42 --label "worktree"
+mux board link PVTI_xxx --pointer claude:<session id>
+mux board links PVTI_xxx --json
+mux board unlink PVTI_xxx --pointer claude:<session id>
+```
+
+Pointers live in `$MUX_HOME/board-links.json` (default `~/.devx-mux`), never on GitHub: they are meaningless on another machine and would clutter the board. Writes are locked and atomic, so an editor and an agent can record pointers at the same time.
+
+### Importing from KanbanFlow
+
+```bash
+export KANBANFLOW_TOKEN=...                                  # the board's API token (KanbanFlow board settings)
+mux board import kanbanflow --token-env KANBANFLOW_TOKEN --skip-column Done --dry-run
+mux board import kanbanflow --token-env KANBANFLOW_TOKEN --skip-column Done
+```
+
+Each task becomes a draft card in the column of the same name (use `--map "FROM=TO"` when names differ) with its tracked time as focus minutes. Imported tasks are remembered as `kanbanflow-task` pointers, so running the import again adds only new tasks.
+
 ## Agent skills
 
 DevX Mux is the canonical public home for reusable agent workflows. Each skill is packaged with the npm release and linked under a `mux-*` invocation name by `mux setup`.

@@ -20,6 +20,7 @@ Usage:
   mux --version
   mux setup
   mux codex-auth [status|subscription|api|save]
+  mux board --help
   mux review --help
   mux multireview branch [options]
   mux multireview pr [NUMBER] [options]
