@@ -131,16 +131,49 @@ export interface ResolvedProject {
   readonly timeField: { readonly id: string; readonly name: string } | null;
 }
 
+/**
+ * The only GitHub changes `mux board` may make. Each one adds something or sets a card's field; none deletes,
+ * archives, removes, or rewrites a board's structure. Anything else is refused before it reaches GitHub, so a
+ * bug cannot destroy data: removing cards, columns or boards stays a manual action on github.com.
+ */
+export const ALLOWED_MUTATIONS: ReadonlySet<string> = new Set([
+  "addProjectV2DraftIssue",
+  "addProjectV2ItemById",
+  "updateProjectV2ItemFieldValue",
+  "createProjectV2Field",
+]);
+
+/** Throws unless [query] is a read, or a mutation made only of [ALLOWED_MUTATIONS]. */
+export function assertAllowedOperation(query: string): void {
+  const operation = query.replace(/#[^\n]*/g, "").trim();
+  if (!/^mutation\b/i.test(operation)) {
+    if (/\bmutation\b/i.test(operation)) throw new Error("Refusing a GitHub request that mixes a mutation into a query.");
+    return;
+  }
+  const body = operation.slice(operation.indexOf("{") + 1);
+  const fields = [...body.matchAll(/(?:^|[{\s])([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*input\s*:/g)].map((match) => match[1] ?? "");
+  const refused = fields.filter((field) => !ALLOWED_MUTATIONS.has(field));
+  if (fields.length === 0 || refused.length > 0) {
+    throw new Error(`Refusing GitHub mutation ${refused.join(", ") || "(unrecognized)"}: mux board only adds cards and sets card fields. Delete or restructure boards on github.com.`);
+  }
+}
+
 /** Reads and edits one GitHub Projects (v2) board. All writes go through GraphQL mutations; nothing is cached. */
 export class GitHubProjectsClient {
   constructor(private readonly transport: GraphqlTransport) {}
+
+  /** Every GitHub request goes through here, so the mutation allowlist cannot be bypassed. */
+  private request(query: string, variables: Readonly<Record<string, unknown>>): Promise<unknown> {
+    assertAllowedOperation(query);
+    return this.transport.request(query, variables);
+  }
 
   async snapshot(ref: ProjectRef, fields: BoardFieldNames): Promise<BoardSnapshot> {
     const items: BoardItem[] = [];
     let cursor: string | null = null;
     let project: ResolvedProject | undefined;
     do {
-      const data = await this.transport.request(PROJECT_ITEMS_QUERY, { ...variables(ref, fields), cursor });
+      const data = await this.request(PROJECT_ITEMS_QUERY, { ...variables(ref, fields), cursor });
       const raw = projectFrom(data, ref) as RawProjectHeader & {
         readonly items: { readonly pageInfo: { readonly hasNextPage: boolean; readonly endCursor: string | null }; readonly nodes: readonly RawItem[] };
       };
@@ -161,7 +194,7 @@ export class GitHubProjectsClient {
   }
 
   async resolve(ref: ProjectRef, fields: BoardFieldNames): Promise<ResolvedProject> {
-    const data = await this.transport.request(PROJECT_HEADER_QUERY, variables(ref, fields));
+    const data = await this.request(PROJECT_HEADER_QUERY, variables(ref, fields));
     return resolveProject(projectFrom(data, ref) as RawProjectHeader, ref, fields);
   }
 
@@ -170,7 +203,7 @@ export class GitHubProjectsClient {
     if (option === undefined) {
       throw new Error(`Column "${column}" does not exist. Columns: ${project.statusField.options.map((candidate) => candidate.name).join(", ")}.`);
     }
-    await this.transport.request(`
+    await this.request(`
 mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
   updateProjectV2ItemFieldValue(input: { projectId: $project, itemId: $item, fieldId: $field, value: { singleSelectOptionId: $option } }) { projectV2Item { id } }
 }`, { project: project.id, item: itemId, field: project.statusField.id, option: option.id });
@@ -179,7 +212,7 @@ mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
   /** Adds minutes to an item's focus-time field and returns the new total. */
   async addFocusMinutes(project: ResolvedProject, itemId: string, minutes: number): Promise<number> {
     const timeField = requireTimeField(project);
-    const data = await this.transport.request(`
+    const data = await this.request(`
 query($item: ID!, $field: String!) {
   node(id: $item) { ... on ProjectV2Item { time: fieldValueByName(name: $field) { ... on ProjectV2ItemFieldNumberValue { number } } } }
 }`, { item: itemId, field: timeField.name }) as { readonly node: { readonly time?: { readonly number?: number } | null } | null };
@@ -191,7 +224,7 @@ query($item: ID!, $field: String!) {
 
   async setFocusMinutes(project: ResolvedProject, itemId: string, minutes: number): Promise<void> {
     const timeField = requireTimeField(project);
-    await this.transport.request(`
+    await this.request(`
 mutation($project: ID!, $item: ID!, $field: ID!, $number: Float!) {
   updateProjectV2ItemFieldValue(input: { projectId: $project, itemId: $item, fieldId: $field, value: { number: $number } }) { projectV2Item { id } }
 }`, { project: project.id, item: itemId, field: timeField.id, number: minutes });
@@ -199,7 +232,7 @@ mutation($project: ID!, $item: ID!, $field: ID!, $number: Float!) {
 
   /** Creates a draft item (a card that lives only in the project) and returns its item id. */
   async addDraft(project: ResolvedProject, title: string, body: string): Promise<string> {
-    const data = await this.transport.request(`
+    const data = await this.request(`
 mutation($project: ID!, $title: String!, $body: String!) {
   addProjectV2DraftIssue(input: { projectId: $project, title: $title, body: $body }) { projectItem { id } }
 }`, { project: project.id, title, body }) as { readonly addProjectV2DraftIssue: { readonly projectItem: { readonly id: string } } };
@@ -208,14 +241,14 @@ mutation($project: ID!, $title: String!, $body: String!) {
 
   /** Adds an existing issue or pull request by URL and returns its item id. Adding one already on the board returns the existing item. */
   async addByUrl(project: ResolvedProject, url: string): Promise<string> {
-    const resource = await this.transport.request(`
+    const resource = await this.request(`
 query($url: URI!) { resource(url: $url) { __typename ... on Issue { id } ... on PullRequest { id } } }`, { url }) as {
       readonly resource: { readonly __typename: string; readonly id?: string } | null;
     };
     if (resource.resource?.id === undefined) {
       throw new Error(`${url} is not an issue or pull request you can access${resource.resource === null ? "" : ` (found ${resource.resource.__typename})`}.`);
     }
-    const data = await this.transport.request(`
+    const data = await this.request(`
 mutation($project: ID!, $content: ID!) {
   addProjectV2ItemById(input: { projectId: $project, contentId: $content }) { item { id } }
 }`, { project: project.id, content: resource.resource.id }) as { readonly addProjectV2ItemById: { readonly item: { readonly id: string } } };
@@ -223,34 +256,31 @@ mutation($project: ID!, $content: ID!) {
   }
 
   /**
-   * Makes sure the column field has every requested column and that a number field for focus time exists.
-   * Existing columns keep their option ids, so no item loses its column. Returns what changed.
+   * Creates the focus-time number field when it is missing (an additive change) and reports which requested
+   * columns are missing. Columns are never edited here: changing a single-select field rewrites its whole option
+   * list, so a bug could drop a column and clear its cards. Missing columns are added by hand on github.com.
    */
-  async ensureLayout(ref: ProjectRef, fields: BoardFieldNames, columns: readonly string[]): Promise<readonly string[]> {
+  async ensureLayout(ref: ProjectRef, fields: BoardFieldNames, columns: readonly string[]): Promise<LayoutReport> {
     const project = await this.resolve(ref, fields);
-    const changes: string[] = [];
-    const existing = project.statusField.options;
-    const missing = columns.filter((column) => !existing.some((option) => option.name.toLowerCase() === column.toLowerCase()));
-    if (missing.length > 0) {
-      const options = [
-        ...existing.map((option) => ({ id: option.id, name: option.name, color: option.color, description: option.description })),
-        ...missing.map((name) => ({ name, color: "GRAY", description: "" })),
-      ];
-      await this.transport.request(`
-mutation($field: ID!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
-  updateProjectV2Field(input: { fieldId: $field, singleSelectOptions: $options }) { projectV2Field { ... on ProjectV2SingleSelectField { id } } }
-}`, { field: project.statusField.id, options });
-      changes.push(`added column${missing.length === 1 ? "" : "s"} ${missing.map((name) => `"${name}"`).join(", ")} to ${project.statusField.name}`);
-    }
+    const missingColumns = columns.filter((column) => !project.statusField.options.some((option) => option.name.toLowerCase() === column.toLowerCase()));
+    let createdTimeField = false;
     if (project.timeField === null) {
-      await this.transport.request(`
+      await this.request(`
 mutation($project: ID!, $name: String!) {
   createProjectV2Field(input: { projectId: $project, dataType: NUMBER, name: $name }) { projectV2Field { ... on ProjectV2Field { id } } }
 }`, { project: project.id, name: fields.time });
-      changes.push(`created number field "${fields.time}"`);
+      createdTimeField = true;
     }
-    return changes;
+    return { createdTimeField, missingColumns, statusField: project.statusField.name, settingsUrl: `${project.url}/settings` };
   }
+}
+
+export interface LayoutReport {
+  readonly createdTimeField: boolean;
+  readonly missingColumns: readonly string[];
+  readonly statusField: string;
+  /** Where the user adds missing columns themselves. */
+  readonly settingsUrl: string;
 }
 
 function variables(ref: ProjectRef, fields: BoardFieldNames): Record<string, unknown> {

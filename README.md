@@ -167,7 +167,7 @@ One auth file per mode is kept in `$CODEX_HOME/auth-profiles/` with owner-only p
 ```bash
 gh auth refresh -s project                                   # once: let gh read and edit projects
 export MUX_BOARD_PROJECT=acme/3                              # or pass --project OWNER/NUMBER
-mux board setup                                              # add missing columns and the "Focus minutes" field
+mux board setup                                              # create the "Focus minutes" field, report missing columns
 mux board list                                               # cards by column (--json for tools)
 mux board add --draft "Reply about the rollout" --column "Do today"
 mux board add --url https://github.com/acme/app/issues/42 --column "To-do"
@@ -175,7 +175,9 @@ mux board move PVTI_xxx --column "In progress"
 mux board time PVTI_xxx --add 25                             # log a focus session
 ```
 
-`setup` defaults to the columns To-do, Do today, In progress and Done. It only adds what is missing; existing columns keep their ids, so no card loses its column. `--status-field` and `--time-field` select differently named fields.
+`setup` checks for the columns To-do, Do today, In progress and Done and prints where to add any that are missing; it never edits columns itself. `--status-field` and `--time-field` select differently named fields.
+
+**Safety.** `mux board` can only add cards, set a card's column or focus minutes, and create the focus-time field. Every GitHub request passes an allowlist of those mutations before it is sent; anything else (deleting or archiving cards, editing or deleting fields and columns, deleting boards, closing issues) is refused, so a bug cannot destroy board data. Removing or restructuring stays a manual action on github.com.
 
 Several boards (a work board in an organization and a personal one, say) need no extra configuration: every command takes `--project`, and pointers are keyed by card id, which is unique across boards.
 

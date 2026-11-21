@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { parseProjectRef, runBoardCommand, type BoardCommandDependencies } from "./board-command.js";
-import { GitHubProjectsClient, type GraphqlTransport } from "./github-projects.js";
+import { assertAllowedOperation, GitHubProjectsClient, type GraphqlTransport } from "./github-projects.js";
 import { KanbanFlowClient, type HttpFetch, type KanbanFlowTask } from "./kanbanflow.js";
 import { BoardLinkStore } from "./link-store.js";
 import type { BoardSnapshot } from "./models.js";
@@ -44,11 +44,6 @@ class FakeGitHubProject implements GraphqlTransport {
       const id = `PVTI_${this.nextId++}`;
       this.items.push({ id, type: "ISSUE", title: "Fix login", body: "", status: null, minutes: null, issueUrl: url });
       return { addProjectV2ItemById: { item: { id } } };
-    }
-    if (query.includes("updateProjectV2Field")) {
-      const options = v("options") as { id?: string; name: string; color: string; description: string }[];
-      this.options = options.map((option) => ({ ...option, id: option.id ?? `opt-${option.name}` }));
-      return { updateProjectV2Field: { projectV2Field: { id: "status-field" } } };
     }
     if (query.includes("createProjectV2Field")) {
       this.timeField = { id: "time-field", name: v("name") };
@@ -115,16 +110,31 @@ function withBoard(run: (board: (...argv: string[]) => Promise<string>, github: 
 
 const snapshotOf = async (board: (...argv: string[]) => Promise<string>): Promise<BoardSnapshot> => JSON.parse(await board("list", "--json"));
 
-test("setup adds missing columns without changing existing ones, creates the focus field, and is idempotent", () => withBoard(async (board, github) => {
-  assert.equal(await board("setup", "--columns", "todo, Doing, Done"),
-    "added columns \"Doing\", \"Done\" to Status\ncreated number field \"Focus minutes\"\n");
-  assert.deepEqual(github.options[0], { id: "opt-todo", name: "Todo", color: "GREEN", description: "kept" });
-  assert.deepEqual(github.options.map((option) => option.name), ["Todo", "Doing", "Done"]);
-  assert.equal(await board("setup", "--columns", "Todo,Doing,Done"), "Board already has every column and the focus-time field.\n");
+test("setup creates the focus field, reports missing columns with where to add them, and never edits columns", () => withBoard(async (board, github) => {
+  assert.equal(await board("setup", "--columns", "todo, Doing"),
+    "created number field \"Focus minutes\"\nStatus is missing \"Doing\". Add it as options of the Status field at https://github.com/users/acme/projects/1/settings\n");
+  assert.deepEqual(github.options, [{ id: "opt-todo", name: "Todo", color: "GREEN", description: "kept" }], "columns are untouched");
+  github.options.push({ id: "opt-doing", name: "Doing", color: "GRAY", description: "" });
+  assert.equal(await board("setup", "--columns", "Todo,Doing"), "number field \"Focus minutes\" exists\nStatus has every column\n");
 }));
 
-test("cards are added, moved between columns and accumulate focus minutes", () => withBoard(async (board) => {
-  await board("setup", "--columns", "Todo,Doing,Done");
+test("only additive GitHub mutations can be sent; deletes, archives and column rewrites are refused", () => {
+  for (const allowed of ["addProjectV2DraftIssue", "addProjectV2ItemById", "updateProjectV2ItemFieldValue", "createProjectV2Field"]) {
+    assert.doesNotThrow(() => assertAllowedOperation(`mutation($p: ID!) { ${allowed}(input: { projectId: $p }) { clientMutationId } }`));
+  }
+  assert.doesNotThrow(() => assertAllowedOperation("query { viewer { login } }"));
+  for (const refused of ["deleteProjectV2Item", "archiveProjectV2Item", "deleteProjectV2Field", "updateProjectV2Field", "deleteProjectV2", "deleteIssue", "closeIssue"]) {
+    assert.throws(() => assertAllowedOperation(`mutation { ${refused}(input: { id: "x" }) { clientMutationId } }`), new RegExp(`Refusing GitHub mutation ${refused}`));
+  }
+  assert.throws(() => assertAllowedOperation(`mutation { a: addProjectV2DraftIssue(input: {}) { clientMutationId } b: deleteProjectV2Item(input: {}) { clientMutationId } }`),
+    /Refusing GitHub mutation deleteProjectV2Item/);
+  assert.throws(() => assertAllowedOperation("mutation { deleteProjectV2Item(input:{itemId:\"x\"}) { deletedItemId } }"), /Refusing/);
+  assert.throws(() => assertAllowedOperation("query { x } mutation { deleteProjectV2Item(input: {}) { deletedItemId } }"), /mixes a mutation/);
+});
+
+test("cards are added, moved between columns and accumulate focus minutes", () => withBoard(async (board, github) => {
+  github.options.push({ id: "opt-doing", name: "Doing", color: "GRAY", description: "" }, { id: "opt-done", name: "Done", color: "GRAY", description: "" });
+  await board("setup");
   const draft = JSON.parse(await board("add", "--draft", "  Write release notes ", "--body", "for v2", "--column", "todo", "--json")).itemId as string;
   const issue = (await board("add", "--url", "https://github.com/acme/app/issues/7")).trim();
   assert.equal((await board("add", "--url", "https://github.com/acme/app/issues/7")).trim(), issue, "adding an issue twice returns the same card");
@@ -168,7 +178,8 @@ test("pointers link local work to cards, deduplicate, and survive in the links f
 }));
 
 test("KanbanFlow import maps columns, carries tracked time, skips chosen columns, and never imports a task twice", () => withBoard(async (board, github, _linksFile, kanbanFlow) => {
-  await board("setup", "--columns", "Todo,Doing,Done");
+  github.options.push({ id: "opt-doing", name: "Doing", color: "GRAY", description: "" }, { id: "opt-done", name: "Done", color: "GRAY", description: "" });
+  await board("setup");
   kanbanFlow.push(
     { id: "k1", name: "Reply to review", description: "", column: "To-do", secondsSpent: 0 },
     { id: "k2", name: "Ship search", description: "details", column: "In progress", secondsSpent: 1_800 },

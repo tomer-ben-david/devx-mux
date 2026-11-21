@@ -26,7 +26,7 @@ its state, and a number field for focus time. Pointers from cards to local work
 $MUX_HOME/board-links.json (default ~/.devx-mux).
 
 Usage:
-  mux board setup  [--columns "A,B,C"]          Add missing columns and the focus-time field
+  mux board setup  [--columns "A,B,C"]          Create the focus-time field; report missing columns
   mux board list   [--json]                     Show every card by column
   mux board add    --draft TITLE [--body TEXT] [--column NAME] [--json]
   mux board add    --url ISSUE_OR_PR_URL [--column NAME] [--json]
@@ -43,9 +43,13 @@ Options:
   --time-field NAME       Number field for focus minutes. Default: ${DEFAULT_FIELDS.time}.
   --json                  Print a JSON document with "schema": ${BOARD_SCHEMA_VERSION}.
 
-ITEM is a project item id as printed by list (PVTI_...). setup defaults to the
+ITEM is a project item id as printed by list (PVTI_...). setup checks for the
 columns ${DEFAULT_COLUMNS.map((name) => `"${name}"`).join(", ")}. GitHub access uses the gh login and
 needs the project scope: gh auth refresh -s project
+
+Safety: mux board only adds cards, sets a card's column or focus minutes, and
+creates the focus-time field. It never deletes, archives or removes anything
+and never edits columns; do those on github.com.
 `;
 }
 
@@ -88,8 +92,14 @@ export async function runBoardCommand(argv: readonly string[], dependencies: Boa
     case "setup": {
       expectPositionals(positionals, 0, "setup");
       const columns = values.columns === undefined ? DEFAULT_COLUMNS : splitList(values.columns, "--columns");
-      const changes = await projects.ensureLayout(project(), fields, columns);
-      return changes.length === 0 ? "Board already has every column and the focus-time field.\n" : `${changes.join("\n")}\n`;
+      const report = await projects.ensureLayout(project(), fields, columns);
+      const lines = [
+        report.createdTimeField ? `created number field "${fields.time}"` : `number field "${fields.time}" exists`,
+        report.missingColumns.length === 0
+          ? `${report.statusField} has every column`
+          : `${report.statusField} is missing ${report.missingColumns.map((name) => `"${name}"`).join(", ")}. Add ${report.missingColumns.length === 1 ? "it" : "them"} as options of the ${report.statusField} field at ${report.settingsUrl}`,
+      ];
+      return `${lines.join("\n")}\n`;
     }
     case "list": {
       expectPositionals(positionals, 0, "list");
