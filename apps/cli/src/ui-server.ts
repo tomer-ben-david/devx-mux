@@ -99,6 +99,7 @@ const PAGE_ASSETS = new Map<string, PageAsset>([
   ["/", { file: "index.html", contentType: "text/html; charset=utf-8" }],
   ["/index.html", { file: "index.html", contentType: "text/html; charset=utf-8" }],
   ["/app.js", { file: "app.js", contentType: "text/javascript; charset=utf-8" }],
+  ["/report-findings.js", { file: "report-findings.js", contentType: "text/javascript; charset=utf-8" }],
   ["/report-format.js", { file: "report-format.js", contentType: "text/javascript; charset=utf-8" }],
   ["/style.css", { file: "style.css", contentType: "text/css; charset=utf-8" }],
 ]);

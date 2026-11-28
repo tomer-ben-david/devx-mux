@@ -60,6 +60,28 @@ body {
   font-weight: 600;
 }
 
+.finding-search {
+  flex: 1;
+  max-width: 480px;
+  margin-left: auto;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+.finding-search::placeholder {
+  color: var(--text-muted);
+}
+
+.finding-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .topbar button {
   font: inherit;
   font-size: 13px;
@@ -176,6 +198,18 @@ body {
   margin: 0;
   color: var(--text-muted);
   font-size: 13px;
+}
+
+.report-header .filter-summary {
+  margin: 8px 0 0;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.report-section .unfilterable {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .report-section {
