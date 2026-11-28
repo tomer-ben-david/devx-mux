@@ -5,6 +5,7 @@ import { helpText, parseReviewArguments, resolveParallelReasoning, reviewHelpTex
 test("documents and renders the version command", () => {
   const help = helpText();
   assert.match(help, /mux --version/);
+  assert.match(help, /mux ui \[--dir PATH\] \[--port PORT\]/);
   assert.match(help, /mux multireview branch/);
   assert.match(help, /mux multireview pr \[NUMBER\]/);
   assert.match(help, /mux multireview commit \[REF\]/);

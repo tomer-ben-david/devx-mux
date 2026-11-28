@@ -10,7 +10,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b packages/terminal-ui packages/reviewer apps/cli",
+    "build": "tsc -b packages/terminal-ui packages/reviewer apps/cli && node scripts/copy-ui-assets.ts",
     "mux": "node scripts/mux.ts",
     "cli": "node scripts/cli.ts",
     "test": "npm run test --workspaces --if-present && npm run test:skills && npm run test:install",

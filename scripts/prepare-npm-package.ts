@@ -28,6 +28,8 @@ await build({
 });
 
 chmodSync(outputFile, 0o755);
+// The bundled CLI serves the mux ui page from <dist>/ui, read from disk per request.
+cpSync(path.join(packageRoot, "src", "ui"), path.join(packageRoot, "dist", "ui"), { recursive: true });
 cpSync(path.join(repositoryRoot, "skills"), path.join(packageRoot, "skills"), {
   recursive: true,
   filter: (source) => !source.endsWith(".test.ts"),

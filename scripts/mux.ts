@@ -19,6 +19,7 @@ Usage:
   ./mux.sh link-agent-files      Link public skills and global agent files (AGENTS.md/CLAUDE.md/...) for Codex, Claude, and shared agents
   ./mux.sh review [arguments]    Run \`mux review\`
   ./mux.sh multireview [args]    Run concurrent Codex and Grok review
+  ./mux.sh ui [args]             Browse saved review runs in a local web page
   ./mux.sh clean                 Remove generated build output
   ./mux.sh help                  Show this help
 
@@ -60,6 +61,7 @@ switch (command) {
     break;
   case "review":
   case "multireview":
+  case "ui":
     run(process.execPath, ["scripts/cli.ts", command, ...arguments_]);
     break;
   case "clean":

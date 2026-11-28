@@ -12,8 +12,10 @@ import { GhCliGraphqlTransport, GitHubProjectsClient } from "./board/github-proj
 import { KanbanFlowClient } from "./board/kanbanflow.js";
 import { codexHomeDirectory, runCodexAuth } from "./codex-auth.js";
 import { resolveRepositoryPath } from "./git.js";
+import { reviewArtifactDirectory } from "./artifacts.js";
 import { persistCombinedReview, persistRawReview, type ProviderIdentity } from "./review-artifacts.js";
 import { installPublicSkills } from "./skill-installer.js";
+import { runUiCommand } from "./ui-server.js";
 
 const STANDARDS_URL = "https://github.com/tomer-ben-david/devx-coding-standards";
 const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version?: unknown };
@@ -158,6 +160,13 @@ async function run(argv: readonly string[]): Promise<number> {
       },
       environment: process.env,
     }));
+    return 0;
+  }
+  if (command === "ui") {
+    await runUiCommand(rawCommandArguments, {
+      artifactDirectory: reviewArtifactDirectory(),
+      assetsDirectory: path.join(path.dirname(fileURLToPath(import.meta.url)), "ui"),
+    });
     return 0;
   }
   if (command !== "review" && command !== "multireview") {

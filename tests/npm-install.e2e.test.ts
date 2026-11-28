@@ -51,6 +51,7 @@ test("the packed npm release installs the CLI and public skills into an isolated
     assert(packageResult !== undefined);
     const packageFiles = packageResult.files.map((file) => file.path);
     assert(packageFiles.includes("dist/main.js"));
+    assert(packageFiles.includes("dist/ui/index.html"));
     assert(packageFiles.includes("skills/mux-director/SKILL.md"));
     assert.equal(packageFiles.some((file) => file.startsWith("skills/mux-orchestrate/")), false);
     assert.equal(packageFiles.some((file) => file.includes("chatgpt-review-wait")), false);

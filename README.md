@@ -132,6 +132,15 @@ Output defaults to `auto`: TUI for an interactive terminal, Markdown otherwise. 
 
 The artifact-first review handoff and strict read-only reviewer separation are inspired by the strongest workflow ideas in Grok's `/review`. The retained terminal UI learns from the MIT-licensed superagent-ai/grok-cli, while semantic event handling and provider-state clarity also learn from the Apache-2.0 OpenAI Codex CLI. DevX Mux implements its own provider-neutral persona, review guidance, dashboard, and multi-provider orchestration.
 
+### Browsing review runs
+
+```bash
+mux ui                                  # http://127.0.0.1:4900
+mux ui --port 5050 --dir /tmp/devx-mux-501
+```
+
+`mux ui` serves a small local page for the review runs that `mux review` and `mux multireview` save in the review artifact directory. Runs are listed newest first with their repository, scope, reviewers, and time, and the selected run renders each Codex, Grok, and Verifier report as its own readable section. The server uses Node's `node:http` only, binds to `127.0.0.1` on port 4900 (`--port`), and reads the artifact directory (`--dir`) and the page assets from disk on every request, so new runs and edited assets appear on reload. The page and its API (`GET /api/runs`, `GET /api/runs/<id>`) are read-only. From a source checkout, use `./mux.sh ui`.
+
 ### Using DevX Mux from an AI agent
 
 Inspect the command contract first, then select the scope from repository state:

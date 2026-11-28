@@ -28,6 +28,7 @@
   "files": [
     "dist/main.js",
     "dist/main.js.map",
+    "dist/ui",
     "skills",
     "agent-config",
     "README.md",

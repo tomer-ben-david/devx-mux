@@ -21,6 +21,7 @@ Usage:
   mux setup
   mux codex-auth [status|subscription|api|save]
   mux board --help
+  mux ui [--dir PATH] [--port PORT]
   mux review --help
   mux multireview branch [options]
   mux multireview pr [NUMBER] [options]
