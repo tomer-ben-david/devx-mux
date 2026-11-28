@@ -91,6 +91,16 @@ test("serves a selected run with every provider report verbatim", async (t) => {
   );
 });
 
+test("serves the reviewers of a selected run in provider order", async (t) => {
+  const server = await startServer();
+  t.after(() => server.close());
+
+  const response = await fetch(`${server.baseUrl}/api/runs/${FIXTURE_RUN_ID}`);
+  assert.equal(response.status, 200);
+  const body = await response.json() as { readonly reviewers: readonly string[] };
+  assert.deepEqual(body.reviewers, ["Codex", "Grok"]);
+});
+
 test("a missing run responds 404 and unknown paths never escape the asset table", async (t) => {
   const server = await startServer();
   t.after(() => server.close());

@@ -1,4 +1,4 @@
-"use strict";
+import { toRepoRelativePaths } from "./report-format.js";
 
 const runList = document.getElementById("run-list");
 const reportPane = document.getElementById("report");
@@ -99,7 +99,7 @@ function renderRun(run) {
     const label = document.createElement("p");
     label.className = "provider-label";
     label.textContent = report.provider;
-    section.append(label, ...renderMarkdownBlocks(report.markdown));
+    section.append(label, ...renderMarkdownBlocks(report.markdown, run.repository));
     return section;
   });
 
@@ -115,9 +115,10 @@ function showReportMessage(message, className = "placeholder") {
 
 /**
  * Renders report Markdown into block elements. All content enters the DOM as
- * text nodes or textContent, so provider output can never inject markup.
+ * text nodes or textContent, so provider output can never inject markup. File
+ * paths that point into the run's repository display repository-relative.
  */
-function renderMarkdownBlocks(markdown) {
+function renderMarkdownBlocks(markdown, repository) {
   const lines = markdown.split(/\r?\n/);
   const blocks = [];
   let index = 0;
@@ -147,7 +148,7 @@ function renderMarkdownBlocks(markdown) {
     if (heading) {
       const level = Math.min(heading[1].length + 1, 6);
       const element = document.createElement(`h${level}`);
-      element.append(...renderInline(heading[2]));
+      element.append(...renderInline(heading[2], repository));
       blocks.push(element);
       index += 1;
       continue;
@@ -169,12 +170,12 @@ function renderMarkdownBlocks(markdown) {
         cells.push(row);
         index += 1;
       }
-      blocks.push(renderTable(tableHeader, cells));
+      blocks.push(renderTable(tableHeader, cells, repository));
       continue;
     }
 
     if (/^\s*(?:[-*+]|\d+[.)])\s+/.test(line)) {
-      const rendered = renderList(lines, index);
+      const rendered = renderList(lines, index, repository);
       blocks.push(rendered.element);
       index = rendered.nextIndex;
       continue;
@@ -188,7 +189,7 @@ function renderMarkdownBlocks(markdown) {
         index += 1;
       }
       const quote = document.createElement("blockquote");
-      quote.append(...renderMarkdownBlocks(quoted.join("\n")));
+      quote.append(...renderMarkdownBlocks(quoted.join("\n"), repository));
       blocks.push(quote);
       continue;
     }
@@ -204,7 +205,7 @@ function renderMarkdownBlocks(markdown) {
       index += 1;
     }
     const paragraph = document.createElement("p");
-    paragraph.append(...renderInline(paragraphLines.join(" ")));
+    paragraph.append(...renderInline(paragraphLines.join(" "), repository));
     blocks.push(paragraph);
   }
 
@@ -221,14 +222,14 @@ function isParagraphLine(line) {
   );
 }
 
-function renderList(lines, startIndex) {
+function renderList(lines, startIndex, repository) {
   const container = document.createElement("div");
   const stack = [];
 
   let index = startIndex;
   while (index < lines.length) {
     const match = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/.exec(lines[index]);
-    if (match === undefined) break;
+    if (match === null) break;
     const indent = match[1].length;
     const ordered = /\d/.test(match[2]);
     const content = match[3];
@@ -244,7 +245,7 @@ function renderList(lines, startIndex) {
     }
 
     const item = document.createElement("li");
-    item.append(...renderInline(content));
+    item.append(...renderInline(content, repository));
     const open = stack[stack.length - 1];
     open.element.append(item);
     open.items.push(item);
@@ -254,13 +255,13 @@ function renderList(lines, startIndex) {
   return { element: container, nextIndex: index };
 }
 
-function renderTable(header, rows) {
+function renderTable(header, rows, repository) {
   const table = document.createElement("table");
   const head = document.createElement("thead");
   const headRow = document.createElement("tr");
   for (const cell of header) {
     const th = document.createElement("th");
-    th.append(...renderInline(cell));
+    th.append(...renderInline(cell, repository));
     headRow.append(th);
   }
   head.append(headRow);
@@ -270,7 +271,7 @@ function renderTable(header, rows) {
     const tr = document.createElement("tr");
     for (const cell of row) {
       const td = document.createElement("td");
-      td.append(...renderInline(cell));
+      td.append(...renderInline(cell, repository));
       tr.append(td);
     }
     body.append(tr);
@@ -292,32 +293,53 @@ function isTableSeparator(line) {
   return cells !== undefined && cells.every((cell) => /^:?-+:?$/.test(cell));
 }
 
-const INLINE_PATTERN = /(`+[^`]+`+)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(\[[^\]]+\]\((https?:\/\/[^)\s]+)\))/g;
+const INLINE_PATTERN = /(`+[^`]+`+)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(\[[^\]]+\]\(((?:https?:\/\/|\/)[^)\s]+)\))/g;
 
-function renderInline(text) {
+function renderInline(text, repository) {
   const nodes = [];
   let cursor = 0;
   for (const match of text.matchAll(INLINE_PATTERN)) {
     const token = match[0];
-    if (match.index > cursor) nodes.push(document.createTextNode(text.slice(cursor, match.index)));
+    if (match.index > cursor) nodes.push(repoRelativeText(text.slice(cursor, match.index), repository));
     if (token.startsWith("`")) {
-      nodes.push(makeTextElement("code", token.slice(1, -1)));
+      nodes.push(makeTextElement("code", toRepoRelativePaths(token.slice(1, -1), repository)));
     } else if (token.startsWith("**")) {
       nodes.push(makeTextElement("strong", token.slice(2, -2)));
     } else if (token.startsWith("*")) {
       nodes.push(makeTextElement("em", token.slice(1, -1)));
     } else {
-      const link = document.createElement("a");
-      link.href = match[4];
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.textContent = token.slice(1, token.indexOf("]"));
-      nodes.push(link);
+      nodes.push(...renderLink(token, match[5], repository));
     }
     cursor = match.index + token.length;
   }
-  if (cursor < text.length) nodes.push(document.createTextNode(text.slice(cursor)));
+  if (cursor < text.length) nodes.push(repoRelativeText(text.slice(cursor), repository));
   return nodes;
+}
+
+/**
+ * Web links stay anchors. Reports link local evidence as absolute checkout
+ * paths, which cannot navigate anywhere useful from the page, so those show
+ * the label followed by the repository-relative file reference instead.
+ */
+function renderLink(token, target, repository) {
+  const label = token.slice(1, token.indexOf("]"));
+  if (!target.startsWith("/")) {
+    const link = document.createElement("a");
+    link.href = target;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = label;
+    return [link];
+  }
+  return [
+    document.createTextNode(label),
+    document.createTextNode(" "),
+    makeTextElement("code", toRepoRelativePaths(target, repository)),
+  ];
+}
+
+function repoRelativeText(content, repository) {
+  return document.createTextNode(toRepoRelativePaths(content, repository));
 }
 
 function makeTextElement(tagName, content) {

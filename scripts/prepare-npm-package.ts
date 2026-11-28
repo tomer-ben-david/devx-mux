@@ -2,6 +2,7 @@ import { chmodSync, cpSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { copyUiPageAssets } from "./ui-page-assets.ts";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const packageRoot = path.join(repositoryRoot, "apps", "cli");
@@ -29,7 +30,7 @@ await build({
 
 chmodSync(outputFile, 0o755);
 // The bundled CLI serves the mux ui page from <dist>/ui, read from disk per request.
-cpSync(path.join(packageRoot, "src", "ui"), path.join(packageRoot, "dist", "ui"), { recursive: true });
+copyUiPageAssets(packageRoot);
 cpSync(path.join(repositoryRoot, "skills"), path.join(packageRoot, "skills"), {
   recursive: true,
   filter: (source) => !source.endsWith(".test.ts"),

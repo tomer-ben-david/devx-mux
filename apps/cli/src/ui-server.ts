@@ -99,6 +99,7 @@ const PAGE_ASSETS = new Map<string, PageAsset>([
   ["/", { file: "index.html", contentType: "text/html; charset=utf-8" }],
   ["/index.html", { file: "index.html", contentType: "text/html; charset=utf-8" }],
   ["/app.js", { file: "app.js", contentType: "text/javascript; charset=utf-8" }],
+  ["/report-format.js", { file: "report-format.js", contentType: "text/javascript; charset=utf-8" }],
   ["/style.css", { file: "style.css", contentType: "text/css; charset=utf-8" }],
 ]);
 
@@ -115,6 +116,7 @@ interface RunDetail {
   readonly repository: string;
   readonly scope: string;
   readonly startedAt: string;
+  readonly reviewers: readonly ReportProvider[];
   readonly reports: readonly RunReportContent[];
 }
 
@@ -176,6 +178,7 @@ async function respondRunDetail(encodedRunId: string, response: ServerResponse, 
     repository: run.repository,
     scope: run.scope,
     startedAt: run.startedAt,
+    reviewers: run.reports.map((report) => report.provider),
     reports,
   };
   respondJson(response, 200, detail);

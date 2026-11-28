@@ -139,7 +139,7 @@ mux ui                                  # http://127.0.0.1:4900
 mux ui --port 5050 --dir /tmp/devx-mux-501
 ```
 
-`mux ui` serves a small local page for the review runs that `mux review` and `mux multireview` save in the review artifact directory. Runs are listed newest first with their repository, scope, reviewers, and time, and the selected run renders each Codex, Grok, and Verifier report as its own readable section. The server uses Node's `node:http` only, binds to `127.0.0.1` on port 4900 (`--port`), and reads the artifact directory (`--dir`) and the page assets from disk on every request, so new runs and edited assets appear on reload. The page and its API (`GET /api/runs`, `GET /api/runs/<id>`) are read-only. From a source checkout, use `./mux.sh ui`.
+`mux ui` serves a small local page for the review runs that `mux review` and `mux multireview` save in the review artifact directory. Runs are listed newest first with their repository, scope, reviewers, and time, and the selected run renders each Codex, Grok, and Verifier report as its own readable section, with file references into the reviewed repository's local checkout shown as repository-relative paths (`apps/cli/src/x.ts:35`). The server uses Node's `node:http` only, binds to `127.0.0.1` on port 4900 (`--port`), and reads the artifact directory (`--dir`) and the page assets from disk on every request, so new runs and edited assets appear on reload. The page and its API (`GET /api/runs`, `GET /api/runs/<id>`) are read-only. From a source checkout, use `./mux.sh ui`.
 
 ### Using DevX Mux from an AI agent
 
